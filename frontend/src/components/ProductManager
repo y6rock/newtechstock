@@ -1,0 +1,62 @@
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+function ProductManager() {
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', image: '' });
+  const [message, setMessage] = useState('');
+
+  const token = localStorage.getItem('token');
+
+  // טעינת מוצרים
+  useEffect(() => {
+    axios.get('http://localhost:3001/api/products')
+      .then(res => setProducts(res.data))
+      .catch(err => console.error(err));
+  }, []);
+
+  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+
+  const handleSubmit = async e => {
+    e.preventDefault();
+    try {
+      const res = await axios.post('http://localhost:3001/api/products', form, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      setMessage(res.data.message);
+      // טען מחדש את המוצרים לאחר הוספה
+      const updated = await axios.get('http://localhost:3001/api/products');
+      setProducts(updated.data);
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Error adding product');
+    }
+  };
+
+  return (
+    <div>
+      <h2>Product Manager</h2>
+
+      <form onSubmit={handleSubmit}>
+        {Object.keys(form).map(key => (
+          <React.Fragment key={key}>
+            <input name={key} placeholder={key} onChange={handleChange} /><br />
+          </React.Fragment>
+        ))}
+        <button type="submit">Add Product</button>
+      </form>
+
+      <p>{message}</p>
+
+      <h3>Products List</h3>
+      <ul>
+        {products.map(p => (
+          <li key={p.product_id}>
+            {p.name} - ${p.price} - stock: {p.stock}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+export default ProductManager;
