@@ -2,6 +2,8 @@ const express = require('express');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const multer = require('multer');
+const path = require('path');
 
 const dbSingleton = require('./dbSingleton');
 
@@ -11,6 +13,20 @@ const db = dbSingleton.getConnection();
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Set up multer for file uploads
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    cb(null, path.join(__dirname, 'uploads'));
+  },
+  filename: function (req, file, cb) {
+    cb(null, Date.now() + '-' + file.originalname);
+  }
+});
+const upload = multer({ storage: storage });
+
+// Serve uploaded files statically
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // פונקציית אימות טוקן
 const authenticateToken = (req, res, next) => {
@@ -71,10 +87,13 @@ app.post('/api/login', (req, res) => {
 
 // ✅ API - הוספת מוצר (admin בלבד)
 app.post('/api/products', authenticateToken, requireAdmin, (req, res) => {
-  const { name, description, price, stock, image } = req.body;
-  const sql = `INSERT INTO products (name, description, price, stock, image) VALUES (?, ?, ?, ?, ?)`;
-  db.query(sql, [name, description, price, stock, image], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
+  const { name, description, price, stock, image, supplier_id, category_id } = req.body;
+  if (!name || !description || !price || !stock || !image) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+  const sql = `INSERT INTO products (name, description, price, stock, image, supplier_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)`;
+  db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null], (err, result) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
     res.json({ message: 'Product added successfully' });
   });
 });
@@ -86,6 +105,114 @@ app.get('/api/products', (req, res) => {
     if (err) return res.status(500).json({ message: 'Database error' });
     res.json(results);
   });
+});
+
+// ===================== ORDER MANAGEMENT =====================
+
+// Create a new order (user)
+app.post('/api/orders', authenticateToken, (req, res) => {
+  const user_id = req.user.user_id;
+  const { products } = req.body; // [{ product_id, quantity }]
+  if (!products || !Array.isArray(products) || products.length === 0) {
+    return res.status(400).json({ message: 'No products in order' });
+  }
+  // Calculate total price
+  const productIds = products.map(p => p.product_id);
+  const sqlGetProducts = `SELECT product_id, price, stock FROM products WHERE product_id IN (${productIds.map(() => '?').join(',')})`;
+  db.query(sqlGetProducts, productIds, (err, dbProducts) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
+    // Check stock
+    for (const p of products) {
+      const dbProduct = dbProducts.find(dp => dp.product_id === p.product_id);
+      if (!dbProduct || dbProduct.stock < p.quantity) {
+        return res.status(400).json({ message: `Insufficient stock for product ${p.product_id}` });
+      }
+    }
+    const total_price = products.reduce((sum, p) => {
+      const dbProduct = dbProducts.find(dp => dp.product_id === p.product_id);
+      return sum + (dbProduct.price * p.quantity);
+    }, 0);
+    // Insert order
+    const sqlOrder = `INSERT INTO orders (user_id, total_price) VALUES (?, ?)`;
+    db.query(sqlOrder, [user_id, total_price], (err, orderResult) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err });
+      const order_id = orderResult.insertId;
+      // Insert order products
+      const orderProductsValues = products.map(p => [order_id, p.product_id, p.quantity]);
+      const sqlOrderProducts = `INSERT INTO orders_products (order_id, product_id, quantity) VALUES ?`;
+      db.query(sqlOrderProducts, [orderProductsValues], (err) => {
+        if (err) return res.status(500).json({ message: 'Database error', error: err });
+        // Update product stock
+        let updateCount = 0;
+        for (const p of products) {
+          const sqlUpdateStock = `UPDATE products SET stock = stock - ? WHERE product_id = ?`;
+          db.query(sqlUpdateStock, [p.quantity, p.product_id], (err) => {
+            updateCount++;
+            if (err && updateCount === products.length) {
+              return res.status(500).json({ message: 'Database error', error: err });
+            }
+            if (updateCount === products.length) {
+              res.json({ message: 'Order placed successfully', order_id });
+            }
+          });
+        }
+      });
+    });
+  });
+});
+
+// Get all orders (admin only)
+app.get('/api/orders', authenticateToken, requireAdmin, (req, res) => {
+  const sql = `SELECT o.order_id, o.date, o.total_price, o.user_id, u.email, u.name
+               FROM orders o JOIN users u ON o.user_id = u.user_id ORDER BY o.date DESC`;
+  db.query(sql, (err, orders) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
+    // Get products for each order
+    const orderIds = orders.map(o => o.order_id);
+    if (orderIds.length === 0) return res.json([]);
+    const sqlProducts = `SELECT op.order_id, op.product_id, op.quantity, p.name, p.price
+                        FROM orders_products op JOIN products p ON op.product_id = p.product_id
+                        WHERE op.order_id IN (${orderIds.map(() => '?').join(',')})`;
+    db.query(sqlProducts, orderIds, (err, orderProducts) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err });
+      // Attach products to orders
+      orders.forEach(order => {
+        order.products = orderProducts.filter(op => op.order_id === order.order_id);
+      });
+      res.json(orders);
+    });
+  });
+});
+
+// Get orders for logged-in user
+app.get('/api/myorders', authenticateToken, (req, res) => {
+  const user_id = req.user.user_id;
+  const sql = `SELECT o.order_id, o.date, o.total_price
+               FROM orders o WHERE o.user_id = ? ORDER BY o.date DESC`;
+  db.query(sql, [user_id], (err, orders) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
+    if (orders.length === 0) return res.json([]);
+    const orderIds = orders.map(o => o.order_id);
+    const sqlProducts = `SELECT op.order_id, op.product_id, op.quantity, p.name, p.price
+                        FROM orders_products op JOIN products p ON op.product_id = p.product_id
+                        WHERE op.order_id IN (${orderIds.map(() => '?').join(',')})`;
+    db.query(sqlProducts, orderIds, (err, orderProducts) => {
+      if (err) return res.status(500).json({ message: 'Database error', error: err });
+      orders.forEach(order => {
+        order.products = orderProducts.filter(op => op.order_id === order.order_id);
+      });
+      res.json(orders);
+    });
+  });
+});
+
+// Image upload endpoint
+app.post('/api/upload-image', authenticateToken, requireAdmin, upload.single('image'), (req, res) => {
+  if (!req.file) {
+    return res.status(400).json({ message: 'No file uploaded' });
+  }
+  const imageUrl = `/uploads/${req.file.filename}`;
+  res.json({ imageUrl });
 });
 
 // שרת מאזין

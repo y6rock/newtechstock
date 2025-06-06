@@ -3,9 +3,9 @@ import Sidebar from './Sidebar';
 
 export default function Settings() {
   return (
-    <div style={ display: 'flex' }>
+    <div style={ {display: 'flex' }}>
       <Sidebar />
-      <div style={ marginLeft: '200px', padding: '20px', width: '100%' }>
+      <div style={{ marginLeft: '200px', padding: '20px', width: '100%' }}>
         <h2>Settings</h2>
 <label>
   Store Name:
