@@ -7,13 +7,21 @@ function ProductManager() {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [message, setMessage] = useState('');
+  const [suppliers, setSuppliers] = useState([]);
+  const [categories, setCategories] = useState([]);
 
   const token = localStorage.getItem('token');
 
-  // Load products
+  // Load products, suppliers, and categories
   useEffect(() => {
     axios.get('http://localhost:3001/api/products')
       .then(res => setProducts(res.data))
+      .catch(err => console.error(err));
+    axios.get('http://localhost:3001/api/suppliers')
+      .then(res => setSuppliers(res.data))
+      .catch(err => console.error(err));
+    axios.get('http://localhost:3001/api/categories')
+      .then(res => setCategories(res.data))
       .catch(err => console.error(err));
   }, []);
 
@@ -41,6 +49,10 @@ function ProductManager() {
     // Basic validation
     if (!form.name || !form.description || !form.price || !form.stock || (!form.image && !imageFile)) {
       setMessage('Please fill in all required fields, and provide an image file or URL.');
+      return;
+    }
+    if (!token) {
+      setMessage('You must be logged in to upload images. Please log in and try again.');
       return;
     }
     let imageUrl = form.image;
@@ -91,8 +103,24 @@ function ProductManager() {
           <label>or Image URL: <input name="image" placeholder="Image URL" value={form.image} onChange={handleImageUrlChange} /></label> <span style={{color:'red'}}>*</span><br />
           {imagePreview && <img src={imagePreview} alt="Preview" style={{ maxWidth: 120, maxHeight: 120, margin: '10px 0' }} />}
         </div>
-        <input name="supplier_id" placeholder="supplier_id" onChange={handleChange} /><br />
-        <input name="category_id" placeholder="category_id" onChange={handleChange} /><br />
+        {/* Supplier dropdown */}
+        <label>Supplier:
+          <select name="supplier_id" value={form.supplier_id} onChange={handleChange} required>
+            <option value="">Select supplier</option>
+            {suppliers.map(s => (
+              <option key={s.supplier_id} value={s.supplier_id}>{s.name || s.supplier_id}</option>
+            ))}
+          </select>
+        </label><br />
+        {/* Category dropdown */}
+        <label>Category:
+          <select name="category_id" value={form.category_id} onChange={handleChange} required>
+            <option value="">Select category</option>
+            {categories.map(c => (
+              <option key={c.category_id} value={c.category_id}>{c.name || c.category_id}</option>
+            ))}
+          </select>
+        </label><br />
         <button type="submit">Add Product</button>
       </form>
 

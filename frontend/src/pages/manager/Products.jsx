@@ -7,10 +7,12 @@ export default function Products() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <div style={{ width: '220px', flexShrink: 0 }}>
+      {/* Sidebar container with fixed width */}
+      <div style={{ width: '200px', flexShrink: 0 }}>
         <Sidebar />
       </div>
-      <div style={{ marginLeft: '0', padding: '20px', width: '100%' }}>
+      {/* Main content area - adjusted margin and width */}
+      <div style={{ marginLeft: '200px', padding: '20px', width: 'calc(100% - 200px)' }}>
         <h2>Manage Products</h2>
         <button
           style={{ padding: '8px 12px', marginBottom: '15px', backgroundColor: '#28a745', color: '#fff' }}

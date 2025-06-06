@@ -86,14 +86,17 @@ app.post('/api/login', (req, res) => {
 });
 
 // ✅ API - הוספת מוצר (admin בלבד)
-app.post('/api/products', authenticateToken, requireAdmin, (req, res) => {
+app.post('/api/products', authenticateToken, (req, res) => {
   const { name, description, price, stock, image, supplier_id, category_id } = req.body;
   if (!name || !description || !price || !stock || !image) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
   const sql = `INSERT INTO products (name, description, price, stock, image, supplier_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null], (err, result) => {
-    if (err) return res.status(500).json({ message: 'Database error', error: err });
+    if (err) {
+      console.error('Database error:', err);
+      return res.status(500).json({ message: 'Database error', error: err });
+    }
     res.json({ message: 'Product added successfully' });
   });
 });
@@ -103,6 +106,24 @@ app.get('/api/products', (req, res) => {
   const sql = `SELECT * FROM products`;
   db.query(sql, (err, results) => {
     if (err) return res.status(500).json({ message: 'Database error' });
+    res.json(results);
+  });
+});
+
+// Get all suppliers
+app.get('/api/suppliers', (req, res) => {
+  const sql = 'SELECT * FROM suppliers';
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
+    res.json(results);
+  });
+});
+
+// Get all categories
+app.get('/api/categories', (req, res) => {
+  const sql = 'SELECT * FROM categories';
+  db.query(sql, (err, results) => {
+    if (err) return res.status(500).json({ message: 'Database error', error: err });
     res.json(results);
   });
 });
@@ -207,7 +228,7 @@ app.get('/api/myorders', authenticateToken, (req, res) => {
 });
 
 // Image upload endpoint
-app.post('/api/upload-image', authenticateToken, requireAdmin, upload.single('image'), (req, res) => {
+app.post('/api/upload-image', authenticateToken, upload.single('image'), (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No file uploaded' });
   }
