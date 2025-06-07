@@ -6,7 +6,6 @@ import { useNavigate } from 'react-router-dom';
 export default function Products() {
   const { isUserAdmin, loadingSettings } = useSettings();
   const navigate = useNavigate();
-  const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     if (!loadingSettings && !isUserAdmin) {
@@ -29,24 +28,8 @@ export default function Products() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Main content area - use flex: 1 and padding for responsiveness */}
-      <div style={{ flex: 1, padding: '20px' }}>
-        <h2>Products</h2>
-        <p style={{ color: '#666', marginTop: '5px' }}>Manage your store's products</p>
-        <button
-          style={{ padding: '8px 12px', marginBottom: '15px', backgroundColor: '#28a745', color: '#fff' }}
-          onClick={() => setShowForm(!showForm)}
-        >
-          {showForm ? 'Cancel' : 'Add New Product'}
-        </button>
-        {showForm && <ProductManager />}
-        {/* You can remove the static product list below if ProductManager handles listing */}
-        {/* <ul>
-          <li>Product A – Stock: 10 <button>Edit</button> <button>Delete</button></li>
-          <li>Product B – Stock: 5 <button>Edit</button> <button>Delete</button></li>
-        </ul> */}
-      </div>
+    <div style={{ flex: 1, padding: '20px' }}>
+      <ProductManager />
     </div>
   );
 }

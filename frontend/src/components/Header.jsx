@@ -47,6 +47,13 @@ export default function Header() {
             borderRadius: '4px',
             transition: 'background-color 0.2s'
           }}>Contact</Link>
+          <Link to="/products" style={{ 
+            padding: '8px 12px',
+            color: '#333',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            transition: 'background-color 0.2s'
+          }}>Products</Link>
           {username && (
             <Link to="/cart" style={{ 
               padding: '8px 12px',

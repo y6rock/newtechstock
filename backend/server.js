@@ -63,26 +63,38 @@ app.post('/api/register', (req, res) => {
 });
 
 // ✅ API - התחברות
-app.post('/api/login', (req, res) => {
+app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   const sql = `SELECT * FROM users WHERE email = ?`;
-  db.query(sql, [email], (err, results) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
-    if (results.length === 0)
+
+  try {
+    console.log(`Login attempt for email: ${email}`);
+    const [results] = await db.query(sql, [email]);
+
+    if (results.length === 0) {
+      console.log(`Login failed: Invalid email or password for ${email}`);
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
 
     const user = results[0];
     const passwordMatch = bcrypt.compareSync(password, user.password);
-    if (!passwordMatch)
+
+    if (!passwordMatch) {
+      console.log(`Login failed: Invalid password for ${email}`);
       return res.status(401).json({ message: 'Invalid email or password' });
+    }
 
     const token = jwt.sign(
       { user_id: user.user_id, role: user.role, username: user.name },
       'secretKey',
       { expiresIn: '1h' },
     );
+    console.log(`Login successful for user: ${user.name}`);
     res.json({ message: 'Login successful', token });
-  });
+  } catch (err) {
+    console.error('Login database error:', err);
+    return res.status(500).json({ message: 'Database error', details: err.message });
+  }
 });
 
 // ✅ API - הוספת מוצר (admin בלבד)
@@ -300,16 +312,17 @@ app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
   });
 });
 
-// Get customer list (non-admin users)
+// ✅ API - קבלת כל הלקוחות (admin בלבד)
 app.get('/api/customers', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        // For now, fetch all non-admin users. Later, we can add more fields like phone, orders, total spent.
-        const [rows] = await db.query('SELECT id, username, email FROM users WHERE isAdmin = FALSE');
-        res.json(rows);
-    } catch (error) {
-        console.error('Error fetching customers:', error);
-        res.status(500).json({ message: 'Database error' });
-    }
+  const sql = `SELECT user_id, name AS username, email, phone FROM users WHERE role = 'client'`;
+  try {
+    const [results] = await db.query(sql);
+    console.log("Fetched customers:", results);
+    res.json(results);
+  } catch (err) {
+    console.error('Error fetching customers:', err);
+    return res.status(500).json({ message: 'Database error', details: err.message });
+  }
 });
 
 // שרת מאזין

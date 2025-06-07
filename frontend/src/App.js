@@ -8,6 +8,9 @@ import Cart from './pages/Cart';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Sidebar from './components/Sidebar';
+import ProductsPage from './pages/ProductsPage';
+import Footer from './components/Footer';
+import ForgotPassword from './pages/ForgotPassword';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
@@ -36,8 +39,7 @@ function App({ isManagerRoute }) {
           flex: 1, // Take remaining space
           marginLeft: isManagerRoute ? '220px' : '0', // Apply margin to push content away from fixed sidebar
           transition: 'margin-left 0.3s ease',
-          minHeight: 'calc(100vh - 60px)',
-          padding: '30px', // Increased padding for more space
+          padding: '30px', // Consistent padding for all content within this main content area
           boxSizing: 'border-box',
           width: isManagerRoute ? 'calc(100% - 220px)' : '100%', // Ensure width respects sidebar
         }}>
@@ -47,8 +49,10 @@ function App({ isManagerRoute }) {
             <Route path="/about" element={<About />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/cart" element={<Cart />} />
+            <Route path="/products" element={<ProductsPage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
 
             {/* Manager Routes */}
             <Route path="/manager/dashboard" element={<Dashboard />} />
@@ -58,6 +62,9 @@ function App({ isManagerRoute }) {
           </Routes>
         </div>
       </div>
+
+      {/* Footer always renders at the bottom, full width */}
+      <Footer />
     </>
   );
 }
