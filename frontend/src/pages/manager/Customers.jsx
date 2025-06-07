@@ -1,25 +1,44 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import Sidebar from './Sidebar';
+import { useSettings } from '../../context/SettingsContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function Customers() {
+  const { isUserAdmin, loadingSettings } = useSettings();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!loadingSettings && !isUserAdmin) {
+      navigate('/');
+    }
+  }, [isUserAdmin, loadingSettings, navigate]);
+
+  if (loadingSettings) {
+    return (
+      <div style={{ display: 'flex', minHeight: '100vh' }}>
+        <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>
+          <p>Loading Admin Panel...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isUserAdmin) {
+    return null;
+  }
+
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar container with fixed width */}
-      <div style={{ width: '200px', flexShrink: 0 }}>
-        <Sidebar />
-      </div>
-      {/* Main content area - adjusted margin and width */}
-      <div style={{ marginLeft: '200px', padding: '20px', width: 'calc(100% - 200px)' }}>
-        <h2>Customer List</h2>
-        <div style={{ marginTop: '20px' }}>
-          <ul style={{ listStyle: 'none', padding: 0 }}>
-            <li style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
-              <strong>Alice</strong> – alice@example.com
-            </li>
-            <li style={{ padding: '15px', borderBottom: '1px solid #eee' }}>
-              <strong>Bob</strong> – bob@example.com
-            </li>
-          </ul>
+      {/* Sidebar is fixed, its width creates space */}
+      <Sidebar />
+      {/* Main content area - use flex: 1 and padding for responsiveness */}
+      <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
+        <h2>Customers</h2>
+        <p style={{ color: '#666', marginTop: '5px' }}>Manage your store's customers</p>
+        {/* Customer Management Content Here */}
+        <div style={{ marginTop: '20px', border: '1px dashed #ccc', padding: '20px', textAlign: 'center', color: '#666' }}>
+          <p>Customer listing and management will go here.</p>
+          <p>E.g., View Customer Details, Edit, Delete, etc.</p>
         </div>
       </div>
     </div>

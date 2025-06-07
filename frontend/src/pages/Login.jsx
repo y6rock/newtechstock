@@ -16,6 +16,10 @@ function Login() {
     try {
       const res = await axios.post('http://localhost:3001/api/login', form);
       localStorage.setItem('token', res.data.token);
+      
+      // Dispatch a storage event to notify other components
+      window.dispatchEvent(new Event('storage'));
+
       setMessage(res.data.message);
       navigate('/manager/dashboard'); // ✅ ניתוב אוטומטי לדשבורד
     } catch (err) {

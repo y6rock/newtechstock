@@ -3,11 +3,30 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import { BrowserRouter as Router, useLocation } from 'react-router-dom';
+import { SettingsProvider } from './context/SettingsContext';
+
+// New component to handle useLocation within Router context and pass down props
+function RootWrapper() {
+  const location = useLocation();
+  const isManagerRoute = location.pathname.startsWith('/manager');
+
+  console.log('RootWrapper - location.pathname:', location.pathname);
+  console.log('RootWrapper - isManagerRoute:', isManagerRoute);
+
+  return (
+    <SettingsProvider>
+      <App isManagerRoute={isManagerRoute} />
+    </SettingsProvider>
+  );
+}
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
-    <App />
+    <Router>
+      <RootWrapper />
+    </Router>
   </React.StrictMode>
 );
 

@@ -77,7 +77,7 @@ app.post('/api/login', (req, res) => {
       return res.status(401).json({ message: 'Invalid email or password' });
 
     const token = jwt.sign(
-      { user_id: user.user_id, role: user.role },
+      { user_id: user.user_id, role: user.role, username: user.name },
       'secretKey',
       { expiresIn: '1h' },
     );
@@ -234,6 +234,57 @@ app.post('/api/upload-image', authenticateToken, upload.single('image'), (req, r
   }
   const imageUrl = `/uploads/${req.file.filename}`;
   res.json({ imageUrl });
+});
+
+// ✅ API - Get Settings (Admin only)
+app.get('/api/settings', authenticateToken, requireAdmin, (req, res) => {
+  // Assuming a settings table exists and has a single row for global settings
+  const sql = `SELECT storeName, contactEmail, contactPhone, taxRate, emailNotifications FROM settings LIMIT 1`;
+  db.query(sql, (err, results) => {
+    if (err) {
+      console.error('Database error fetching settings:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+    // If settings exist, return the first row, otherwise return empty object
+    res.json(results.length > 0 ? results[0] : {});
+  });
+});
+
+// ✅ API - Save Settings (Admin only)
+app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
+  const { storeName, contactEmail, contactPhone, taxRate, emailNotifications } = req.body;
+  // Assuming a settings table exists and we want to update or insert a single row
+  // This is a simple upsert logic, you might need a more robust approach depending on your DB schema
+  const sqlCheckExists = `SELECT COUNT(*) as count FROM settings`;
+  db.query(sqlCheckExists, (err, results) => {
+    if (err) {
+      console.error('Database error checking settings existence:', err);
+      return res.status(500).json({ message: 'Database error' });
+    }
+
+    const settingsExist = results[0].count > 0;
+    let sql;
+    let values;
+
+    if (settingsExist) {
+      // Update existing settings (assuming a primary key or unique way to identify the single row)
+      // For simplicity, this example assumes you update the first/only row. Adjust as needed.
+      sql = `UPDATE settings SET storeName = ?, contactEmail = ?, contactPhone = ?, taxRate = ?, emailNotifications = ? LIMIT 1`;
+      values = [storeName, contactEmail, contactPhone, taxRate, emailNotifications];
+    } else {
+      // Insert new settings
+      sql = `INSERT INTO settings (storeName, contactEmail, contactPhone, taxRate, emailNotifications) VALUES (?, ?, ?, ?, ?)`;
+      values = [storeName, contactEmail, contactPhone, taxRate, emailNotifications];
+    }
+
+    db.query(sql, values, (err, result) => {
+      if (err) {
+        console.error('Database error saving settings:', err);
+        return res.status(500).json({ message: 'Database error' });
+      }
+      res.json({ message: 'Settings saved successfully' });
+    });
+  });
 });
 
 // שרת מאזין
