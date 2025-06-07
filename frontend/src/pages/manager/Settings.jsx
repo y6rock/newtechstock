@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import Sidebar from './Sidebar';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -143,7 +142,6 @@ export default function Settings() {
   if (loading) {
     return (
       <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <Sidebar />
         <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
           <p>Loading settings...</p>
         </div>
@@ -152,100 +150,97 @@ export default function Settings() {
   }
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
-      <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
-        <h2>Settings</h2>
-        <p style={{ color: '#666', marginTop: '5px' }}>Manage your store settings</p>
+    <div style={{ flex: 1, padding: '20px' }}>
+      <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Settings</h1>
+      <p style={{ color: '#666', marginTop: '5px' }}>Manage your store settings</p>
 
-        {error && <p style={{ color: 'red' }}>{error}</p>}
-        {saveSuccess && <p style={{ color: 'green' }}>Settings saved successfully!</p>}
+      {error && <p style={{ color: 'red' }}>{error}</p>}
+      {saveSuccess && <p style={{ color: 'green' }}>Settings saved successfully!</p>}
 
-        <div style={{ 
-          marginTop: '30px', 
-          padding: '20px', 
-          border: '1px solid #eee', 
-          borderRadius: '8px',
-          maxWidth: '500px'
-        }}>
-          <h3 style={{ marginTop: '0' }}>Store Information</h3>
-          <p style={{ color: '#666', marginBottom: '20px' }}>Update your store details and contact information</p>
+      <div style={{ 
+        marginTop: '30px', 
+        padding: '20px', 
+        border: '1px solid #eee', 
+        borderRadius: '8px',
+        maxWidth: '500px'
+      }}>
+        <h3 style={{ marginTop: '0' }}>Store Information</h3>
+        <p style={{ color: '#666', marginBottom: '20px' }}>Update your store details and contact information</p>
 
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Store Name:
-            </label>
-            <input 
-              type="text" 
-              value={storeName} 
-              onChange={(e) => setStoreName(e.target.value)} 
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Contact Email:
-            </label>
-            <input 
-              type="email" 
-              value={contactEmail} 
-              onChange={(e) => setContactEmail(e.target.value)} 
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Contact Phone:
-            </label>
-            <input 
-              type="tel" 
-              value={contactPhone} 
-              onChange={(e) => setContactPhone(e.target.value)} 
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-          </div>
-
-          <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-              Tax Rate (%):
-            </label>
-            <input 
-              type="number" 
-              step="0.1" 
-              value={taxRate} 
-              onChange={(e) => setTaxRate(e.target.value)} 
-              style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-            />
-          </div>
-
-           <div style={{ marginBottom: '20px' }}>
-            <label style={{ fontWeight: 'bold' }}>
-              Email Notifications:
-               <input 
-                type="checkbox" 
-                checked={emailNotifications} 
-                onChange={(e) => setEmailNotifications(e.target.checked)} 
-                style={{ marginLeft: '10px' }} 
-              />
-            </label>
-          </div>
-
-          <button 
-            onClick={handleSave}
-            style={{
-              padding: '10px 20px',
-              backgroundColor: '#343a40',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Save Changes
-          </button>
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Store Name:
+          </label>
+          <input 
+            type="text" 
+            value={storeName} 
+            onChange={(e) => setStoreName(e.target.value)} 
+            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
         </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Contact Email:
+          </label>
+          <input 
+            type="email" 
+            value={contactEmail} 
+            onChange={(e) => setContactEmail(e.target.value)} 
+            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '15px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Contact Phone:
+          </label>
+          <input 
+            type="tel" 
+            value={contactPhone} 
+            onChange={(e) => setContactPhone(e.target.value)} 
+            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+        <div style={{ marginBottom: '20px' }}>
+          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
+            Tax Rate (%):
+          </label>
+          <input 
+            type="number" 
+            step="0.1" 
+            value={taxRate} 
+            onChange={(e) => setTaxRate(e.target.value)} 
+            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
+          />
+        </div>
+
+         <div style={{ marginBottom: '20px' }}>
+          <label style={{ fontWeight: 'bold' }}>
+            Email Notifications:
+             <input 
+              type="checkbox" 
+              checked={emailNotifications} 
+              onChange={(e) => setEmailNotifications(e.target.checked)} 
+              style={{ marginLeft: '10px' }} 
+            />
+          </label>
+        </div>
+
+        <button 
+          onClick={handleSave}
+          style={{
+            padding: '10px 20px',
+            backgroundColor: '#343a40',
+            color: '#fff',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          Save Changes
+        </button>
       </div>
     </div>
   );

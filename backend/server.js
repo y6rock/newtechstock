@@ -102,30 +102,39 @@ app.post('/api/products', authenticateToken, (req, res) => {
 });
 
 // ✅ API - קבלת כל המוצרים
-app.get('/api/products', (req, res) => {
+app.get('/api/products', async (req, res) => {
   const sql = `SELECT * FROM products`;
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ message: 'Database error' });
+  try {
+    const [results] = await db.query(sql);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching products:', err);
+    return res.status(500).json({ message: 'Database error', details: err.message });
+  }
 });
 
 // Get all suppliers
-app.get('/api/suppliers', (req, res) => {
+app.get('/api/suppliers', async (req, res) => {
   const sql = 'SELECT * FROM suppliers';
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ message: 'Database error', error: err });
+  try {
+    const [results] = await db.query(sql);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching suppliers:', err);
+    return res.status(500).json({ message: 'Database error', details: err.message });
+  }
 });
 
 // Get all categories
-app.get('/api/categories', (req, res) => {
+app.get('/api/categories', async (req, res) => {
   const sql = 'SELECT * FROM categories';
-  db.query(sql, (err, results) => {
-    if (err) return res.status(500).json({ message: 'Database error', error: err });
+  try {
+    const [results] = await db.query(sql);
     res.json(results);
-  });
+  } catch (err) {
+    console.error('Error fetching categories:', err);
+    return res.status(500).json({ message: 'Database error', details: err.message });
+  }
 });
 
 // ===================== ORDER MANAGEMENT =====================
@@ -236,21 +245,25 @@ app.post('/api/upload-image', authenticateToken, upload.single('image'), (req, r
   res.json({ imageUrl });
 });
 
-// ✅ API - Get Settings (Admin only)
-app.get('/api/settings', authenticateToken, requireAdmin, (req, res) => {
-  // Assuming a settings table exists and has a single row for global settings
-  const sql = `SELECT storeName, contactEmail, contactPhone, taxRate, emailNotifications FROM settings LIMIT 1`;
-  db.query(sql, (err, results) => {
-    if (err) {
-      console.error('Database error fetching settings:', err);
-      return res.status(500).json({ message: 'Database error' });
+// Get settings
+app.get('/api/settings', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        console.log('Attempting to fetch settings...');
+        const [rows] = await db.query('SELECT * FROM settings LIMIT 1');
+        if (rows.length > 0) {
+            console.log('Settings fetched successfully:', rows[0]);
+            res.json(rows[0]);
+        } else {
+            console.log('No settings found, returning default.');
+            res.json({}); // Return empty object if no settings exist
+        }
+    } catch (error) {
+        console.error('Error fetching settings:', error);
+        res.status(500).json({ message: 'Database error', details: error.message });
     }
-    // If settings exist, return the first row, otherwise return empty object
-    res.json(results.length > 0 ? results[0] : {});
-  });
 });
 
-// ✅ API - Save Settings (Admin only)
+// Post settings
 app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
   const { storeName, contactEmail, contactPhone, taxRate, emailNotifications } = req.body;
   // Assuming a settings table exists and we want to update or insert a single row
@@ -285,6 +298,18 @@ app.post('/api/settings', authenticateToken, requireAdmin, (req, res) => {
       res.json({ message: 'Settings saved successfully' });
     });
   });
+});
+
+// Get customer list (non-admin users)
+app.get('/api/customers', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // For now, fetch all non-admin users. Later, we can add more fields like phone, orders, total spent.
+        const [rows] = await db.query('SELECT id, username, email FROM users WHERE isAdmin = FALSE');
+        res.json(rows);
+    } catch (error) {
+        console.error('Error fetching customers:', error);
+        res.status(500).json({ message: 'Database error' });
+    }
 });
 
 // שרת מאזין

@@ -1,5 +1,4 @@
 import React, { useEffect } from 'react';
-import Sidebar from './Sidebar';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 
@@ -29,8 +28,7 @@ export default function Dashboard() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <Sidebar />
-      <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
+      <div style={{ flex: 1, padding: '20px' }}>
         <h2>Dashboard</h2>
         <p style={{ color: '#666', marginTop: '5px' }}>Overview of your store's performance</p>
 

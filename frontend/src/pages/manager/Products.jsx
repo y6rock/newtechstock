@@ -1,5 +1,4 @@
-import React, { useEffect } from 'react';
-import Sidebar from './Sidebar';
+import React, { useState, useEffect } from 'react';
 import ProductManager from '../../components/ProductManager';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
@@ -31,10 +30,8 @@ export default function Products() {
 
   return (
     <div style={{ display: 'flex', minHeight: '100vh' }}>
-      {/* Sidebar is fixed, its width creates space */}
-      <Sidebar />
       {/* Main content area - use flex: 1 and padding for responsiveness */}
-      <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
+      <div style={{ flex: 1, padding: '20px' }}>
         <h2>Products</h2>
         <p style={{ color: '#666', marginTop: '5px' }}>Manage your store's products</p>
         <button

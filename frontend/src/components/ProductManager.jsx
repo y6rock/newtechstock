@@ -14,15 +14,15 @@ function ProductManager() {
 
   // Load products, suppliers, and categories
   useEffect(() => {
-    axios.get('http://localhost:3001/api/products')
+    axios.get('/api/products')
       .then(res => setProducts(res.data))
-      .catch(err => console.error(err));
-    axios.get('http://localhost:3001/api/suppliers')
+      .catch(err => console.error('Error fetching products:', err));
+    axios.get('/api/suppliers')
       .then(res => setSuppliers(res.data))
-      .catch(err => console.error(err));
-    axios.get('http://localhost:3001/api/categories')
+      .catch(err => console.error('Error fetching suppliers:', err));
+    axios.get('/api/categories')
       .then(res => setCategories(res.data))
-      .catch(err => console.error(err));
+      .catch(err => console.error('Error fetching categories:', err));
   }, []);
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
@@ -61,7 +61,7 @@ function ProductManager() {
       const data = new FormData();
       data.append('image', imageFile);
       try {
-        const uploadRes = await axios.post('http://localhost:3001/api/upload-image', data, {
+        const uploadRes = await axios.post('/api/upload-image', data, {
           headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
         });
         imageUrl = uploadRes.data.imageUrl;
@@ -71,7 +71,7 @@ function ProductManager() {
       }
     }
     try {
-      const res = await axios.post('http://localhost:3001/api/products', {
+      const res = await axios.post('/api/products', {
         ...form,
         image: imageUrl,
         supplier_id: form.supplier_id || null,
@@ -81,7 +81,7 @@ function ProductManager() {
       });
       setMessage(res.data.message);
       // Reload products after adding
-      const updated = await axios.get('http://localhost:3001/api/products');
+      const updated = await axios.get('/api/products');
       setProducts(updated.data);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Error adding product');
