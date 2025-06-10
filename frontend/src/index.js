@@ -5,6 +5,7 @@ import App from './App';
 import reportWebVitals from './reportWebVitals';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { SettingsProvider } from './context/SettingsContext';
+import { CartProvider } from './context/CartContext';
 
 // New component to handle useLocation within Router context and pass down props
 function RootWrapper() {
@@ -16,7 +17,9 @@ function RootWrapper() {
 
   return (
     <SettingsProvider>
-      <App isManagerRoute={isManagerRoute} />
+      <CartProvider>
+        <App isManagerRoute={isManagerRoute} />
+      </CartProvider>
     </SettingsProvider>
   );
 }

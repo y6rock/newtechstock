@@ -1,15 +1,19 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import { useCart } from '../context/CartContext';
 import Logo from './Logo';
 
 export default function Header() {
   const { storeName, loadingSettings, isUserAdmin, username, setIsUserAdmin, setUsername } = useSettings();
+  const { getTotalItems } = useCart();
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     localStorage.removeItem('token');
     setIsUserAdmin(false);
     setUsername(null);
+    navigate('/');
   };
 
   return (
@@ -33,20 +37,6 @@ export default function Header() {
             borderRadius: '4px',
             transition: 'background-color 0.2s'
           }}>Home</Link>
-          <Link to="/about" style={{ 
-            padding: '8px 12px',
-            color: '#333',
-            textDecoration: 'none',
-            borderRadius: '4px',
-            transition: 'background-color 0.2s'
-          }}>About</Link>
-          <Link to="/contact" style={{ 
-            padding: '8px 12px',
-            color: '#333',
-            textDecoration: 'none',
-            borderRadius: '4px',
-            transition: 'background-color 0.2s'
-          }}>Contact</Link>
           <Link to="/products" style={{ 
             padding: '8px 12px',
             color: '#333',
@@ -60,9 +50,39 @@ export default function Header() {
               color: '#333',
               textDecoration: 'none',
               borderRadius: '4px',
-              transition: 'background-color 0.2s'
-            }}>Cart</Link>
+              transition: 'background-color 0.2s',
+              position: 'relative'
+            }}>
+              Cart {getTotalItems() > 0 && (
+                <span style={{
+                  position: 'absolute',
+                  top: '-5px',
+                  right: '-5px',
+                  backgroundColor: '#ff4500',
+                  color: 'white',
+                  borderRadius: '50%',
+                  padding: '2px 6px',
+                  fontSize: '0.7em',
+                  fontWeight: 'bold'
+                }}>{getTotalItems()}</span>
+              )}
+            </Link>
           )}
+          {/* Original position for Contact and About links */}
+          <Link to="/contact" style={{ 
+            padding: '8px 12px',
+            color: '#333',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            transition: 'background-color 0.2s'
+          }}>Contact</Link>
+          <Link to="/about" style={{ 
+            padding: '8px 12px',
+            color: '#333',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            transition: 'background-color 0.2s'
+          }}>About</Link>
         </div>
       </div>
 
@@ -88,7 +108,7 @@ export default function Header() {
               }}>Signup</Link>
             </>
           ) : (
-            // Show username and logout when logged in
+            // CORRECT LOCATION: Show username and logout when logged in
             <div style={{ 
               padding: '8px 12px',
               color: '#1976D2',
@@ -97,7 +117,14 @@ export default function Header() {
               alignItems: 'center',
               gap: '10px'
             }}>
-              <span>Welcome, {username}</span>
+              <Link to="/profile" style={{
+                color: '#1976D2',
+                textDecoration: 'none',
+                fontWeight: 'bold',
+                transition: 'color 0.2s'
+              }}>
+                Welcome, {username}
+              </Link>
               <button 
                 onClick={handleLogout}
                 style={{
@@ -115,17 +142,17 @@ export default function Header() {
               </button>
             </div>
           )}
-          {isUserAdmin && (
-            <Link to="/manager/dashboard" style={{ 
-              padding: '8px 12px',
-              color: '#1976D2',
-              textDecoration: 'none',
-              borderRadius: '4px',
-              fontWeight: 'bold',
-              transition: 'background-color 0.2s'
-            }}>Manager</Link>
-          )}
         </div>
+        {isUserAdmin && (
+          <Link to="/manager/dashboard" style={{ 
+            padding: '8px 12px',
+            color: '#1976D2',
+            textDecoration: 'none',
+            borderRadius: '4px',
+            fontWeight: 'bold',
+            transition: 'background-color 0.2s'
+          }}>Manager</Link>
+        )}
       </div>
     </nav>
   );

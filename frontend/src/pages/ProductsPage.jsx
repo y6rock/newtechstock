@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation } from 'react-router-dom';
+import { useCart } from '../context/CartContext';
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [manufacturers, setManufacturers] = useState([]);
   const location = useLocation();
+  const { addToCart } = useCart();
 
   // Initialize selectedCategory from URL query parameter
   const getInitialCategory = () => {
@@ -21,7 +23,7 @@ const ProductsPage = () => {
   };
 
   const [selectedCategory, setSelectedCategory] = useState(getInitialCategory);
-  const [priceRange, setPriceRange] = useState(2000);
+  const [priceRange, setPriceRange] = useState(100000);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
 
   // Update selectedCategory if URL changes
@@ -32,13 +34,19 @@ const ProductsPage = () => {
   useEffect(() => {
     // Fetch products
     axios.get('/api/products')
-      .then(res => setProducts(res.data))
-      .catch(err => console.error('Error fetching products:', err));
+      .then(res => {
+        console.log('ProductsPage: Products fetched from backend:', res.data);
+        setProducts(res.data);
+      })
+      .catch(err => console.error('ProductsPage: Error fetching products:', err));
 
     // Fetch categories
     axios.get('/api/categories')
-      .then(res => setCategories([{ category_id: 'All Products', name: 'All Products' }, ...res.data]))
-      .catch(err => console.error('Error fetching categories:', err));
+      .then(res => {
+        console.log('ProductsPage: Categories fetched from backend:', res.data);
+        setCategories([{ category_id: 'All Products', name: 'All Products' }, ...res.data]);
+      })
+      .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
     // Fetch manufacturers (assuming a /api/manufacturers endpoint exists or can be derived)
     // For now, let's use a placeholder if no dedicated API exists
@@ -149,7 +157,7 @@ const ProductsPage = () => {
             <input
               type="range"
               min="0"
-              max="2000"
+              max="100000"
               value={priceRange}
               onChange={handlePriceChange}
               style={{ width: '100%' }}
@@ -220,12 +228,16 @@ const ProductsPage = () => {
                   border: 'none',
                   borderRadius: '5px',
                   cursor: 'pointer'
-                }}>🛒</button>
+                }} onClick={() => { console.log('Attempting to add product to cart:', product.name); addToCart(product); }}>
+                  🛒
+                </button>
               </div>
             </div>
           ))}
           {filteredProducts.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>No products found matching your criteria.</div>
+            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
+              No products found matching your criteria. Check console for fetch errors.
+            </div>
           )}
         </div>
       </div>

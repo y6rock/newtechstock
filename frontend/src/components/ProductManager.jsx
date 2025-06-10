@@ -13,21 +13,36 @@ function ProductManager() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [editingProduct, setEditingProduct] = useState(null);
 
   const token = localStorage.getItem('token');
 
   // Load products, suppliers, and categories
   useEffect(() => {
-    axios.get('/api/products')
-      .then(res => setProducts(res.data))
-      .catch(err => console.error('Error fetching products:', err));
-    axios.get('/api/suppliers')
-      .then(res => setSuppliers(res.data))
-      .catch(err => console.error('Error fetching suppliers:', err));
-    axios.get('/api/categories')
-      .then(res => setCategories(res.data))
-      .catch(err => console.error('Error fetching categories:', err));
-  }, []);
+    const fetchProductData = async () => {
+      try {
+        const headers = { Authorization: `Bearer ${token}` };
+
+        const productsRes = await axios.get('/api/products');
+        setProducts(productsRes.data);
+
+        const suppliersRes = await axios.get('/api/suppliers', { headers });
+        setSuppliers(suppliersRes.data);
+
+        const categoriesRes = await axios.get('/api/categories', { headers });
+        setCategories(categoriesRes.data);
+      } catch (err) {
+        console.error('Error fetching initial product data:', err);
+        setMessage('Failed to load products, suppliers, or categories.');
+      }
+    };
+
+    if (token) { // Only attempt to fetch if a token exists
+      fetchProductData();
+    } else {
+      setMessage('Authentication token missing. Please log in as an administrator.');
+    }
+  }, [token]); // Re-run when token changes
 
   const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
 
@@ -50,7 +65,91 @@ function ProductManager() {
 
   const handleSubmit = async e => {
     e.preventDefault();
+    console.log('handleSubmit triggered');
     // Basic validation
+    if (!form.name || !form.description || !form.price || !form.stock || (!form.image && !imageFile)) {
+      setMessage('Please fill in all required fields, and provide an image file or URL.');
+      console.log('Validation failed: Missing required fields.');
+      return;
+    }
+    if (!token) {
+      setMessage('You must be logged in to upload images. Please log in and try again.');
+      console.log('Validation failed: Missing token.');
+      return;
+    }
+    let imageUrl = form.image;
+    if (imageFile) {
+      // Upload image file to backend
+      const data = new FormData();
+      data.append('image', imageFile);
+      try {
+        console.log('Attempting to upload image...');
+        const uploadRes = await axios.post('/api/upload-image', data, {
+          headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
+        });
+        imageUrl = uploadRes.data.imageUrl;
+        console.log('Image uploaded successfully:', imageUrl);
+      } catch (err) {
+        setMessage('Image upload failed');
+        console.error('Image upload error:', err);
+        return;
+      }
+    }
+    try {
+      console.log('Attempting to add product via POST /api/products...');
+      console.log('Product payload to be sent:', {
+        ...form,
+        image: imageUrl,
+        supplier_id: form.supplier_id || null,
+        category_id: form.category_id || null
+      });
+      console.log('Token used for product POST:', token);
+      const res = await axios.post('/api/products', {
+        ...form,
+        image: imageUrl,
+        supplier_id: form.supplier_id || null,
+        category_id: form.category_id || null
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      console.log('POST /api/products promise resolved. Response:', res.data);
+      setMessage(res.data.message);
+      console.log('POST /api/products successful. Response:', res.data);
+      // Reload products after adding
+      console.log('Attempting to re-fetch products after successful addition...');
+      const updated = await axios.get('/api/products');
+      console.log('GET /api/products promise resolved. Re-fetched products data:', updated.data);
+      setProducts(updated.data);
+      setShowAddForm(false);
+      setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
+      setImageFile(null);
+      setImagePreview('');
+    } catch (err) {
+      setMessage(err.response?.data?.message || 'Error adding product');
+      console.error('Error adding product frontend (full error object):', err);
+      console.error('Error response data:', err.response?.data);
+      console.error('Error response status:', err.response?.status);
+    }
+  };
+
+  const handleEditProduct = (product) => {
+    setEditingProduct(product);
+    setForm({
+      name: product.name,
+      description: product.description,
+      price: parseFloat(product.price).toFixed(2),
+      stock: product.stock,
+      image: product.image,
+      supplier_id: product.supplier_id || '',
+      category_id: product.category_id || '',
+    });
+    setImagePreview(product.image);
+    setImageFile(null); // Clear any previously selected file when editing via URL
+    setShowAddForm(true); // Show the form for editing
+  };
+
+  const handleUpdateProduct = async (e) => {
+    e.preventDefault();
     if (!form.name || !form.description || !form.price || !form.stock || (!form.image && !imageFile)) {
       setMessage('Please fill in all required fields, and provide an image file or URL.');
       return;
@@ -59,9 +158,9 @@ function ProductManager() {
       setMessage('You must be logged in to upload images. Please log in and try again.');
       return;
     }
+
     let imageUrl = form.image;
     if (imageFile) {
-      // Upload image file to backend
       const data = new FormData();
       data.append('image', imageFile);
       try {
@@ -74,8 +173,9 @@ function ProductManager() {
         return;
       }
     }
+
     try {
-      const res = await axios.post('/api/products', {
+      const res = await axios.put(`/api/products/${editingProduct.product_id}`, {
         ...form,
         image: imageUrl,
         supplier_id: form.supplier_id || null,
@@ -84,15 +184,32 @@ function ProductManager() {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage(res.data.message);
-      // Reload products after adding
-      const updated = await axios.get('/api/products');
-      setProducts(updated.data);
-      setShowAddForm(false);
+      setEditingProduct(null);
       setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
       setImageFile(null);
       setImagePreview('');
+      setShowAddForm(false);
+      // Reload products after updating
+      const updated = await axios.get('/api/products');
+      setProducts(updated.data);
     } catch (err) {
-      setMessage(err.response?.data?.message || 'Error adding product');
+      setMessage(err.response?.data?.message || 'Error updating product');
+    }
+  };
+
+  const handleDeleteProduct = async (productId) => {
+    if (window.confirm('Are you sure you want to delete this product?')) {
+      try {
+        const res = await axios.delete(`/api/products/${productId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMessage(res.data.message);
+        // Reload products after deleting
+        const updated = await axios.get('/api/products');
+        setProducts(updated.data);
+      } catch (err) {
+        setMessage(err.response?.data?.message || 'Error deleting product');
+      }
     }
   };
 
@@ -128,16 +245,16 @@ function ProductManager() {
       <div style={{ textAlign: 'right', marginBottom: '20px' }}>
         <button
           style={{ padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', borderRadius: '5px', border: 'none', cursor: 'pointer' }}
-          onClick={() => setShowAddForm(!showAddForm)}
+          onClick={() => { setShowAddForm(!showAddForm); setEditingProduct(null); setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' }); setImageFile(null); setImagePreview(''); setMessage(''); }}
         >
-          {showAddForm ? 'Cancel' : 'Add Product'}
+          {showAddForm ? 'Cancel' : 'Add New Product'}
         </button>
       </div>
 
       {showAddForm && (
         <div style={{ marginBottom: '30px', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <h2>Add New Product</h2>
-          <form onSubmit={handleSubmit}>
+          <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
+          <form onSubmit={editingProduct ? handleUpdateProduct : handleSubmit}>
             <div style={{ marginBottom: '10px' }}>
               <input name="name" placeholder="name" value={form.name} onChange={handleChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /> <span style={{color:'red'}}>*</span>
             </div>
@@ -208,8 +325,8 @@ function ProductManager() {
                 <td style={{ padding: '15px' }}>${parseFloat(p.price).toFixed(2)}</td>
                 <td style={{ padding: '15px', color: p.stock < 10 ? 'orange' : 'green' }}>{p.stock}</td>
                 <td style={{ padding: '15px' }}>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
-                  <button style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+                  <button onClick={() => handleEditProduct(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
+                  <button onClick={() => handleDeleteProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
                 </td>
               </tr>
             ))}

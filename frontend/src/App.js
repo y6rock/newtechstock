@@ -11,11 +11,15 @@ import Sidebar from './components/Sidebar';
 import ProductsPage from './pages/ProductsPage';
 import Footer from './components/Footer';
 import ForgotPassword from './pages/ForgotPassword';
+import Checkout from './pages/Checkout';
+import Profile from './pages/Profile';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
 import Customers from './pages/manager/Customers';
 import Settings from './pages/manager/Settings';
+import Categories from './pages/manager/Categories';
+import Suppliers from './pages/manager/Suppliers';
 
 function App({ isManagerRoute }) {
   console.log('App.js - isManagerRoute:', isManagerRoute);
@@ -46,18 +50,22 @@ function App({ isManagerRoute }) {
           <Routes>
             {/* User Routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/cart" element={<Cart />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/about" element={<About />} />
             <Route path="/login" element={<Login />} />
             <Route path="/signup" element={<Signup />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/profile" element={<Profile />} />
 
             {/* Manager Routes */}
             <Route path="/manager/dashboard" element={<Dashboard />} />
             <Route path="/manager/products" element={<Products />} />
             <Route path="/manager/customers" element={<Customers />} />
+            <Route path="/manager/categories" element={<Categories />} />
+            <Route path="/manager/suppliers" element={<Suppliers />} />
             <Route path="/manager/settings" element={<Settings />} />
           </Routes>
         </div>

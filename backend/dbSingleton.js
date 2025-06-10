@@ -1,32 +1,31 @@
 //dbSingleton.js
 const mysql = require('mysql2');
 
-let connection; // Variable for storing a single connection
+let pool; // Change to pool instead of connection
 
 const dbSingleton = {
   getConnection: () => {
-    if (!connection) {
-      connection = mysql.createConnection({
+    if (!pool) {
+      pool = mysql.createPool({
         host: 'localhost',
         user: 'root',
         port: 3307,
         password: '',
         database: 'techstock',
+        waitForConnections: true,
+        connectionLimit: 10,
+        queueLimit: 0
       }).promise(); // Use .promise() to enable async/await
 
-      // No explicit connect call needed for promise-based connections, they connect on first query
-      // Handle connection errors (still relevant for promise-based connections, but less direct)
-      connection.on('error', err => {
-        console.error('Database connection error:', err);
-        if (err.code === 'PROTOCOL_CONNECTION_LOST') {
-          connection = null;
-        }
+      // Event listener for errors in the pool
+      pool.on('error', err => {
+        console.error('Database pool error:', err);
       });
 
       console.log('MySQL connection pool created (promise-based).');
     }
 
-    return connection; // Return the current connection
+    return pool; // Return the connection pool
   },
 };
 

@@ -9,6 +9,7 @@ export const SettingsProvider = ({ children }) => {
   const [errorSettings, setErrorSettings] = useState(null);
   const [isUserAdmin, setIsUserAdmin] = useState(false); // Centralized admin status
   const [username, setUsername] = useState(null); // Centralized username
+  const [currentUserId, setCurrentUserId] = useState(null); // New: Centralized user_id
 
   const fetchStoreSettings = async () => {
     console.log('SettingsContext: fetchStoreSettings started');
@@ -21,8 +22,9 @@ export const SettingsProvider = ({ children }) => {
       setStoreName('TechStore'); // Fallback to a default name
       setIsUserAdmin(false); // No token, so not admin
       setUsername(null); // No token, so no username
+      setCurrentUserId(null); // Clear user_id on no token
       setLoadingSettings(false);
-      console.log('SettingsContext: Finished fetch, isUserAdmin=', false, 'loadingSettings=', false);
+      console.log('SettingsContext: Finished fetch (no token), isUserAdmin=', false, 'loadingSettings=', false, 'currentUserId=', null);
       return;
     }
 
@@ -32,6 +34,7 @@ export const SettingsProvider = ({ children }) => {
       const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
       const payload = JSON.parse(window.atob(base64));
       console.log('SettingsContext: Decoded token payload:', payload);
+      console.log('SettingsContext: User ID from token payload:', payload.user_id);
       
       // Check if token is expired
       const currentTime = Math.floor(Date.now() / 1000);
@@ -40,16 +43,20 @@ export const SettingsProvider = ({ children }) => {
         localStorage.removeItem('token');
         setIsUserAdmin(false);
         setUsername(null);
+        setCurrentUserId(null); // Clear user_id on token expiration
         setLoadingSettings(false);
-        console.log('SettingsContext: Finished fetch, isUserAdmin=', false, 'loadingSettings=', false);
+        console.log('SettingsContext: Finished fetch (token expired), isUserAdmin=', false, 'loadingSettings=', false, 'currentUserId=', null);
         return;
       }
 
       const adminStatus = payload.role === 'admin';
       const userDisplayName = payload.username || payload.name || payload.email || null;
+      const userIdFromToken = payload.user_id || null; // Extract user_id
+
       setIsUserAdmin(adminStatus);
       setUsername(userDisplayName);
-      console.log('SettingsContext: isUserAdmin determined as:', adminStatus, 'Username:', userDisplayName);
+      setCurrentUserId(userIdFromToken); // Set the new user_id state
+      console.log('SettingsContext: isUserAdmin determined as:', adminStatus, 'Username:', userDisplayName, 'User ID (after setting state):', userIdFromToken);
       
       // Now fetch actual settings from API (only if still considered admin or if you want settings for all users)
       if (adminStatus) { // Only fetch settings if user is admin
@@ -91,9 +98,10 @@ export const SettingsProvider = ({ children }) => {
       setStoreName('TechStore'); // Fallback on network/parsing error
       setIsUserAdmin(false);
       setUsername(null);
+      setCurrentUserId(null); // Clear user_id on error
     } finally {
       setLoadingSettings(false);
-      console.log('SettingsContext: Finished fetch (finally block), isUserAdmin=', isUserAdmin, 'loadingSettings=', false);
+      console.log('SettingsContext: Finished fetch (finally block), isUserAdmin=', isUserAdmin, 'loadingSettings=', false, 'final user_id=', currentUserId);
     }
   };
 
@@ -106,6 +114,18 @@ export const SettingsProvider = ({ children }) => {
     };
   }, []); // Empty dependency array means this runs once on mount
 
+  // Log when storage event is triggered
+  useEffect(() => {
+    const handleStorageChange = () => {
+      console.log('SettingsContext: storage event triggered. Re-fetching settings.');
+      fetchStoreSettings();
+    };
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
   // Value provided by the context
   const contextValue = {
     storeName,
@@ -114,12 +134,15 @@ export const SettingsProvider = ({ children }) => {
     errorSettings,
     isUserAdmin, // Provide admin status
     username, // Provide username
+    user_id: currentUserId, // Provide user_id
     fetchStoreSettings, // Allow components to re-fetch settings
     setStoreName, // Allow direct update (e.g., after save on settings page)
     setSettings,
     setIsUserAdmin, // Allow components (like Login/Logout) to update admin status directly
-    setUsername // <--- ADDED THIS LINE
+    setUsername,
+    setCurrentUserId // Allow direct update (e.g., after login/logout)
   };
+  console.log('SettingsContext: Providing context value with user_id:', currentUserId);
 
   return (
     <SettingsContext.Provider value={contextValue}>

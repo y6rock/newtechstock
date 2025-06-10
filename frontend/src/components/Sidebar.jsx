@@ -32,6 +32,8 @@ const Sidebar = () => {
                 <Link to="/manager/dashboard" style={linkStyle('/manager/dashboard')}>Dashboard</Link>
                 <Link to="/manager/products" style={linkStyle('/manager/products')}>Products</Link>
                 <Link to="/manager/customers" style={linkStyle('/manager/customers')}>Customers</Link>
+                <Link to="/manager/categories" style={linkStyle('/manager/categories')}>Categories</Link>
+                <Link to="/manager/suppliers" style={linkStyle('/manager/suppliers')}>Suppliers</Link>
                 <Link to="/manager/settings" style={linkStyle('/manager/settings')}>Settings</Link>
             </nav>
         </div>
