@@ -485,7 +485,18 @@ app.post('/api/settings', authenticateToken, requireAdmin, async (req, res) => {
 
 // ✅ API - קבלת כל הלקוחות (admin בלבד)
 app.get('/api/customers', authenticateToken, requireAdmin, async (req, res) => {
-  const sql = `SELECT user_id, name AS username, email, phone FROM users WHERE role = 'client'`;
+  const sql = `
+    SELECT 
+      u.user_id,
+      u.name AS username,
+      u.email,
+      u.phone,
+      COUNT(o.order_id) as order_count,
+      COALESCE(SUM(o.total_price), 0) as total_spent
+    FROM users u
+    LEFT JOIN orders o ON u.user_id = o.user_id
+    GROUP BY u.user_id, u.name, u.email, u.phone
+  `;
   try {
     const [results] = await db.query(sql);
     console.log("Fetched customers:", results);
@@ -498,20 +509,30 @@ app.get('/api/customers', authenticateToken, requireAdmin, async (req, res) => {
 
 // Orders API - Admin only (for now, will be generalized later)
 app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) => {
-  const sql = `
+  const { userId } = req.query;
+  let sql = `
     SELECT
       o.order_id,
-      o.order_date,
+      o.date AS order_date,
       o.total_price,
-      o.status,
       u.name AS user_name,
       u.email AS user_email
     FROM orders o
     JOIN users u ON o.user_id = u.user_id
-    ORDER BY o.order_date DESC;
   `;
+  
+  const params = [];
+  if (userId) {
+    sql += ' WHERE o.user_id = ?';
+    params.push(parseInt(userId, 10));
+    console.log('Fetching orders for userId:', userId, '(parsed:', parseInt(userId, 10), ')');
+  }
+  
+  sql += ' ORDER BY o.date DESC';
+
   try {
-    const [rows] = await db.query(sql);
+    const [rows] = await db.query(sql, params);
+    console.log('Orders query result:', rows);
     res.json(rows);
   } catch (err) {
     console.error('Error fetching admin orders:', err);
@@ -599,6 +620,78 @@ app.put('/api/profile/:id', authenticateToken, async (req, res) => {
     res.json({ message: 'Profile updated successfully' });
   } catch (err) {
     console.error('Error updating user profile:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Dashboard stats API (admin only)
+app.get('/api/admin/dashboard-stats', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Total revenue and total orders
+    const [ordersStats] = await db.query(
+      `SELECT COALESCE(SUM(total_price), 0) AS total_revenue, COUNT(*) AS total_orders FROM orders`
+    );
+    // Total products
+    const [productsStats] = await db.query(
+      `SELECT COUNT(*) AS total_products FROM products`
+    );
+    res.json({
+      total_revenue: ordersStats[0].total_revenue,
+      total_orders: ordersStats[0].total_orders,
+      total_products: productsStats[0].total_products,
+    });
+  } catch (err) {
+    console.error('Error fetching dashboard stats:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// 1. Sales Over Time (Line Chart)
+app.get('/api/admin/sales-over-time', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // Group by day for the last 30 days
+    const [rows] = await db.query(`
+      SELECT DATE(date) as day, SUM(total_price) as total_sales, COUNT(*) as order_count
+      FROM orders
+      WHERE date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+      GROUP BY day
+      ORDER BY day ASC
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching sales over time:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// 2. Top Selling Products (Bar Chart)
+app.get('/api/admin/top-products', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [rows] = await db.query(`
+      SELECT p.name, SUM(op.quantity) as total_quantity, SUM(op.price_at_order * op.quantity) as total_sales
+      FROM orders_products op
+      JOIN products p ON op.product_id = p.product_id
+      GROUP BY op.product_id, p.name
+      ORDER BY total_quantity DESC
+      LIMIT 10
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching top products:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// 3. Order Status Distribution (Pie Chart)
+app.get('/api/admin/order-status-distribution', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    // If you don't have a status column, this will return all as one status
+    const [rows] = await db.query(`
+      SELECT 'all' as status, COUNT(*) as count FROM orders
+    `);
+    res.json(rows);
+  } catch (err) {
+    console.error('Error fetching order status distribution:', err);
     res.status(500).json({ message: 'Database error', details: err.message });
   }
 });
