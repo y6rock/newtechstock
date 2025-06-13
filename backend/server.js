@@ -4,6 +4,8 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
+const nodemailer = require('nodemailer');
+require('dotenv').config();
 
 const dbSingleton = require('./dbSingleton');
 
@@ -693,6 +695,38 @@ app.get('/api/admin/order-status-distribution', authenticateToken, requireAdmin,
   } catch (err) {
     console.error('Error fetching order status distribution:', err);
     res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Contact form endpoint
+app.post('/api/contact', async (req, res) => {
+  const { name, email, message } = req.body;
+  if (!name || !email || !message) {
+    return res.status(400).json({ message: 'All fields are required.' });
+  }
+
+  // Configure your email transport using environment variables
+  let transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+      user: process.env.GMAIL_USER,
+      pass: process.env.GMAIL_PASS
+    }
+  });
+
+  const mailOptions = {
+    from: email,
+    to: 'yamen.rock@gmail.com',
+    subject: `Contact Form Submission from ${name}`,
+    text: `Name: ${name}\nEmail: ${email}\nMessage: ${message}`
+  };
+
+  try {
+    await transporter.sendMail(mailOptions);
+    res.json({ message: 'Your message has been sent successfully!' });
+  } catch (err) {
+    console.error('Error sending contact email:', err);
+    res.status(500).json({ message: 'Failed to send message. Please try again later.' });
   }
 });
 

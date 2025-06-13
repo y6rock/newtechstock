@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 
 const ProductsPage = () => {
@@ -9,6 +9,7 @@ const ProductsPage = () => {
   const [manufacturers, setManufacturers] = useState([]);
   const location = useLocation();
   const { addToCart } = useCart();
+  const navigate = useNavigate();
 
   // Initialize selectedCategory from URL query parameter
   const getInitialCategory = () => {
@@ -211,16 +212,19 @@ const ProductsPage = () => {
               <p style={{ fontSize: '1em', color: '#555', marginBottom: '15px' }}>Little Info (One Line)</p>
               <p style={{ fontSize: '1.4em', fontWeight: 'bold', color: '#333' }}>${parseFloat(product.price).toFixed(2)}</p>
               <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
-                <button style={{
-                  padding: '10px 15px',
-                  backgroundColor: '#007bff',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  flex: 1,
-                  marginRight: '5px'
-                }}>For details</button>
+                <button
+                  style={{
+                    padding: '10px 15px',
+                    backgroundColor: '#007bff',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    flex: 1,
+                    marginRight: '5px'
+                  }}
+                  onClick={() => navigate(`/products/${product.product_id}`)}
+                >For details</button>
                 <button style={{
                   padding: '10px 15px',
                   backgroundColor: '#ff9800',

@@ -13,6 +13,8 @@ import Footer from './components/Footer';
 import ForgotPassword from './pages/ForgotPassword';
 import Checkout from './pages/Checkout';
 import Profile from './pages/Profile';
+import NotFound from './pages/NotFound';
+import ProductDetails from './pages/ProductDetails';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
@@ -51,6 +53,7 @@ function App({ isManagerRoute }) {
             {/* User Routes */}
             <Route path="/" element={<Home />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductDetails />} />
             <Route path="/cart" element={<Cart />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/about" element={<About />} />
@@ -67,6 +70,9 @@ function App({ isManagerRoute }) {
             <Route path="/manager/categories" element={<Categories />} />
             <Route path="/manager/suppliers" element={<Suppliers />} />
             <Route path="/manager/settings" element={<Settings />} />
+
+            {/* 404 Not Found Route */}
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </div>
       </div>
