@@ -1,247 +1,306 @@
 import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
-import { useNavigate } from 'react-router-dom';
 
-export default function Settings() {
-  // Context for global settings updates
-  const { setStoreName: setGlobalStoreName, isUserAdmin, loadingSettings } = useSettings();
-  const navigate = useNavigate();
-
-  // ALL useState declarations must be at the top level and unconditional
-  const [storeName, setStoreName] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
-  const [contactPhone, setContactPhone] = useState('');
-  const [taxRate, setTaxRate] = useState('');
-  const [emailNotifications, setEmailNotifications] = useState(true);
+const Settings = () => {
+  const { user_id, username, fetchStoreSettings } = useSettings();
+  const [settings, setSettings] = useState({
+    contactEmail: '',
+    contactPhone: '',
+    storeName: '',
+    taxRate: 0,
+    currency: 'ILS'
+  });
+  const [currencies, setCurrencies] = useState({});
+  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState('general');
 
-  // useEffect for redirection: This hook call is always at the top level.
-  // The conditional logic is inside its callback.
-  useEffect(() => {
-    // Only redirect if settings have finished loading AND user is not admin
-    if (!loadingSettings && !isUserAdmin) {
-      navigate('/'); // Redirect to home if not admin
-    }
-  }, [isUserAdmin, loadingSettings, navigate]);
-
-  // useEffect for fetching settings: This hook call is also always at the top level.
-  // The conditional logic (fetch only if admin) is inside its callback.
   useEffect(() => {
     const fetchSettings = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setError('Authentication token not found. Please log in as admin.');
-        setLoading(false);
-        return;
-      }
-
       try {
-        const response = await fetch('/api/settings', {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-            'Content-Type': 'application/json',
-          },
+        const [settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/settings'),
+          axios.get('/api/currencies')
+        ]);
+        setSettings({
+          contactEmail: settingsRes.data.contactEmail || '',
+          contactPhone: settingsRes.data.contactPhone || '',
+          storeName: settingsRes.data.storeName || '',
+          taxRate: settingsRes.data.taxRate || 0,
+          currency: settingsRes.data.currency || 'ILS'
         });
-
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Failed to fetch settings: ${response.status} - ${errorText}`);
-        }
-
-        const data = await response.json();
-        if (data) {
-          setStoreName(data.storeName || '');
-          setContactEmail(data.contactEmail || '');
-          setContactPhone(data.contactPhone || '');
-          setTaxRate(data.taxRate != null ? data.taxRate.toString() : '');
-          setEmailNotifications(data.emailNotifications != null ? data.emailNotifications : true);
-          setGlobalStoreName(data.storeName || 'TechStore');
-        }
+        setCurrencies(currenciesRes.data);
       } catch (err) {
         console.error('Error fetching settings:', err);
-        setError(`Error loading settings: ${err.message}`);
+        setMessage('Error loading settings');
       } finally {
         setLoading(false);
       }
     };
+    fetchSettings();
+  }, []);
 
-    // Only call fetchSettings if the user is an admin and settings are not loading
-    if (isUserAdmin && !loadingSettings) {
-        fetchSettings();
-    }
-  }, [isUserAdmin, loadingSettings, setGlobalStoreName]); // Added loadingSettings to dependencies
-
-  // Render loading state while settings are being determined
-  if (loadingSettings) {
-    return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>
-          <p>Loading Admin Panel...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Now, after all hooks are called unconditionally, we can conditionally return null.
-  if (!isUserAdmin) {
-    return null; 
-  }
-
-  // Handler for saving settings
-  const handleSave = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setSaveSuccess(false);
-    setError(null);
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setError('Authentication token not found. Cannot save settings.');
-      return;
-    }
-
-    const settingsData = {
-      storeName,
-      contactEmail,
-      contactPhone,
-      taxRate: parseFloat(taxRate),
-      emailNotifications,
-    };
-
+    setLoading(true);
     try {
-      const response = await fetch('/api/settings', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(settingsData),
+      const token = localStorage.getItem('token');
+      const { contactEmail, contactPhone, taxRate, storeName, currency } = settings;
+      await axios.put('http://localhost:3001/api/settings', {
+        contactEmail,
+        contactPhone,
+        taxRate: Number(taxRate),
+        storeName,
+        currency
+      }, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-
-      if (!response.ok) {
-         const errorText = await response.text();
-         throw new Error(`Failed to save settings: ${response.status} - ${errorText}`);
-      }
-
-      const result = await response.json();
-      console.log('Settings saved successfully:', result);
-      setSaveSuccess(true);
-      
-      // Update global store name after successful save
-      setGlobalStoreName(storeName);
-
+      setMessage('Settings updated successfully');
+      if (fetchStoreSettings) fetchStoreSettings();
     } catch (err) {
-      console.error('Error saving settings:', err);
-      setError(`Error saving settings: ${err.message}`);
+      console.error('Error updating settings:', err);
+      setMessage('Error updating settings');
+    } finally {
+      setLoading(false);
     }
   };
 
-  // Moved loading check after all hooks
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setSettings(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   if (loading) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <div style={{ flex: 1, padding: '20px', paddingLeft: '240px' }}>
-          <p>Loading settings...</p>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        minHeight: '100vh',
+        background: '#f0f2f5',
+        padding: '20px'
+      }}>
+        <div style={{ 
+          background: '#fff',
+          padding: '40px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+          width: '100%',
+          maxWidth: '800px'
+        }}>
+          <div style={{ textAlign: 'center', color: '#666' }}>Loading settings...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ flex: 1, padding: '20px' }}>
-      <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Settings</h1>
-      <p style={{ color: '#666', marginTop: '5px' }}>Manage your store settings</p>
-
-      {error && <p style={{ color: 'red' }}>{error}</p>}
-      {saveSuccess && <p style={{ color: 'green' }}>Settings saved successfully!</p>}
-
+    <div style={{ 
+      display: 'flex',
+      minHeight: '100vh',
+      background: '#f0f2f5',
+      padding: '20px'
+    }}>
       <div style={{ 
-        marginTop: '30px', 
-        padding: '20px', 
-        border: '1px solid #eee', 
-        borderRadius: '8px',
-        maxWidth: '500px'
+        flex: 1,
+        marginLeft: '220px', // Match sidebar width
+        padding: '20px'
       }}>
-        <h3 style={{ marginTop: '0' }}>Store Information</h3>
-        <p style={{ color: '#666', marginBottom: '20px' }}>Update your store details and contact information</p>
+        <div style={{ 
+          background: '#fff',
+          padding: '40px',
+          borderRadius: '8px',
+          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
+          maxWidth: '1200px',
+          margin: '0 auto'
+        }}>
+          <h1 style={{ 
+            fontSize: '1.8em',
+            marginBottom: '10px',
+            color: '#333'
+          }}>Settings</h1>
+          <p style={{ 
+            color: '#666',
+            marginBottom: '30px',
+            fontSize: '0.95em'
+          }}>Manage your store settings and preferences</p>
+          
+          {message && (
+            <div style={{
+              padding: '15px',
+              marginBottom: '20px',
+              borderRadius: '5px',
+              backgroundColor: message.includes('Error') ? '#f8d7da' : '#d4edda',
+              color: message.includes('Error') ? '#721c24' : '#155724',
+              border: `1px solid ${message.includes('Error') ? '#f5c6cb' : '#c3e6cb'}`
+            }}>
+              {message}
+            </div>
+          )}
 
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Store Name:
-          </label>
-          <input 
-            type="text" 
-            value={storeName} 
-            onChange={(e) => setStoreName(e.target.value)} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
+          <div style={{ marginBottom: '30px' }}>
+            <div style={{ 
+              display: 'flex',
+              borderBottom: '1px solid #dee2e6',
+              marginBottom: '20px'
+            }}>
+              {['general', 'currency', 'contact'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    padding: '10px 20px',
+                    border: 'none',
+                    background: 'none',
+                    color: activeTab === tab ? '#007bff' : '#666',
+                    borderBottom: activeTab === tab ? '2px solid #007bff' : 'none',
+                    cursor: 'pointer',
+                    fontWeight: activeTab === tab ? 'bold' : 'normal',
+                    transition: 'all 0.2s ease'
+                  }}
+                  onMouseOver={(e) => e.target.style.color = '#0056b3'}
+                  onMouseOut={(e) => e.target.style.color = activeTab === tab ? '#007bff' : '#666'}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit}>
+            {activeTab === 'general' && (
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Store Name</label>
+                  <input
+                    type="text"
+                    name="storeName"
+                    value={settings.storeName}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '1em'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'currency' && (
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Currency</label>
+                  <select
+                    name="currency"
+                    value={settings.currency}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '1em'
+                    }}
+                  >
+                    {Object.entries(currencies).map(([code, currency]) => (
+                      <option key={code} value={code}>
+                        {currency.name} ({currency.symbol})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Tax Rate (%)</label>
+                  <input
+                    type="number"
+                    name="taxRate"
+                    value={settings.taxRate}
+                    onChange={handleChange}
+                    min="0"
+                    max="100"
+                    step="0.01"
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '1em'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'contact' && (
+              <div style={{ display: 'grid', gap: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Contact Email</label>
+                  <input
+                    type="email"
+                    name="contactEmail"
+                    value={settings.contactEmail}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '1em'
+                    }}
+                  />
+                </div>
+                <div>
+                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Contact Phone</label>
+                  <input
+                    type="tel"
+                    name="contactPhone"
+                    value={settings.contactPhone}
+                    onChange={handleChange}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      border: '1px solid #ced4da',
+                      borderRadius: '4px',
+                      fontSize: '1em'
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            <div style={{ marginTop: '30px', textAlign: 'right' }}>
+              <button
+                type="submit"
+                disabled={loading}
+                style={{
+                  padding: '12px 30px',
+                  background: '#007bff',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '5px',
+                  fontSize: '1.1em',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s',
+                  opacity: loading ? 0.7 : 1
+                }}
+                onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+                onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+              >
+                {loading ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </form>
         </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Contact Email:
-          </label>
-          <input 
-            type="email" 
-            value={contactEmail} 
-            onChange={(e) => setContactEmail(e.target.value)} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '15px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Contact Phone:
-          </label>
-          <input 
-            type="tel" 
-            value={contactPhone} 
-            onChange={(e) => setContactPhone(e.target.value)} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-            Tax Rate (%):
-          </label>
-          <input 
-            type="number" 
-            step="0.1" 
-            value={taxRate} 
-            onChange={(e) => setTaxRate(e.target.value)} 
-            style={{ width: '100%', padding: '8px', border: '1px solid #ccc', borderRadius: '4px' }}
-          />
-        </div>
-
-         <div style={{ marginBottom: '20px' }}>
-          <label style={{ fontWeight: 'bold' }}>
-            Email Notifications:
-             <input 
-              type="checkbox" 
-              checked={emailNotifications} 
-              onChange={(e) => setEmailNotifications(e.target.checked)} 
-              style={{ marginLeft: '10px' }} 
-            />
-          </label>
-        </div>
-
-        <button 
-          onClick={handleSave}
-          style={{
-            padding: '10px 20px',
-            backgroundColor: '#343a40',
-            color: '#fff',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer'
-          }}
-        >
-          Save Changes
-        </button>
       </div>
     </div>
   );
-}
+};
+
+export default Settings;

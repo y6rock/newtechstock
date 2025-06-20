@@ -7,6 +7,8 @@ const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [manufacturers, setManufacturers] = useState([]);
+  const [settings, setSettings] = useState({ currency: 'ILS' });
+  const [currencies, setCurrencies] = useState({});
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -62,6 +64,20 @@ const ProductsPage = () => {
     ];
     setManufacturers(dummyManufacturers);
 
+    // Fetch settings and currencies
+    const fetchSettingsAndCurrencies = async () => {
+      try {
+        const [settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/settings'),
+          axios.get('/api/currencies')
+        ]);
+        setSettings(settingsRes.data);
+        setCurrencies(currenciesRes.data);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchSettingsAndCurrencies();
   }, []);
 
   const handleCategoryChange = (category) => {
@@ -91,6 +107,13 @@ const ProductsPage = () => {
     setSelectedManufacturers(prev =>
       checked ? [...prev, value] : prev.filter(m => m !== value)
     );
+  };
+
+  const formatPrice = (price) => {
+    const currency = currencies[settings.currency];
+    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
+    const convertedPrice = price * currency.rate;
+    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
   };
 
   const filteredProducts = products.filter(product => {
@@ -164,8 +187,8 @@ const ProductsPage = () => {
               style={{ width: '100%' }}
             />
             <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-              <span>$0</span>
-              <span>${priceRange}</span>
+              <span>{formatPrice(0)}</span>
+              <span>{formatPrice(priceRange)}</span>
             </div>
           </div>
 
@@ -210,7 +233,7 @@ const ProductsPage = () => {
               <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '5px' }}>{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
               <h3 style={{ fontSize: '1.2em', marginBottom: '5px' }}>{product.name}</h3>
               <p style={{ fontSize: '1em', color: '#555', marginBottom: '15px' }}>Little Info (One Line)</p>
-              <p style={{ fontSize: '1.4em', fontWeight: 'bold', color: '#333' }}>${parseFloat(product.price).toFixed(2)}</p>
+              <p style={{ fontSize: '1.4em', fontWeight: 'bold', color: '#333' }}>{formatPrice(parseFloat(product.price))}</p>
               <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
                 <button
                   style={{

@@ -13,6 +13,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js';
+import axios from 'axios';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend);
 
@@ -23,6 +24,8 @@ export default function Dashboard() {
   const [salesData, setSalesData] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [orderStatus, setOrderStatus] = useState([]);
+  const [settings, setSettings] = useState({ currency: 'ILS' });
+  const [currencies, setCurrencies] = useState({});
 
   useEffect(() => {
     if (!loadingSettings && !isUserAdmin) {
@@ -81,13 +84,33 @@ export default function Dashboard() {
         console.error('Error fetching order status distribution:', err);
       }
     };
+    const fetchSettingsAndCurrencies = async () => {
+      try {
+        const [settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/settings'),
+          axios.get('/api/currencies')
+        ]);
+        setSettings(settingsRes.data);
+        setCurrencies(currenciesRes.data);
+      } catch (err) {
+        // ignore
+      }
+    };
     if (isUserAdmin && !loadingSettings) {
       fetchStats();
       fetchSales();
       fetchTopProducts();
       fetchOrderStatus();
+      fetchSettingsAndCurrencies();
     }
   }, [isUserAdmin, loadingSettings, navigate]);
+
+  const formatPrice = (price) => {
+    const currency = currencies[settings.currency];
+    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
+    const convertedPrice = price * currency.rate;
+    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
+  };
 
   if (loadingSettings) {
     return (
@@ -173,40 +196,18 @@ export default function Dashboard() {
         <h2>Dashboard</h2>
         <p style={{ color: '#666', marginTop: '5px' }}>Overview of your store's performance</p>
 
-        <div style={{ 
-          display: 'grid', 
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-          gap: '20px', 
-          marginTop: '30px'
-        }}>
-          <div style={{
-            padding: '20px',
-            background: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          }}>
-            <h3>Total Revenue</h3>
-            <p style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#343a40' }}>${parseFloat(stats.total_revenue).toFixed(2)}</p>
+        <div style={{ display: 'flex', gap: '30px', marginBottom: '30px' }}>
+          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <h3 style={{ color: '#222', marginBottom: '10px' }}>Total Revenue</h3>
+            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{formatPrice(stats.total_revenue)}</div>
           </div>
-
-          <div style={{
-            padding: '20px',
-            background: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          }}>
-            <h3>Total Orders</h3>
-            <p style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#343a40' }}>{stats.total_orders}</p>
+          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <h3 style={{ color: '#222', marginBottom: '10px' }}>Total Orders</h3>
+            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{stats.total_orders}</div>
           </div>
-
-          <div style={{
-            padding: '20px',
-            background: '#fff',
-            borderRadius: '8px',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.05)'
-          }}>
-            <h3>Products</h3>
-            <p style={{ fontSize: '1.8rem', fontWeight: 'bold', color: '#343a40' }}>{stats.total_products}</p>
+          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
+            <h3 style={{ color: '#222', marginBottom: '10px' }}>Products</h3>
+            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{stats.total_products}</div>
           </div>
         </div>
 

@@ -8,13 +8,18 @@ const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const dbSingleton = require('./dbSingleton');
+const { isValidDateRange, isValidTimeRange, isValidPrice, isValidStock } = require('./utils/validation');
 
 // Execute a query to the database
 const db = dbSingleton.getConnection();
 
 const app = express();
-app.use(cors());
 app.use(express.json());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 
 // Set up multer for file uploads
 const storage = multer.diskStorage({
@@ -135,10 +140,34 @@ app.get('/api/profile/:id', authenticateToken, async (req, res) => {
 app.post('/api/products', authenticateToken, async (req, res) => {
   const { name, description, price, stock, image, supplier_id, category_id } = req.body;
   console.log('Received POST /api/products request with body:', req.body);
+  
+  // Validation checks
   if (!name || !description || !price || !stock || !image) {
     console.warn('Missing required fields for product addition.', req.body);
     return res.status(400).json({ message: 'Missing required fields' });
   }
+
+  // Check for valid price
+  if (!isValidPrice(price)) {
+    return res.status(400).json({ message: 'Invalid price value' });
+  }
+
+  // Check for valid stock
+  if (!isValidStock(stock)) {
+    return res.status(400).json({ message: 'Invalid stock value' });
+  }
+
+  // Check for duplicate product name
+  try {
+    const [existingProducts] = await db.query('SELECT product_id FROM products WHERE name = ?', [name]);
+    if (existingProducts.length > 0) {
+      return res.status(400).json({ message: 'A product with this name already exists' });
+    }
+  } catch (err) {
+    console.error('Error checking for duplicate product:', err);
+    return res.status(500).json({ message: 'Database error', error: err.message });
+  }
+
   const sql = `INSERT INTO products (name, description, price, stock, image, supplier_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   try {
     const [result] = await db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null]);
@@ -154,9 +183,33 @@ app.post('/api/products', authenticateToken, async (req, res) => {
 app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { name, description, price, stock, image, supplier_id, category_id } = req.body;
+  
+  // Validation checks
   if (!name || !description || !price || !stock || !image) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
+
+  // Check for valid price
+  if (!isValidPrice(price)) {
+    return res.status(400).json({ message: 'Invalid price value' });
+  }
+
+  // Check for valid stock
+  if (!isValidStock(stock)) {
+    return res.status(400).json({ message: 'Invalid stock value' });
+  }
+
+  // Check for duplicate product name (excluding current product)
+  try {
+    const [existingProducts] = await db.query('SELECT product_id FROM products WHERE name = ? AND product_id != ?', [name, id]);
+    if (existingProducts.length > 0) {
+      return res.status(400).json({ message: 'A product with this name already exists' });
+    }
+  } catch (err) {
+    console.error('Error checking for duplicate product:', err);
+    return res.status(500).json({ message: 'Database error', error: err.message });
+  }
+
   const sql = `UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image = ?, supplier_id = ?, category_id = ? WHERE product_id = ?`;
   try {
     const [result] = await db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null, id]);
@@ -333,7 +386,61 @@ app.delete('/api/categories/:id', authenticateToken, requireAdmin, async (req, r
 
 // ===================== ORDER MANAGEMENT =====================
 
-// Create a new order (user)
+// Currency and VAT Settings API
+const CURRENCIES = {
+  ILS: { symbol: '₪', name: 'Israeli Shekel', rate: 1 }, // Base currency
+  USD: { symbol: '$', name: 'US Dollar', rate: 0.27 },
+  GBP: { symbol: '£', name: 'UK Pound', rate: 0.21 },
+  CNY: { symbol: '¥', name: 'Chinese Yuan', rate: 1.95 },
+  JPY: { symbol: '¥', name: 'Japanese Yen', rate: 41.5 },
+  SAR: { symbol: '﷼', name: 'Saudi Rial', rate: 1.01 }
+};
+
+// Get current settings
+app.get('/api/settings', async (req, res) => {
+  try {
+    const [settings] = await db.query('SELECT * FROM settings WHERE id = 1');
+    if (settings.length === 0) {
+      // Initialize default settings if none exist
+      const defaultSettings = {
+        currency: 'ILS',
+        vat_rate: 17,
+        id: 1
+      };
+      await db.query('INSERT INTO settings SET ?', defaultSettings);
+      return res.json(defaultSettings);
+    }
+    res.json(settings[0]);
+  } catch (err) {
+    console.error('Error fetching settings:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Update settings (admin only)
+app.put('/api/settings', authenticateToken, requireAdmin, async (req, res) => {
+  const { contactEmail, contactPhone, taxRate, storeName, currency } = req.body;
+
+  // Validate taxRate
+  if (taxRate < 0 || taxRate > 100) {
+    return res.status(400).json({ message: 'Tax rate must be between 0 and 100' });
+  }
+
+  try {
+    await db.query('UPDATE settings SET contactEmail = ?, contactPhone = ?, taxRate = ?, storeName = ?, currency = ? WHERE id = 1', [contactEmail, contactPhone, taxRate, storeName, currency]);
+    res.json({ message: 'Settings updated successfully' });
+  } catch (err) {
+    console.error('Error updating settings:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Get available currencies
+app.get('/api/currencies', (req, res) => {
+  res.json(CURRENCIES);
+});
+
+// Modify the order creation to include VAT
 app.post('/api/orders', authenticateToken, async (req, res) => {
   const { user_id, total_amount, items } = req.body;
   console.log('Received POST /api/orders request with data:', { user_id, total_amount, items });
@@ -343,37 +450,65 @@ app.post('/api/orders', authenticateToken, async (req, res) => {
     return res.status(400).json({ message: 'Missing required order information.' });
   }
 
-  let connection; // Declare connection outside try-catch to ensure it's accessible in finally
+  let connection;
   try {
-    connection = await db.getConnection(); // Get a connection from the pool
-    await connection.beginTransaction(); // Start a transaction
+    connection = await db.getConnection();
+    await connection.beginTransaction();
 
-    // 1. Insert into orders table
-    const orderSql = `INSERT INTO orders (user_id, total_price, date) VALUES (?, ?, NOW())`;
-    const [orderResult] = await connection.query(orderSql, [user_id, total_amount]);
+    // Get current settings
+    const [settings] = await connection.query('SELECT * FROM settings WHERE id = 1');
+    const { taxRate = 0 } = settings[0];
+
+    // Calculate total with VAT
+    const totalWithVAT = total_amount * (1 + taxRate / 100);
+
+    // Validate stock availability for all items
+    for (const item of items) {
+      const [product] = await connection.query('SELECT stock FROM products WHERE product_id = ?', [item.product_id]);
+      
+      if (!product || product.length === 0) {
+        throw new Error(`Product with ID ${item.product_id} not found`);
+      }
+
+      if (product[0].stock < item.quantity) {
+        throw new Error(`Insufficient stock for product ID ${item.product_id}. Available: ${product[0].stock}, Requested: ${item.quantity}`);
+      }
+    }
+
+    // 1. Insert into orders table with VAT
+    const orderSql = `INSERT INTO orders (user_id, total_price, vat_amount, date) VALUES (?, ?, ?, NOW())`;
+    const [orderResult] = await connection.query(orderSql, [user_id, totalWithVAT, total_amount * (taxRate / 100)]);
     const orderId = orderResult.insertId;
     console.log(`Order ${orderId} created for user ${user_id}.`);
 
-    // 2. Insert into orders_products table for each item
+    // 2. Insert into orders_products table and update stock
     const orderItemsSql = `INSERT INTO orders_products (order_id, product_id, quantity, price_at_order) VALUES (?, ?, ?, ?)`;
     for (const item of items) {
       await connection.query(orderItemsSql, [orderId, item.product_id, item.quantity, item.price]);
+      await connection.query(
+        'UPDATE products SET stock = stock - ? WHERE product_id = ?',
+        [item.quantity, item.product_id]
+      );
     }
-    console.log(`Order items for order ${orderId} inserted.`);
 
-    await connection.commit(); // Commit the transaction
-    res.status(201).json({ message: 'Order placed successfully', orderId: orderId });
+    await connection.commit();
+    res.status(201).json({ 
+      message: 'Order placed successfully', 
+      orderId: orderId,
+      totalWithVAT: totalWithVAT,
+      vatAmount: total_amount * (taxRate / 100)
+    });
 
   } catch (err) {
     if (connection) {
-      await connection.rollback(); // Rollback on error
+      await connection.rollback();
       console.error('Transaction rolled back due to error.');
     }
     console.error('Error placing order:', err);
-    return res.status(500).json({ message: 'Database error', details: err.message });
+    return res.status(500).json({ message: err.message || 'Database error', details: err.message });
   } finally {
     if (connection) {
-      connection.release(); // Release the connection back to the pool
+      connection.release();
       console.log('Database connection released.');
     }
   }
@@ -437,52 +572,6 @@ app.post('/api/upload-image', authenticateToken, upload.single('image'), async (
   // You might want to save imageUrl to the database here, e.g., to the user's profile
   // For example: await db.query('UPDATE users SET profile_image = ? WHERE user_id = ?', [imageUrl, req.user.user_id]);
   res.json({ imageUrl });
-});
-
-// Get settings
-app.get('/api/settings', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        console.log('Attempting to fetch settings...');
-        const [rows] = await db.query('SELECT * FROM settings LIMIT 1');
-        if (rows.length > 0) {
-            console.log('Settings fetched successfully:', rows[0]);
-            res.json(rows[0]);
-        } else {
-            console.log('No settings found, returning default.');
-            res.json({}); // Return empty object if no settings exist
-        }
-    } catch (error) {
-        console.error('Error fetching settings:', error);
-        res.status(500).json({ message: 'Database error', details: error.message });
-    }
-});
-
-// Post settings
-app.post('/api/settings', authenticateToken, requireAdmin, async (req, res) => {
-  const { storeName, contactEmail, contactPhone, taxRate, emailNotifications } = req.body;
-  let connection;
-  try {
-    connection = await db.getConnection();
-    const [results] = await connection.query(`SELECT COUNT(*) as count FROM settings`);
-    const settingsExist = results[0].count > 0;
-    let sql;
-    let values;
-
-    if (settingsExist) {
-      sql = `UPDATE settings SET storeName = ?, contactEmail = ?, contactPhone = ?, taxRate = ?, emailNotifications = ?, updated_at = NOW() LIMIT 1`;
-      values = [storeName, contactEmail, contactPhone, taxRate, emailNotifications];
-    } else {
-      sql = `INSERT INTO settings (storeName, contactEmail, contactPhone, taxRate, emailNotifications, created_at, updated_at) VALUES (?, ?, ?, ?, ?, NOW(), NOW())`;
-      values = [storeName, contactEmail, contactPhone, taxRate, emailNotifications];
-    }
-    await connection.query(sql, values);
-    res.json({ message: 'Settings saved successfully.' });
-  } catch (err) {
-    console.error('Error saving settings:', err);
-    res.status(500).json({ message: 'Database error', details: err.message });
-  } finally {
-    if (connection) connection.release();
-  }
 });
 
 // ✅ API - קבלת כל הלקוחות (admin בלבד)

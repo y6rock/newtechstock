@@ -14,37 +14,64 @@ function ProductManager() {
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
+  const [settings, setSettings] = useState({ currency: 'ILS' });
+  const [currencies, setCurrencies] = useState({});
 
   const token = localStorage.getItem('token');
 
-  // Load products, suppliers, and categories
+  // Load products, suppliers, categories, settings, and currencies
   useEffect(() => {
     const fetchProductData = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
-
-        const productsRes = await axios.get('/api/products');
+        const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/products'),
+          axios.get('/api/suppliers', { headers }),
+          axios.get('/api/categories', { headers }),
+          axios.get('/api/settings'),
+          axios.get('/api/currencies'),
+        ]);
         setProducts(productsRes.data);
-
-        const suppliersRes = await axios.get('/api/suppliers', { headers });
         setSuppliers(suppliersRes.data);
-
-        const categoriesRes = await axios.get('/api/categories', { headers });
         setCategories(categoriesRes.data);
+        setSettings(settingsRes.data);
+        setCurrencies(currenciesRes.data);
       } catch (err) {
         console.error('Error fetching initial product data:', err);
-        setMessage('Failed to load products, suppliers, or categories.');
+        setMessage('Failed to load products, suppliers, categories, or settings.');
       }
     };
 
-    if (token) { // Only attempt to fetch if a token exists
+    if (token) {
       fetchProductData();
     } else {
       setMessage('Authentication token missing. Please log in as an administrator.');
     }
-  }, [token]); // Re-run when token changes
+  }, [token]);
 
-  const handleChange = e => setForm({ ...form, [e.target.name]: e.target.value });
+  const handleChange = e => {
+    const { name, value } = e.target;
+    
+    // Validation for price and stock
+    if (name === 'price') {
+      const numValue = parseFloat(value);
+      if (isNaN(numValue) || numValue < 0) {
+        setMessage('Price must be a non-negative number');
+        return;
+      }
+    }
+    
+    if (name === 'stock') {
+      const numValue = parseInt(value);
+      if (isNaN(numValue) || numValue < 0 || !Number.isInteger(numValue)) {
+        setMessage('Stock must be a non-negative integer');
+        return;
+      }
+    }
+    
+    setForm({ ...form, [name]: value });
+    setMessage(''); // Clear any previous error messages
+  };
 
   const handleImageFileChange = e => {
     const file = e.target.files[0];
@@ -66,17 +93,34 @@ function ProductManager() {
   const handleSubmit = async e => {
     e.preventDefault();
     console.log('handleSubmit triggered');
+    
     // Basic validation
     if (!form.name || !form.description || !form.price || !form.stock || (!form.image && !imageFile)) {
       setMessage('Please fill in all required fields, and provide an image file or URL.');
       console.log('Validation failed: Missing required fields.');
       return;
     }
+
+    // Validate price
+    const price = parseFloat(form.price);
+    if (isNaN(price) || price < 0) {
+      setMessage('Price must be a non-negative number');
+      return;
+    }
+
+    // Validate stock
+    const stock = parseInt(form.stock);
+    if (isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
+      setMessage('Stock must be a non-negative integer');
+      return;
+    }
+
     if (!token) {
       setMessage('You must be logged in to upload images. Please log in and try again.');
       console.log('Validation failed: Missing token.');
       return;
     }
+
     let imageUrl = form.image;
     if (imageFile) {
       // Upload image file to backend
@@ -150,10 +194,27 @@ function ProductManager() {
 
   const handleUpdateProduct = async (e) => {
     e.preventDefault();
+    
+    // Basic validation
     if (!form.name || !form.description || !form.price || !form.stock || (!form.image && !imageFile)) {
       setMessage('Please fill in all required fields, and provide an image file or URL.');
       return;
     }
+
+    // Validate price
+    const price = parseFloat(form.price);
+    if (isNaN(price) || price < 0) {
+      setMessage('Price must be a non-negative number');
+      return;
+    }
+
+    // Validate stock
+    const stock = parseInt(form.stock);
+    if (isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
+      setMessage('Stock must be a non-negative integer');
+      return;
+    }
+
     if (!token) {
       setMessage('You must be logged in to upload images. Please log in and try again.');
       return;
@@ -217,6 +278,14 @@ function ProductManager() {
     product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase())) // Assuming category_name exists
   );
+
+  // Add a formatPrice function
+  const formatPrice = (price) => {
+    const currency = currencies[settings.currency];
+    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
+    const convertedPrice = price * currency.rate;
+    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
+  };
 
   return (
     <div>
@@ -322,7 +391,7 @@ function ProductManager() {
                   {p.featured && <span style={{ marginLeft: '5px', color: 'gold' }}>★ Featured</span>}
                 </td>
                 <td style={{ padding: '15px' }}>{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
-                <td style={{ padding: '15px' }}>${parseFloat(p.price).toFixed(2)}</td>
+                <td style={{ padding: '15px' }}>{formatPrice(parseFloat(p.price))}</td>
                 <td style={{ padding: '15px', color: p.stock < 10 ? 'orange' : 'green' }}>{p.stock}</td>
                 <td style={{ padding: '15px' }}>
                   <button onClick={() => handleEditProduct(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>

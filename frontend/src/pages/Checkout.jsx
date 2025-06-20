@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useCart } from '../context/CartContext';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import axios from 'axios';
 
 const Checkout = () => {
   const { cartItems, getTotalPrice, clearCart } = useCart();
@@ -10,6 +11,8 @@ const Checkout = () => {
   const [paymentSimulated, setPaymentSimulated] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [orderError, setOrderError] = useState(null);
+  const [settings, setSettings] = useState({ currency: 'ILS', taxRate: 17 });
+  const [currencies, setCurrencies] = useState({});
 
   useEffect(() => {
     // Redirect if cart is empty or user is not logged in
@@ -17,13 +20,37 @@ const Checkout = () => {
       navigate('/cart');
     }
     if (!user_id) {
-      navigate('/login'); // Or alert and navigate to home/login
+      navigate('/login');
     }
   }, [cartItems, user_id, navigate]);
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/settings'),
+          axios.get('/api/currencies')
+        ]);
+        setSettings(settingsRes.data);
+        setCurrencies(currenciesRes.data);
+      } catch (err) {
+        console.error('Error fetching settings:', err);
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleSimulatePayment = () => {
     setPaymentSimulated(true);
     alert('Payment simulated successfully! You can now place your order.');
+  };
+
+  const formatPrice = (price) => {
+    const currency = currencies[settings.currency];
+    if (!currency) return `₪${price.toFixed(2)}`; // Default to shekel if currency not found
+    
+    const convertedPrice = price * currency.rate;
+    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
   };
 
   const handlePlaceOrder = async () => {
@@ -37,9 +64,9 @@ const Checkout = () => {
       return;
     }
     if (!user_id) {
-        alert('You must be logged in to place an order.');
-        navigate('/login');
-        return;
+      alert('You must be logged in to place an order.');
+      navigate('/login');
+      return;
     }
 
     setLoadingOrder(true);
@@ -76,8 +103,8 @@ const Checkout = () => {
       const result = await response.json();
       console.log('Order placed successfully:', result);
       alert('Order placed successfully!');
-      clearCart(); // Clear cart after successful order
-      navigate('/order-confirmation'); // Navigate to a confirmation page
+      clearCart();
+      navigate('/order-confirmation');
 
     } catch (error) {
       console.error('Error placing order:', error);
@@ -87,6 +114,11 @@ const Checkout = () => {
       setLoadingOrder(false);
     }
   };
+
+  const subtotal = parseFloat(getTotalPrice());
+  const vatRate = settings.taxRate || 0;
+  const vatAmount = subtotal * (vatRate / 100);
+  const total = subtotal + vatAmount;
 
   return (
     <div style={{ maxWidth: '800px', margin: '20px auto', padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
@@ -101,12 +133,24 @@ const Checkout = () => {
             {cartItems.map(item => (
               <li key={item.product_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px dashed #eee' }}>
                 <span>{item.name} (x{item.quantity})</span>
-                <span>${(parseFloat(item.price) * item.quantity).toFixed(2)}</span>
+                <span>{formatPrice(parseFloat(item.price) * item.quantity)}</span>
               </li>
             ))}
           </ul>
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px', fontSize: '1.8em', fontWeight: 'bold', color: '#333' }}>
-            Total: ${getTotalPrice()}
+
+          <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+              <span>Subtotal:</span>
+              <span>{formatPrice(subtotal)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: '#666' }}>
+              <span>VAT ({vatRate}%):</span>
+              <span>{formatPrice(vatAmount)}</span>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2em', fontWeight: 'bold', borderTop: '1px solid #ddd', paddingTop: '10px' }}>
+              <span>Total:</span>
+              <span>{formatPrice(total)}</span>
+            </div>
           </div>
 
           <h2 style={{ fontSize: '1.5em', marginTop: '30px', marginBottom: '15px', color: '#555' }}>Payment</h2>

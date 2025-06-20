@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { Link } from 'react-router-dom';
+import axios from 'axios';
 
 const Cart = () => {
   const { cartItems, removeFromCart, updateCartQuantity, clearCart, getTotalPrice } = useCart();
+  const [settings, setSettings] = useState({ currency: 'ILS' });
+  const [currencies, setCurrencies] = useState({});
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      try {
+        const [settingsRes, currenciesRes] = await Promise.all([
+          axios.get('/api/settings'),
+          axios.get('/api/currencies')
+        ]);
+        setSettings(settingsRes.data);
+        setCurrencies(currenciesRes.data);
+      } catch (err) {
+        // ignore
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const formatPrice = (price) => {
+    const currency = currencies[settings.currency];
+    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
+    const convertedPrice = price * currency.rate;
+    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
+  };
 
   return (
     <div style={{ maxWidth: '900px', margin: '20px auto', padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
@@ -38,7 +64,7 @@ const Cart = () => {
               />
               <div style={{ flex: 1 }}>
                 <h3 style={{ margin: '0 0 5px 0', fontSize: '1.1em' }}>{item.name}</h3>
-                <p style={{ margin: '0 0 10px 0', color: '#555' }}>${parseFloat(item.price).toFixed(2)}</p>
+                <p style={{ margin: '0 0 10px 0', color: '#555' }}>{formatPrice(parseFloat(item.price))}</p>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginRight: '20px' }}>
                 <button
@@ -79,7 +105,7 @@ const Cart = () => {
           ))}
 
           <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', marginTop: '30px', borderTop: '1px solid #eee', paddingTop: '20px' }}>
-            <h2 style={{ margin: '0', fontSize: '1.5em', marginRight: '20px' }}>Total: ${getTotalPrice()}</h2>
+            <h2 style={{ margin: '0', fontSize: '1.5em', marginRight: '20px' }}>Total: {formatPrice(parseFloat(getTotalPrice()))}</h2>
             <button
               onClick={clearCart}
               style={{
