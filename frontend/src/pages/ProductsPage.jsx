@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { BsCart } from 'react-icons/bs';
+import './ProductsPage.css'; // Import the new CSS file
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([]);
   const [manufacturers, setManufacturers] = useState([]);
-  const [settings, setSettings] = useState({ currency: 'ILS' });
-  const [currencies, setCurrencies] = useState({});
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -28,6 +28,7 @@ const ProductsPage = () => {
   const [selectedCategory, setSelectedCategory] = useState(getInitialCategory);
   const [priceRange, setPriceRange] = useState(100000);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
+  const [filtersOpen, setFiltersOpen] = useState(false); // State for mobile filters
 
   // Update selectedCategory if URL changes
   useEffect(() => {
@@ -64,20 +65,6 @@ const ProductsPage = () => {
     ];
     setManufacturers(dummyManufacturers);
 
-    // Fetch settings and currencies
-    const fetchSettingsAndCurrencies = async () => {
-      try {
-        const [settingsRes, currenciesRes] = await Promise.all([
-          axios.get('/api/settings'),
-          axios.get('/api/currencies')
-        ]);
-        setSettings(settingsRes.data);
-        setCurrencies(currenciesRes.data);
-      } catch (err) {
-        // ignore
-      }
-    };
-    fetchSettingsAndCurrencies();
   }, []);
 
   const handleCategoryChange = (category) => {
@@ -109,13 +96,6 @@ const ProductsPage = () => {
     );
   };
 
-  const formatPrice = (price) => {
-    const currency = currencies[settings.currency];
-    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
-    const convertedPrice = price * currency.rate;
-    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
-  };
-
   const filteredProducts = products.filter(product => {
     const matchesCategory = selectedCategory === 'All Products' || product.category_id === selectedCategory;
     const matchesPrice = parseFloat(product.price) <= parseFloat(priceRange);
@@ -124,47 +104,47 @@ const ProductsPage = () => {
     return matchesCategory && matchesPrice && matchesManufacturer;
   });
 
+  const FilterSidebar = () => (
+    <div className={`filters-sidebar ${filtersOpen ? 'open' : ''}`}>
+      <button className="filter-close-button" onClick={() => setFiltersOpen(false)}>&times;</button>
+      <div className="filter-group">
+        <h3>Price Range</h3>
+        <input type="range" min="0" max="100000" value={priceRange} onChange={handlePriceChange} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
+          <span>$0</span>
+          <span>${priceRange}</span>
+        </div>
+      </div>
+      <div className="filter-group">
+        <h3>Manufacturer</h3>
+        {manufacturers.map(manufacturer => (
+          <div key={manufacturer.id}>
+            <label>
+              <input type="checkbox" value={manufacturer.id} checked={selectedManufacturers.includes(manufacturer.id)} onChange={handleManufacturerChange} />
+              {manufacturer.name}
+            </label>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   return (
-    <div style={{ maxWidth: '1200px', margin: '20px auto', padding: '0 20px' }}>
-      {/* Hero Section Placeholder */}
-      <div style={{
-        background: 'linear-gradient(to right, #4a90e2, #63b8ff)',
-        color: 'white',
-        padding: '60px 40px',
-        borderRadius: '8px',
-        textAlign: 'center',
-        marginBottom: '40px'
-      }}>
-        <h1 style={{ fontSize: '2.5em', marginBottom: '10px' }}>Premium Computers for Work and Play</h1>
-        <p style={{ fontSize: '1.2em', marginBottom: '20px' }}>Discover our extensive range of high-quality products and cutting-edge technology solutions</p>
-        <button style={{
-          padding: '12px 30px',
-          backgroundColor: '#ff7043',
-          color: 'white',
-          border: 'none',
-          borderRadius: '5px',
-          cursor: 'pointer',
-          fontSize: '1.1em'
-        }}>Shop Now</button>
+    <div className="products-page-container">
+      <div className="products-hero-section">
+        <h1>Premium Computers for Work and Play</h1>
+        <p>Discover our extensive range of high-quality products and cutting-edge technology solutions</p>
+        <button className="shop-now-button">Shop Now</button>
       </div>
 
-      {/* Categories Filter */}
-      <div style={{ marginBottom: '30px' }}>
-        <h3 style={{ marginBottom: '15px' }}>Categories</h3>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+      <div className="categories-filter">
+        <h3>Categories</h3>
+        <div className="categories-filter-buttons">
           {categories.map(cat => (
             <button
               key={cat.category_id}
               onClick={() => handleCategoryChange(cat.category_id)}
-              style={{
-                padding: '8px 15px',
-                borderRadius: '20px',
-                border: `1px solid ${selectedCategory === cat.category_id ? '#007bff' : '#ddd'}`,
-                backgroundColor: selectedCategory === cat.category_id ? '#e9f7ff' : '#f8f9fa',
-                cursor: 'pointer',
-                fontSize: '0.9em',
-                transition: 'all 0.3s'
-              }}
+              className={`category-button ${selectedCategory === cat.category_id ? 'active' : ''}`}
             >
               {cat.name}
             </button>
@@ -172,110 +152,36 @@ const ProductsPage = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '30px' }}>
-        {/* Filters Sidebar */}
-        <div style={{ flexBasis: '250px', flexShrink: 0 }}>
-          {/* Price Range Filter */}
-          <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ marginTop: '0', marginBottom: '15px' }}>Price Range</h3>
-            <input
-              type="range"
-              min="0"
-              max="100000"
-              value={priceRange}
-              onChange={handlePriceChange}
-              style={{ width: '100%' }}
-            />
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-              <span>{formatPrice(0)}</span>
-              <span>{formatPrice(priceRange)}</span>
-            </div>
-          </div>
-
-          {/* Manufacturer Filter */}
-          <div style={{ border: '1px solid #eee', padding: '20px', borderRadius: '8px', marginBottom: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3 style={{ marginTop: '0', marginBottom: '15px' }}>Manufacturer</h3>
-            {manufacturers.map(manufacturer => (
-              <div key={manufacturer.id} style={{ marginBottom: '10px' }}>
-                <label>
-                  <input
-                    type="checkbox"
-                    value={manufacturer.id}
-                    checked={selectedManufacturers.includes(manufacturer.id)}
-                    onChange={handleManufacturerChange}
-                    style={{ marginRight: '8px' }}
-                  />
-                  {manufacturer.name}
-                </label>
+      <div className="products-page-layout">
+        <FilterSidebar />
+        <div className="product-grid-container">
+          <button className="mobile-filter-button" onClick={() => setFiltersOpen(true)}>Show Filters</button>
+          <div className="product-grid">
+            {filteredProducts.map(product => (
+              <div key={product.product_id} className="product-card">
+                <div className="product-image-container">
+                  {product.image ? (
+                    <img src={product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image} alt={product.name} className="product-image" />
+                  ) : (
+                    <div className="product-placeholder-image">Product Image</div>
+                  )}
+                </div>
+                <div>
+                  <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
+                  <h4 className="product-name">{product.name}</h4>
+                  <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
+                  <p className="product-price">${parseFloat(product.price).toFixed(2)}</p>
+                  <div className="product-card-actions">
+                    <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
+                    <button className="add-to-cart-button" onClick={() => addToCart(product)}>
+                      <BsCart />
+                    </button>
+                  </div>
+                </div>
               </div>
             ))}
           </div>
         </div>
-
-        {/* Product Grid */}
-        <div style={{ flex: 1, display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
-          {filteredProducts.map(product => (
-            <div key={product.product_id} style={{
-              border: '1px solid #eee',
-              borderRadius: '8px',
-              padding: '20px',
-              textAlign: 'center',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-              backgroundColor: 'white'
-            }}>
-              <div style={{ height: '200px', display: 'flex', justifyContent: 'center', alignItems: 'center', marginBottom: '15px' }}>
-                {product.image ? (
-                  <img src={product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image} alt={product.name} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                ) : (
-                  <div style={{ width: '100%', height: '100%', backgroundColor: '#f0f0f0', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#aaa' }}>Product Image</div>
-                )}
-              </div>
-              <p style={{ color: '#888', fontSize: '0.9em', marginBottom: '5px' }}>{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
-              <h3 style={{ fontSize: '1.2em', marginBottom: '5px' }}>{product.name}</h3>
-              <p style={{ fontSize: '1em', color: '#555', marginBottom: '15px' }}>Little Info (One Line)</p>
-              <p style={{ fontSize: '1.4em', fontWeight: 'bold', color: '#333' }}>{formatPrice(parseFloat(product.price))}</p>
-              <div style={{ display: 'flex', justifyContent: 'space-around', marginTop: '15px' }}>
-                <button
-                  style={{
-                    padding: '10px 15px',
-                    backgroundColor: '#007bff',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '5px',
-                    cursor: 'pointer',
-                    flex: 1,
-                    marginRight: '5px'
-                  }}
-                  onClick={() => navigate(`/products/${product.product_id}`)}
-                >For details</button>
-                <button style={{
-                  padding: '10px 15px',
-                  backgroundColor: '#ff9800',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer'
-                }} onClick={() => { console.log('Attempting to add product to cart:', product.name); addToCart(product); }}>
-                  🛒
-                </button>
-              </div>
-            </div>
-          ))}
-          {filteredProducts.length === 0 && (
-            <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '20px', color: '#888' }}>
-              No products found matching your criteria. Check console for fetch errors.
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Pagination Placeholder */}
-      <div style={{ textAlign: 'center', marginTop: '30px' }}>
-        <button style={{ padding: '8px 15px', border: '1px solid #ddd', borderRadius: '4px', background: 'none', cursor: 'pointer', marginRight: '5px' }}>← Previous</button>
-        <button style={{ padding: '8px 15px', border: '1px solid #ddd', borderRadius: '4px', background: '#007bff', color: 'white', cursor: 'pointer', marginRight: '5px' }}>1</button>
-        <button style={{ padding: '8px 15px', border: '1px solid #ddd', borderRadius: '4px', background: 'none', cursor: 'pointer', marginRight: '5px' }}>2</button>
-        <button style={{ padding: '8px 15px', border: '1px solid #ddd', borderRadius: '4px', background: 'none', cursor: 'pointer' }}>3</button>
-        <button style={{ padding: '8px 15px', border: '1px solid #ddd', borderRadius: '4px', background: 'none', cursor: 'pointer', marginLeft: '5px' }}>Next →</button>
       </div>
     </div>
   );

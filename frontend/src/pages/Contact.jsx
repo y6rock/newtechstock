@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import './shared.css'; // Import shared styles
 
-export default function Contact() {
+const Contact = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState('');
@@ -9,7 +10,7 @@ export default function Contact() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setStatus('');
+    setStatus('Sending...');
     setLoading(true);
     try {
       const res = await fetch('/api/contact', {
@@ -19,8 +20,10 @@ export default function Contact() {
       });
       const data = await res.json();
       if (res.ok) {
-        setStatus('Your message has been sent successfully!');
-        setName(''); setEmail(''); setMessage('');
+        setStatus('Message sent successfully!');
+        setName('');
+        setEmail('');
+        setMessage('');
       } else {
         setStatus(data.message || 'Failed to send message.');
       }
@@ -32,75 +35,58 @@ export default function Contact() {
   };
 
   return (
-    <div style={{ fontFamily: 'Arial', background: '#f8f9fa', minHeight: '100vh' }}>
-      {/* Blue Header */}
-      <div style={{ background: '#2563eb', color: 'white', padding: '40px 0', textAlign: 'center' }}>
-        <h2 style={{ fontSize: '2.5em', margin: 0 }}>Contact Us</h2>
-        <p style={{ fontSize: '1.2em', marginTop: '10px' }}>
+    <div>
+      {/* Blue Header - Now full width and with better contrast */}
+      <div style={{ background: '#1e40af', color: 'white', padding: '60px 20px', textAlign: 'center', marginBottom: '40px' }}>
+        <h1 style={{ fontSize: '3em', margin: 0, fontWeight: 'bold' }}>Contact Us</h1>
+        <p style={{ marginTop: '15px', fontSize: '1.2em' }}>
           Have questions about our products or services? Our team is here to help you.
         </p>
       </div>
 
-      {/* Contact Information Section */}
-      <div style={{ maxWidth: 1000, margin: '40px auto 0', background: 'white', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', padding: '40px 30px' }}>
-        <h3 style={{ textAlign: 'center', marginBottom: 30, fontSize: '1.7em', color: '#222' }}>Contact Information</h3>
-        <div style={{ display: 'flex', justifyContent: 'space-around', flexWrap: 'wrap', gap: 30 }}>
-          {/* Location */}
-          <div style={{ flex: '1 1 250px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2em', marginBottom: 10 }}>📍</div>
-            <div style={{ fontWeight: 'bold', marginBottom: 5 }}>Our Location</div>
-            <div>123 Tech Avenue<br/>Silicon Valley, CA 94043<br/>United States</div>
+      <div className="simple-page-container" style={{paddingTop: 0}}>
+        <div style={{ display: 'flex', justifyContent: 'center', gap: '20px', padding: '40px 0', flexWrap: 'wrap' }}>
+          {/* Contact Information */}
+          <div style={{ textAlign: 'center', minWidth: '250px' }}>
+            <span style={{ fontSize: '2.5em' }}>📍</span>
+            <h3 style={{ marginTop: '10px', fontSize: '1.2em' }}>Our Location</h3>
+            <p style={{ color: '#666' }}>123 Tech Avenue<br />Silicon Valley, CA 94043<br />United States</p>
           </div>
-          {/* Email */}
-          <div style={{ flex: '1 1 250px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2em', marginBottom: 10 }}>✉️</div>
-            <div style={{ fontWeight: 'bold', marginBottom: 5 }}>Email Us</div>
-            <div>support@techstock.com<br/>sales@techstock.com</div>
+          <div style={{ textAlign: 'center', minWidth: '250px' }}>
+            <span style={{ fontSize: '2.5em' }}>📧</span>
+            <h3 style={{ marginTop: '10px', fontSize: '1.2em' }}>Email Us</h3>
+            <p style={{ color: '#666' }}>support@techstock.com<br />sales@techstock.com</p>
           </div>
-          {/* Phone */}
-          <div style={{ flex: '1 1 250px', textAlign: 'center' }}>
-            <div style={{ fontSize: '2em', marginBottom: 10 }}>📞</div>
-            <div style={{ fontWeight: 'bold', marginBottom: 5 }}>Call Us</div>
-            <div>Customer Support: (223) 456-7890<br/>Sales Inquiries: (712) 654-7891</div>
+          <div style={{ textAlign: 'center', minWidth: '250px' }}>
+            <span style={{ fontSize: '2.5em' }}>📞</span>
+            <h3 style={{ marginTop: '10px', fontSize: '1.2em' }}>Call Us</h3>
+            <p style={{ color: '#666' }}>Customer Support: (220) 456-7890<br />Sales Inquiries: (712) 654-7891</p>
           </div>
         </div>
-      </div>
 
-      {/* Contact Form */}
-      <form onSubmit={handleSubmit} style={{ maxWidth: '500px', margin: '40px auto', background: 'white', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)', padding: '30px 25px' }}>
-        <h3 style={{ textAlign: 'center', marginBottom: 20, color: '#2563eb' }}>Send Us a Message</h3>
-        <input
-          placeholder="Your Name"
-          value={name}
-          onChange={e => setName(e.target.value)}
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: 6, border: '1px solid #ddd' }}
-          required
-        />
-        <input
-          placeholder="Email"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          style={{ width: '100%', padding: '10px', marginBottom: '10px', borderRadius: 6, border: '1px solid #ddd' }}
-          required
-        />
-        <textarea
-          placeholder="Message"
-          rows="5"
-          value={message}
-          onChange={e => setMessage(e.target.value)}
-          style={{ width: '100%', padding: '10px', borderRadius: 6, border: '1px solid #ddd' }}
-          required
-        ></textarea>
-        <button
-          type="submit"
-          style={{ marginTop: '10px', padding: '10px 20px', backgroundColor: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, width: '100%', fontWeight: 'bold', fontSize: '1em' }}
-          disabled={loading}
-        >
-          {loading ? 'Sending...' : 'Send'}
-        </button>
-        {status && <div style={{ marginTop: 15, color: status.includes('successfully') ? 'green' : 'red', textAlign: 'center' }}>{status}</div>}
-      </form>
+        {/* Contact Form */}
+        <div style={{ maxWidth: '600px', margin: '0 auto', background: 'white', padding: '30px', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.1)' }}>
+          <h2 style={{ textAlign: 'center', marginBottom: '20px' }}>Send Us a Message</h2>
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '15px' }}>
+              <label htmlFor="name" style={{ display: 'block', marginBottom: '5px' }}>Your Name</label>
+              <input type="text" id="name" value={name} onChange={(e) => setName(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+            </div>
+            <div style={{ marginBottom: '15px' }}>
+              <label htmlFor="email" style={{ display: 'block', marginBottom: '5px' }}>Email</label>
+              <input type="email" id="email" value={email} onChange={(e) => setEmail(e.target.value)} required style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }} />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label htmlFor="message" style={{ display: 'block', marginBottom: '5px' }}>Message</label>
+              <textarea id="message" value={message} onChange={(e) => setMessage(e.target.value)} required rows="5" style={{ width: '100%', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}></textarea>
+            </div>
+            <button type="submit" style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '5px', fontSize: '1.1em', cursor: 'pointer' }}>Send Message</button>
+            {status && <p style={{ textAlign: 'center', marginTop: '15px', color: status.includes('successfully') ? 'green' : 'blue' }}>{status}</p>}
+          </form>
+        </div>
+      </div>
     </div>
   );
-}
+};
+
+export default Contact;

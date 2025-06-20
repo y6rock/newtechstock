@@ -1,0 +1,145 @@
+/* Base Styles for the Header */
+.header-nav {
+  padding: 10px 20px;
+  background: #ffffff;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+  position: relative; /* Needed for the mobile menu positioning */
+}
+
+.header-left, .header-right, .header-nav-links, .header-auth-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.header-nav-links a, .header-auth-links a, .header-auth-links button {
+  padding: 8px 12px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1em; /* Ensure consistent font size */
+}
+
+.header-nav-links a:hover, .header-auth-links a:hover {
+  background-color: #f0f0f0;
+}
+
+.header-nav-links .cart-link {
+  position: relative;
+}
+
+.header-nav-links .cart-badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  background-color: #ff4500;
+  color: white;
+  border-radius: 50%;
+  padding: 2px 6px;
+  font-size: 0.7em;
+  font-weight: bold;
+}
+
+.header-auth-welcome a {
+  color: #1976D2;
+  text-decoration: none;
+  font-weight: bold;
+  transition: color 0.2s;
+}
+
+.header-auth-logout-btn {
+  padding: 4px 8px !important;
+  border: 1px solid #1976D2 !important;
+  color: #1976D2 !important;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem !important;
+  transition: all 0.2s;
+}
+
+.manager-link {
+  padding: 8px 12px;
+  color: #1976D2 !important;
+  text-decoration: none;
+  border-radius: 4px;
+  font-weight: bold;
+  transition: background-color 0.2s;
+}
+
+/* This container wraps all the links that collapse into the mobile menu */
+.header-nav-container {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex: 1; /* Takes up the available space between logo and hamburger */
+  gap: 20px;
+}
+
+/* Hamburger Menu Icon */
+.hamburger-menu {
+  display: none; /* Hidden by default on desktop */
+  flex-direction: column;
+  justify-content: space-around;
+  width: 2rem;
+  height: 2rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  z-index: 20;
+}
+
+.hamburger-menu div {
+  width: 2rem;
+  height: 0.25rem;
+  background: #333;
+  border-radius: 10px;
+  transition: all 0.3s linear;
+  position: relative;
+  transform-origin: 1px;
+}
+
+/* Mobile Responsive Styles */
+@media (max-width: 992px) { /* Breakpoint for tablets and mobile */
+  .header-nav-container {
+    display: none; /* Hide the nav links container by default */
+    flex-direction: column;
+    position: absolute;
+    top: 100%; /* Position below the header */
+    left: 0;
+    width: 100%;
+    background: white;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+    z-index: 100; /* Ensure menu appears above other content */
+  }
+
+  .header-nav-container.active {
+    display: flex; /* Show when active */
+  }
+
+  .header-nav-links, .header-right {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+    gap: 0;
+  }
+
+  .header-nav-links a, .header-right > div, .manager-link {
+    padding: 15px 20px;
+    width: 100%;
+    text-align: left;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .hamburger-menu {
+    display: flex; /* Show the hamburger icon */
+  }
+} 

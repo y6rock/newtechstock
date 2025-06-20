@@ -11,7 +11,7 @@ const Checkout = () => {
   const [paymentSimulated, setPaymentSimulated] = useState(false);
   const [loadingOrder, setLoadingOrder] = useState(false);
   const [orderError, setOrderError] = useState(null);
-  const [settings, setSettings] = useState({ currency: 'ILS', taxRate: 17 });
+  const [settings, setSettings] = useState({ currency: 'ILS', vat_rate: 17 });
   const [currencies, setCurrencies] = useState({});
 
   useEffect(() => {
@@ -116,8 +116,7 @@ const Checkout = () => {
   };
 
   const subtotal = parseFloat(getTotalPrice());
-  const vatRate = settings.taxRate || 0;
-  const vatAmount = subtotal * (vatRate / 100);
+  const vatAmount = subtotal * (settings.vat_rate / 100);
   const total = subtotal + vatAmount;
 
   return (
@@ -144,7 +143,7 @@ const Checkout = () => {
               <span>{formatPrice(subtotal)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: '#666' }}>
-              <span>VAT ({vatRate}%):</span>
+              <span>VAT ({settings.vat_rate}%):</span>
               <span>{formatPrice(vatAmount)}</span>
             </div>
             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2em', fontWeight: 'bold', borderTop: '1px solid #ddd', paddingTop: '10px' }}>

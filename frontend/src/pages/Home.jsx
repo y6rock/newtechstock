@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import './Home.css'; // Import the new CSS file
 
 // Import category images
 import laptopsImage from '../assets/images/laptops.jpeg';
@@ -60,76 +61,29 @@ const Home = () => {
   ];
 
   return (
-    <div style={{ fontFamily: 'Arial, sans-serif', backgroundColor: '#f8f8f8' }}>
+    <div className="home-container">
       {/* Hero Section */}
-      <section style={{
-        background: 'linear-gradient(135deg, #4b0082, #8a2be2)',
-        color: '#fff',
-        textAlign: 'center',
-        padding: '80px 20px',
-        borderRadius: '0 0 15px 15px',
-        marginBottom: '40px',
-        boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
-      }}>
-        <h1 style={{ fontSize: '3.5em', marginBottom: '15px', fontWeight: 'bold' }}>Tech Excellence</h1>
-        <p style={{ fontSize: '1.2em', marginBottom: '30px', maxWidth: '600px', margin: '0 auto 30px auto' }}>Discover premium technology products that enhance your digital lifestyle</p>
-        <Link to="/products" style={{
-          display: 'inline-block',
-          padding: '12px 30px',
-          backgroundColor: '#fff',
-          color: '#4b0082',
-          textDecoration: 'none',
-          borderRadius: '5px',
-          fontWeight: 'bold',
-          transition: 'background-color 0.3s ease, color 0.3s ease',
-          boxShadow: '0 2px 5px rgba(0,0,0,0.2)'
-        }}
-        onMouseOver={(e) => e.target.style.backgroundColor = '#eee'}
-        onMouseOut={(e) => e.target.style.backgroundColor = '#fff'}
-        >
+      <section className="hero-section">
+        <h1>Tech Excellence</h1>
+        <p>Discover premium technology products that enhance your digital lifestyle</p>
+        <Link to="/products" className="explore-button">
           Explore Collection
         </Link>
       </section>
 
       {/* Product Categories Section */}
-      <div style={{ padding: '20px', maxWidth: '1200px', margin: '0 auto' }}>
-        {displayCategories.map((category, index) => (
-          <div key={category.name} style={{
-            display: 'flex',
-            flexDirection: index % 2 === 0 ? 'row' : 'row-reverse', // Alternate image/text order
-            alignItems: 'center',
-            marginBottom: '60px',
-            backgroundColor: '#fff',
-            borderRadius: '10px',
-            boxShadow: '0 2px 10px rgba(0,0,0,0.05)',
-            overflow: 'hidden',
-            padding: '20px'
-          }}>
-            <div style={{
-              flex: 1,
-              padding: '30px',
-              textAlign: index % 2 === 0 ? 'left' : 'right'
-            }}>
-              <h2 style={{ fontSize: '2em', marginBottom: '10px', color: '#333' }}>{category.name}</h2>
-              <p style={{ color: '#666', marginBottom: '20px', lineHeight: '1.6' }}>{category.description}</p>
-              <Link to={`/products?category=${category.name}`} style={{
-                display: 'inline-block',
-                padding: '10px 20px',
-                backgroundColor: '#ff9900',
-                color: '#fff',
-                textDecoration: 'none',
-                borderRadius: '5px',
-                fontWeight: 'bold',
-                transition: 'background-color 0.3s ease',
-              }}
-              onMouseOver={(e) => e.target.style.backgroundColor = '#e68a00'}
-              onMouseOut={(e) => e.target.style.backgroundColor = '#ff9900'}
-              >
+      <div className="categories-container">
+        {displayCategories.map((category) => (
+          <div key={category.name} className="category-card">
+            <div className="image-container">
+              <img src={category.imageUrl} alt={category.name} />
+            </div>
+            <div className="text-container">
+              <h2>{category.name}</h2>
+              <p>{category.description}</p>
+              <Link to={`/products?category=${category.name}`} className="explore-link">
                 Explore {category.name.split(' ')[0]}
               </Link>
-            </div>
-            <div style={{ flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <img src={category.imageUrl} alt={category.name} style={{ maxWidth: '100%', height: 'auto', borderRadius: '8px' }} />
             </div>
           </div>
         ))}

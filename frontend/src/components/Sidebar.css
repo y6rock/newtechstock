@@ -1,0 +1,58 @@
+/* --- Sidebar.css --- */
+
+.sidebar {
+  width: 220px;
+  background-color: #f8f9fa;
+  padding: 20px;
+  border-right: 1px solid #e0e0e0;
+  position: fixed;
+  height: 100%;
+  overflow-y: auto;
+  box-shadow: 2px 0 5px rgba(0,0,0,0.05);
+  transition: transform 0.3s ease-in-out;
+  z-index: 1000;
+  flex-shrink: 0; /* Prevent sidebar from shrinking */
+}
+
+.sidebar-header {
+  margin-top: 0;
+  margin-bottom: 20px;
+  color: #333;
+  background-color: #e9f7ff;
+}
+
+.sidebar-nav a {
+  display: block;
+  padding: 10px 20px;
+  color: #333;
+  text-decoration: none;
+  border-radius: 5px;
+  margin-bottom: 5px;
+  transition: all 0.2s ease-in-out;
+}
+
+.sidebar-nav a.active {
+  color: #007bff;
+  font-weight: bold;
+  background-color: #e9f7ff;
+}
+
+@media (min-width: 769px) {
+  .sidebar {
+    position: static; /* Let it be positioned by the flex container */
+    height: auto;
+    transform: translateX(0) !important;
+  }
+}
+
+/* --- Mobile Responsive Styles --- */
+@media (max-width: 768px) {
+  .sidebar {
+    transform: translateX(-100%); /* Hide off-screen by default */
+  }
+
+  .sidebar.open {
+    transform: translateX(0); /* Slide in when open */
+    box-shadow: 4px 0 10px rgba(0,0,0,0.1);
+  }
+} 

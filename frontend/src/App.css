@@ -1,6 +1,10 @@
-.App {
-  text-align: center;
+body {
+  background-color: red !important;
 }
+
+/* .App {
+  text-align: center;
+} */
 
 .App-logo {
   height: 40vmin;
@@ -34,5 +38,35 @@
   }
   to {
     transform: rotate(360deg);
+  }
+}
+
+.admin-hamburger-button {
+  position: fixed;
+  top: 15px;
+  left: 15px;
+  z-index: 1050;
+  background: #fff;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  padding: 8px;
+  cursor: pointer;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.15);
+}
+
+.main-content {
+  flex-grow: 1;
+  /* padding: 20px; */ /* Let pages handle their own padding */
+  width: 100%;
+}
+
+.main-content.admin-view {
+  margin-left: 0;
+}
+
+/* --- Desktop styles --- */
+@media (min-width: 769px) {
+  .main-content.admin-view {
+    margin-left: 220px !important; /* Force margin for admin content */
   }
 }

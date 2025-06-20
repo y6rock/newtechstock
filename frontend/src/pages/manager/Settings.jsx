@@ -1,15 +1,106 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSettings } from '../../context/SettingsContext';
+import { useSettings as useLocalSettings } from '../../context/SettingsContext';
+import './Settings.css';
 
 const Settings = () => {
-  const { user_id, username, fetchStoreSettings } = useSettings();
+  const { user_id, username } = useLocalSettings();
   const [settings, setSettings] = useState({
-    contactEmail: '',
-    contactPhone: '',
-    storeName: '',
-    taxRate: 0,
-    currency: 'ILS'
+    currency: 'ILS',
+    vat_rate: 17,
+    site_name: '',
+    site_description: '',
+    contact_email: '',
+    contact_phone: '',
+    address: '',
+    facebook_url: '',
+    instagram_url: '',
+    twitter_url: '',
+    maintenance_mode: false,
+    allow_registration: true,
+    allow_guest_checkout: true,
+    min_order_amount: 0,
+    max_order_amount: 10000,
+    order_notification_email: '',
+    smtp_host: '',
+    smtp_port: '',
+    smtp_user: '',
+    smtp_password: '',
+    smtp_secure: true,
+    google_analytics_id: '',
+    facebook_pixel_id: '',
+    recaptcha_site_key: '',
+    recaptcha_secret_key: '',
+    stripe_public_key: '',
+    stripe_secret_key: '',
+    paypal_client_id: '',
+    paypal_secret: '',
+    shipping_methods: [],
+    payment_methods: [],
+    tax_rates: [],
+    discount_codes: [],
+    return_policy: '',
+    privacy_policy: '',
+    terms_conditions: '',
+    shipping_policy: '',
+    refund_policy: '',
+    cookie_policy: '',
+    about_us: '',
+    faq: '',
+    support_email: '',
+    support_phone: '',
+    support_hours: '',
+    social_media_links: {},
+    seo_meta_title: '',
+    seo_meta_description: '',
+    seo_meta_keywords: '',
+    seo_og_title: '',
+    seo_og_description: '',
+    seo_og_image: '',
+    seo_twitter_card: '',
+    seo_twitter_title: '',
+    seo_twitter_description: '',
+    seo_twitter_image: '',
+    seo_robots_txt: '',
+    seo_sitemap_xml: '',
+    seo_canonical_url: '',
+    seo_alternate_languages: {},
+    seo_schema_markup: '',
+    seo_structured_data: {},
+    seo_meta_tags: {},
+    seo_meta_properties: {},
+    seo_meta_names: {},
+    seo_meta_http_equiv: {},
+    seo_meta_charset: '',
+    seo_meta_viewport: '',
+    seo_meta_theme_color: '',
+    seo_meta_msapplication_TileColor: '',
+    seo_meta_msapplication_TileImage: '',
+    seo_meta_msapplication_config: '',
+    seo_meta_apple_mobile_web_app_capable: '',
+    seo_meta_apple_mobile_web_app_status_bar_style: '',
+    seo_meta_apple_mobile_web_app_title: '',
+    seo_meta_apple_touch_icon: '',
+    seo_meta_apple_touch_icon_72x72: '',
+    seo_meta_apple_touch_icon_114x114: '',
+    seo_meta_apple_touch_icon_144x144: '',
+    seo_meta_apple_touch_icon_152x152: '',
+    seo_meta_apple_touch_icon_180x180: '',
+    seo_meta_apple_touch_icon_192x192: '',
+    seo_meta_apple_touch_icon_512x512: '',
+    seo_meta_apple_touch_startup_image: '',
+    seo_meta_apple_touch_startup_image_640x1136: '',
+    seo_meta_apple_touch_startup_image_750x1334: '',
+    seo_meta_apple_touch_startup_image_1242x2208: '',
+    seo_meta_apple_touch_startup_image_1125x2436: '',
+    seo_meta_apple_touch_startup_image_1536x2048: '',
+    seo_meta_apple_touch_startup_image_1668x2224: '',
+    seo_meta_apple_touch_startup_image_2048x2732: '',
+    seo_meta_apple_touch_startup_image_2208x1242: '',
+    seo_meta_apple_touch_startup_image_2436x1125: '',
+    seo_meta_apple_touch_startup_image_2732x2048: '',
+    seo_meta_apple_touch_startup_image_2224x1668: '',
+    seo_meta_apple_touch_startup_image_2048x1536: ''
   });
   const [currencies, setCurrencies] = useState({});
   const [message, setMessage] = useState('');
@@ -23,16 +114,10 @@ const Settings = () => {
           axios.get('/api/settings'),
           axios.get('/api/currencies')
         ]);
-        setSettings({
-          contactEmail: settingsRes.data.contactEmail || '',
-          contactPhone: settingsRes.data.contactPhone || '',
-          storeName: settingsRes.data.storeName || '',
-          taxRate: settingsRes.data.taxRate || 0,
-          currency: settingsRes.data.currency || 'ILS'
-        });
+        const fetchedSettings = Array.isArray(settingsRes.data) ? settingsRes.data[0] : settingsRes.data;
+        setSettings(prev => ({...prev, ...fetchedSettings}));
         setCurrencies(currenciesRes.data);
       } catch (err) {
-        console.error('Error fetching settings:', err);
         setMessage('Error loading settings');
       } finally {
         setLoading(false);
@@ -46,20 +131,12 @@ const Settings = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const { contactEmail, contactPhone, taxRate, storeName, currency } = settings;
-      await axios.put('http://localhost:3001/api/settings', {
-        contactEmail,
-        contactPhone,
-        taxRate: Number(taxRate),
-        storeName,
-        currency
-      }, {
+      const { currency, vat_rate, site_name, contact_email, contact_phone, facebook_url, instagram_url, twitter_url } = settings;
+      await axios.put('/api/settings', { currency, vat_rate, site_name, contact_email, contact_phone, facebook_url, instagram_url, twitter_url }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage('Settings updated successfully');
-      if (fetchStoreSettings) fetchStoreSettings();
     } catch (err) {
-      console.error('Error updating settings:', err);
       setMessage('Error updating settings');
     } finally {
       setLoading(false);
@@ -67,238 +144,80 @@ const Settings = () => {
   };
 
   const handleChange = (e) => {
-    const { name, value } = e.target;
+    const { name, value, type, checked } = e.target;
     setSettings(prev => ({
       ...prev,
-      [name]: value
+      [name]: type === 'checkbox' ? checked : value
     }));
   };
 
+  const TABS = ['general', 'currency', 'contact'];
+
   if (loading) {
-    return (
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'center', 
-        alignItems: 'center', 
-        minHeight: '100vh',
-        background: '#f0f2f5',
-        padding: '20px'
-      }}>
-        <div style={{ 
-          background: '#fff',
-          padding: '40px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-          width: '100%',
-          maxWidth: '800px'
-        }}>
-          <div style={{ textAlign: 'center', color: '#666' }}>Loading settings...</div>
-        </div>
-      </div>
-    );
+    return <div className="settings-container"><div>Loading settings...</div></div>;
   }
 
   return (
-    <div style={{ 
-      display: 'flex',
-      minHeight: '100vh',
-      background: '#f0f2f5',
-      padding: '20px'
-    }}>
-      <div style={{ 
-        flex: 1,
-        marginLeft: '220px', // Match sidebar width
-        padding: '20px'
-      }}>
-        <div style={{ 
-          background: '#fff',
-          padding: '40px',
-          borderRadius: '8px',
-          boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-          maxWidth: '1200px',
-          margin: '0 auto'
-        }}>
-          <h1 style={{ 
-            fontSize: '1.8em',
-            marginBottom: '10px',
-            color: '#333'
-          }}>Settings</h1>
-          <p style={{ 
-            color: '#666',
-            marginBottom: '30px',
-            fontSize: '0.95em'
-          }}>Manage your store settings and preferences</p>
-          
-          {message && (
-            <div style={{
-              padding: '15px',
-              marginBottom: '20px',
-              borderRadius: '5px',
-              backgroundColor: message.includes('Error') ? '#f8d7da' : '#d4edda',
-              color: message.includes('Error') ? '#721c24' : '#155724',
-              border: `1px solid ${message.includes('Error') ? '#f5c6cb' : '#c3e6cb'}`
-            }}>
-              {message}
-            </div>
-          )}
+    <div className="settings-container">
+      <div className="settings-header">
+        <h1>Settings</h1>
+        <p>Manage your store settings and preferences</p>
+      </div>
 
-          <div style={{ marginBottom: '30px' }}>
-            <div style={{ 
-              display: 'flex',
-              borderBottom: '1px solid #dee2e6',
-              marginBottom: '20px'
-            }}>
-              {['general', 'currency', 'contact'].map((tab) => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  style={{
-                    padding: '10px 20px',
-                    border: 'none',
-                    background: 'none',
-                    color: activeTab === tab ? '#007bff' : '#666',
-                    borderBottom: activeTab === tab ? '2px solid #007bff' : 'none',
-                    cursor: 'pointer',
-                    fontWeight: activeTab === tab ? 'bold' : 'normal',
-                    transition: 'all 0.2s ease'
-                  }}
-                  onMouseOver={(e) => e.target.style.color = '#0056b3'}
-                  onMouseOut={(e) => e.target.style.color = activeTab === tab ? '#007bff' : '#666'}
-                >
-                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
-                </button>
-              ))}
+      {message && <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>{message}</div>}
+
+      <select className="settings-tab-select" value={activeTab} onChange={(e) => setActiveTab(e.target.value)}>
+        {TABS.map((tab) => (
+          <option key={tab} value={tab}>
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+          </option>
+        ))}
+      </select>
+      
+      <form onSubmit={handleSubmit}>
+        {activeTab === 'general' && (
+          <div className="settings-form-section">
+            <div className="form-group">
+              <label>Site Name</label>
+              <input type="text" name="site_name" value={settings.site_name || ''} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>VAT Rate (%)</label>
+              <input type="number" name="vat_rate" value={settings.vat_rate || ''} onChange={handleChange} />
             </div>
           </div>
+        )}
 
-          <form onSubmit={handleSubmit}>
-            {activeTab === 'general' && (
-              <div style={{ display: 'grid', gap: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Store Name</label>
-                  <input
-                    type="text"
-                    name="storeName"
-                    value={settings.storeName}
-                    onChange={handleChange}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '1em'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'currency' && (
-              <div style={{ display: 'grid', gap: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Currency</label>
-                  <select
-                    name="currency"
-                    value={settings.currency}
-                    onChange={handleChange}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '1em'
-                    }}
-                  >
-                    {Object.entries(currencies).map(([code, currency]) => (
-                      <option key={code} value={code}>
-                        {currency.name} ({currency.symbol})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Tax Rate (%)</label>
-                  <input
-                    type="number"
-                    name="taxRate"
-                    value={settings.taxRate}
-                    onChange={handleChange}
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '1em'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {activeTab === 'contact' && (
-              <div style={{ display: 'grid', gap: '20px' }}>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Contact Email</label>
-                  <input
-                    type="email"
-                    name="contactEmail"
-                    value={settings.contactEmail}
-                    onChange={handleChange}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '1em'
-                    }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', marginBottom: '8px', color: '#333' }}>Contact Phone</label>
-                  <input
-                    type="tel"
-                    name="contactPhone"
-                    value={settings.contactPhone}
-                    onChange={handleChange}
-                    style={{
-                      width: '100%',
-                      padding: '10px',
-                      border: '1px solid #ced4da',
-                      borderRadius: '4px',
-                      fontSize: '1em'
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginTop: '30px', textAlign: 'right' }}>
-              <button
-                type="submit"
-                disabled={loading}
-                style={{
-                  padding: '12px 30px',
-                  background: '#007bff',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '5px',
-                  fontSize: '1.1em',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s',
-                  opacity: loading ? 0.7 : 1
-                }}
-                onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
-              >
-                {loading ? 'Saving...' : 'Save Settings'}
-              </button>
+        {activeTab === 'currency' && (
+          <div className="settings-form-section">
+            <div className="form-group">
+              <label>Store Currency</label>
+              <select name="currency" value={settings.currency || 'ILS'} onChange={handleChange}>
+                {Object.keys(currencies).map(code => (
+                  <option key={code} value={code}>{currencies[code].name} ({currencies[code].symbol})</option>
+                ))}
+              </select>
             </div>
-          </form>
-        </div>
-      </div>
+          </div>
+        )}
+
+        {activeTab === 'contact' && (
+          <div className="settings-form-section">
+            <div className="form-group">
+              <label>Contact Email</label>
+              <input type="email" name="contact_email" value={settings.contact_email || ''} onChange={handleChange} />
+            </div>
+            <div className="form-group">
+              <label>Contact Phone</label>
+              <input type="tel" name="contact_phone" value={settings.contact_phone || ''} onChange={handleChange} />
+            </div>
+          </div>
+        )}
+        
+        <button type="submit" className="settings-save-button" disabled={loading}>
+          {loading ? 'Saving...' : 'Save Settings'}
+        </button>
+      </form>
     </div>
   );
 };

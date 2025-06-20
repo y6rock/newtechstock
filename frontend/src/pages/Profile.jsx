@@ -132,10 +132,10 @@ const Profile = () => {
   }
 
   return (
-    <div style={{ maxWidth: '1200px', margin: '20px auto', padding: '20px 8px', backgroundColor: '#f5f5f5', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+    <div style={{ maxWidth: '1100px', margin: '32px auto 0 auto', padding: '8px 0', backgroundColor: '#f5f5f5', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '2px solid #eee', marginBottom: '24px' }}>
-        <div style={{ display: 'flex', gap: '0', background: '#f8f8f8', borderRadius: '8px 8px 0 0', boxShadow: '0 1px 4px rgba(0,0,0,0.03)', maxWidth: '420px', width: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '2px solid #eee', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', gap: '0', background: '#f8f8f8', borderRadius: '8px 8px 0 0', boxShadow: '0 1px 4px rgba(0,0,0,0.03)', maxWidth: '900px', margin: '0 auto' }}>
           <button
             onClick={() => setActiveTab('profile')}
             style={{
@@ -175,9 +175,9 @@ const Profile = () => {
       </div>
       {/* Tab Content */}
       {activeTab === 'profile' && (
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', minWidth: 0, justifyContent: 'center', maxWidth: '900px', width: '100%', margin: '0 auto' }}>
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', minWidth: 0, justifyContent: 'center', maxWidth: '900px', width: '100%', margin: '0 auto' }}>
           {/* Profile Picture Section */}
-          <div style={{ flex: '1 1 340px', maxWidth: '400px', backgroundColor: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', margin: '0 8px', boxSizing: 'border-box', minWidth: '220px' }}>
+          <div style={{ flex: '1 1 380px', maxWidth: '420px', backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', margin: '0 4px', boxSizing: 'border-box', minWidth: '200px' }}>
             <h2 style={{ fontSize: '1.5em', marginBottom: '20px', color: '#333' }}><FaCamera style={{ marginRight: '10px' }} />Profile Picture</h2>
             <div style={{ width: '150px', height: '150px', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 20px auto', border: '3px solid #007bff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
               <img src={getProfilePicUrl(imagePreview || profileData.profilePic)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
@@ -188,19 +188,22 @@ const Profile = () => {
           </div>
           {/* Personal Information Section */}
           <div style={{
-            flex: '1 1 340px',
-            maxWidth: '400px',
+            flex: '1 1 380px',
+            maxWidth: '420px',
+            minWidth: '200px',
+            width: '100%',
             backgroundColor: '#fff',
-            padding: '32px',
-            borderRadius: '12px',
+            padding: '24px',
+            borderRadius: '10px',
             boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-            margin: '0 8px 20px 8px',
-            minWidth: '220px',
+            margin: '0 4px 16px 4px',
             border: '1px solid #f0f0f0',
             display: 'flex',
             flexDirection: 'column',
-            gap: '28px',
+            gap: '20px',
             boxSizing: 'border-box',
+            minWidth: 0,
+            overflow: 'hidden',
           }}>
             <h2 style={{ fontSize: '1.5em', marginBottom: '10px', color: '#333' }}><FaUser style={{ marginRight: '10px' }} />Personal Information</h2>
             <div style={{
@@ -216,7 +219,7 @@ const Profile = () => {
                   name="name"
                   value={profileData.name}
                   onChange={handleChange}
-                  style={{ width: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0' }}
+                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
                 />
               </div>
               <div style={{ position: 'relative' }}>
@@ -227,7 +230,7 @@ const Profile = () => {
                   name="email"
                   value={profileData.email}
                   onChange={handleChange}
-                  style={{ width: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0' }}
+                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
                   readOnly // Email usually not editable
                 />
               </div>
@@ -239,7 +242,7 @@ const Profile = () => {
                   name="phone"
                   value={profileData.phone}
                   onChange={handleChange}
-                  style={{ width: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0' }}
+                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
                 />
               </div>
               <div style={{ position: 'relative' }}>
@@ -250,7 +253,7 @@ const Profile = () => {
                   name="address"
                   value={profileData.address}
                   onChange={handleChange}
-                  style={{ width: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0' }}
+                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
                 />
               </div>
             </div>

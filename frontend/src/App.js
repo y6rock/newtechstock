@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Header from './components/Header';
 import Home from './pages/Home';
@@ -22,62 +22,69 @@ import Customers from './pages/manager/Customers';
 import Settings from './pages/manager/Settings';
 import Categories from './pages/manager/Categories';
 import Suppliers from './pages/manager/Suppliers';
+import Orders from './pages/manager/Orders';
+import FloatingCart from './components/FloatingCart';
+import useWindowSize from './hooks/useWindowSize';
 
 function App({ isManagerRoute }) {
-  console.log('App.js - isManagerRoute:', isManagerRoute);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { width } = useWindowSize();
+  const isMobile = width <= 768;
+
+  const MainContent = () => (
+    <div className={`main-content ${isManagerRoute ? 'admin-view' : ''}`}>
+      <Routes>
+        {/* User Routes */}
+        <Route path="/" element={<Home />} />
+        <Route path="/products" element={<ProductsPage />} />
+        <Route path="/products/:id" element={<ProductDetails />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/contact" element={<Contact />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/signup" element={<Signup />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/profile" element={<Profile />} />
+
+        {/* Manager Routes */}
+        <Route path="/manager/dashboard" element={<Dashboard />} />
+        <Route path="/manager/products" element={<Products />} />
+        <Route path="/manager/customers" element={<Customers />} />
+        <Route path="/manager/categories" element={<Categories />} />
+        <Route path="/manager/suppliers" element={<Suppliers />} />
+        <Route path="/manager/orders" element={<Orders />} />
+        <Route path="/manager/settings" element={<Settings />} />
+
+        {/* 404 Not Found Route */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </div>
+  );
 
   return (
     <>
-      {/* Header always renders at the top, full width */}
       <Header />
 
-      {/* Main container for the Sidebar and content below the header */}
-      <div style={{
-        display: 'flex',
-        minHeight: 'calc(100vh - 60px)', // Adjust minHeight based on Header height
-        position: 'relative', // Needed for fixed sidebar positioning relative to this container
-      }}>
-        {/* Conditionally render Sidebar - it has position: fixed inside it */}
-        {isManagerRoute && <Sidebar />}
-
-        {/* This div contains all the routes and takes the remaining space, pushed by sidebar */}
-        <div style={{
-          flex: 1, // Take remaining space
-          marginLeft: isManagerRoute ? '220px' : '0', // Apply margin to push content away from fixed sidebar
-          transition: 'margin-left 0.3s ease',
-          padding: '30px', // Consistent padding for all content within this main content area
-          boxSizing: 'border-box',
-          width: isManagerRoute ? 'calc(100% - 220px)' : '100%', // Ensure width respects sidebar
-        }}>
-          <Routes>
-            {/* User Routes */}
-            <Route path="/" element={<Home />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/products/:id" element={<ProductDetails />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/profile" element={<Profile />} />
-
-            {/* Manager Routes */}
-            <Route path="/manager/dashboard" element={<Dashboard />} />
-            <Route path="/manager/products" element={<Products />} />
-            <Route path="/manager/customers" element={<Customers />} />
-            <Route path="/manager/categories" element={<Categories />} />
-            <Route path="/manager/suppliers" element={<Suppliers />} />
-            <Route path="/manager/settings" element={<Settings />} />
-
-            {/* 404 Not Found Route */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+      {isManagerRoute ? (
+        <>
+          {isMobile && (
+            <button className="admin-hamburger-button" onClick={() => setSidebarOpen(true)}>
+              ☰
+            </button>
+          )}
+          <div style={{ display: 'flex', minHeight: 'calc(100vh - 60px)', position: 'relative' }}>
+            <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+            <MainContent />
+          </div>
+        </>
+      ) : (
+        <div style={{ minHeight: 'calc(100vh - 120px)' }}>
+          <MainContent />
         </div>
-      </div>
+      )}
 
-      {/* Footer always renders at the bottom, full width */}
+      <FloatingCart />
       <Footer />
     </>
   );

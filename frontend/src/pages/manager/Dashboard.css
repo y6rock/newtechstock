@@ -1,0 +1,89 @@
+/* General Dashboard Styles */
+.dashboard-container {
+    padding: 20px;
+    background-color: #f9f9f9;
+}
+
+.dashboard-container h2 {
+    font-size: 2rem;
+    margin-bottom: 5px;
+}
+
+.dashboard-container .subtitle {
+    color: #666;
+    margin-top: 0;
+    margin-bottom: 30px;
+}
+
+/* Stats Cards */
+.stats-container {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 30px;
+}
+
+.stat-card {
+    flex: 1;
+    background: #fff;
+    border-radius: 8px;
+    padding: 25px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    text-align: center;
+}
+
+.stat-card h3 {
+    margin-top: 0;
+    font-size: 1.2rem;
+    color: #555;
+}
+
+.stat-card p {
+    font-size: 2rem;
+    font-weight: bold;
+    color: #333;
+    margin-bottom: 0;
+}
+
+/* Charts */
+.charts-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr; /* 2/3 and 1/3 layout */
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.chart-container {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+    position: relative; /* Needed for chart.js responsiveness */
+}
+
+.chart-container h3 {
+    margin-top: 0;
+    font-size: 1.3rem;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+/* Make grid stack on smaller screens */
+@media (max-width: 992px) {
+    .charts-grid {
+        grid-template-columns: 1fr; /* Stack the charts */
+    }
+
+    .stats-container {
+        flex-direction: column;
+    }
+}
+
+@media (max-width: 768px) {
+    .dashboard-container h2 {
+        font-size: 1.5rem;
+    }
+
+    .stat-card p {
+        font-size: 1.5rem;
+    }
+} 

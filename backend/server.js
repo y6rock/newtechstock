@@ -137,13 +137,15 @@ app.get('/api/profile/:id', authenticateToken, async (req, res) => {
 });
 
 // ✅ API - הוספת מוצר (admin בלבד)
-app.post('/api/products', authenticateToken, async (req, res) => {
-  const { name, description, price, stock, image, supplier_id, category_id } = req.body;
+app.post('/api/products', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
+  const { name, description, price, stock, supplier_id, category_id } = req.body;
+  const image = req.file ? `/uploads/${req.file.filename}` : req.body.image;
   console.log('Received POST /api/products request with body:', req.body);
+  console.log('File:', req.file);
   
   // Validation checks
-  if (!name || !description || !price || !stock || !image) {
-    console.warn('Missing required fields for product addition.', req.body);
+  if (!name || !price || !stock || !image) {
+    console.warn('Missing required fields for product addition.', { name, price, stock, image, description: req.body.description });
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
@@ -168,9 +170,12 @@ app.post('/api/products', authenticateToken, async (req, res) => {
     return res.status(500).json({ message: 'Database error', error: err.message });
   }
 
+  const final_supplier_id = (supplier_id && !isNaN(parseInt(supplier_id))) ? parseInt(supplier_id) : null;
+  const final_category_id = (category_id && !isNaN(parseInt(category_id))) ? parseInt(category_id) : null;
+
   const sql = `INSERT INTO products (name, description, price, stock, image, supplier_id, category_id) VALUES (?, ?, ?, ?, ?, ?, ?)`;
   try {
-    const [result] = await db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null]);
+    const [result] = await db.query(sql, [name, description, price, stock, image, final_supplier_id, final_category_id]);
     console.log('Product added successfully:', result);
     res.json({ message: 'Product added successfully' });
   } catch (err) {
@@ -180,12 +185,16 @@ app.post('/api/products', authenticateToken, async (req, res) => {
 });
 
 // Update a product (admin only)
-app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) => {
+app.put('/api/products/:id', authenticateToken, requireAdmin, upload.single('image'), async (req, res) => {
   const { id } = req.params;
-  const { name, description, price, stock, image, supplier_id, category_id } = req.body;
+  const { name, description, price, stock, supplier_id, category_id } = req.body;
+  let image = req.body.image;
+  if (req.file) {
+    image = `/uploads/${req.file.filename}`;
+  }
   
   // Validation checks
-  if (!name || !description || !price || !stock || !image) {
+  if (!name || !price || !stock || !image) {
     return res.status(400).json({ message: 'Missing required fields' });
   }
 
@@ -210,9 +219,12 @@ app.put('/api/products/:id', authenticateToken, requireAdmin, async (req, res) =
     return res.status(500).json({ message: 'Database error', error: err.message });
   }
 
+  const final_supplier_id_update = (supplier_id && !isNaN(parseInt(supplier_id))) ? parseInt(supplier_id) : null;
+  const final_category_id_update = (category_id && !isNaN(parseInt(category_id))) ? parseInt(category_id) : null;
+
   const sql = `UPDATE products SET name = ?, description = ?, price = ?, stock = ?, image = ?, supplier_id = ?, category_id = ? WHERE product_id = ?`;
   try {
-    const [result] = await db.query(sql, [name, description, price, stock, image, supplier_id || null, category_id || null, id]);
+    const [result] = await db.query(sql, [name, description, price, stock, image, final_supplier_id_update, final_category_id_update, id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Product not found.' });
     }
@@ -606,6 +618,7 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) =
       o.order_id,
       o.date AS order_date,
       o.total_price,
+      o.status,
       u.name AS user_name,
       u.email AS user_email
     FROM orders o
@@ -635,16 +648,25 @@ app.get('/api/admin/orders', authenticateToken, requireAdmin, async (req, res) =
 app.put('/api/orders/:id/status', authenticateToken, requireAdmin, async (req, res) => {
   const { id } = req.params;
   const { status } = req.body;
-  const sql = `UPDATE orders SET status = ? WHERE order_id = ?`;
+
+  if (!status) {
+    return res.status(400).json({ message: 'Status is required.' });
+  }
+
+  const allowedStatuses = ['Pending', 'Processing', 'Shipped', 'Delivered', 'Cancelled'];
+  if (!allowedStatuses.includes(status)) {
+    return res.status(400).json({ message: 'Invalid status value.' });
+  }
+
   try {
-    const [result] = await db.query(sql, [status, id]);
+    const [result] = await db.query('UPDATE orders SET status = ? WHERE order_id = ?', [status, id]);
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Order not found.' });
     }
-    res.json({ message: 'Order status updated successfully' });
+    res.json({ message: 'Order status updated successfully.' });
   } catch (err) {
-    console.error('Error updating order status:', err);
-    res.status(500).json({ message: 'Database error', details: err.message });
+    console.error(`Error updating status for order ${id}:`, err);
+    res.status(500).json({ message: 'Database error while updating status.' });
   }
 });
 
@@ -787,6 +809,22 @@ app.get('/api/admin/order-status-distribution', authenticateToken, requireAdmin,
   }
 });
 
+// GET order status distribution for admin dashboard
+app.get('/api/admin/order-status-distribution', authenticateToken, requireAdmin, async (req, res) => {
+  const sql = `
+    SELECT status, COUNT(*) as count
+    FROM orders
+    GROUP BY status
+  `;
+  try {
+    const [results] = await db.query(sql);
+    res.json(results);
+  } catch (err) {
+    console.error('Error fetching order status distribution:', err);
+    res.status(500).json({ message: 'Database error' });
+  }
+});
+
 // Contact form endpoint
 app.post('/api/contact', async (req, res) => {
   const { name, email, message } = req.body;
@@ -816,6 +854,54 @@ app.post('/api/contact', async (req, res) => {
   } catch (err) {
     console.error('Error sending contact email:', err);
     res.status(500).json({ message: 'Failed to send message. Please try again later.' });
+  }
+});
+
+// Get order details by order ID (admin or order owner)
+app.get('/api/orders/:id', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const requestingUserId = req.user.user_id;
+  const requestingUserRole = req.user.role;
+
+  let sql = `
+    SELECT
+      o.order_id,
+      o.user_id,
+      o.date AS order_date,
+      o.total_price,
+      u.name AS user_name,
+      u.email AS user_email
+    FROM orders o
+    JOIN users u ON o.user_id = u.user_id
+    WHERE o.order_id = ?
+  `;
+
+  try {
+    const [orders] = await db.query(sql, [id]);
+    if (orders.length === 0) {
+      return res.status(404).json({ message: 'Order not found.' });
+    }
+    const order = orders[0];
+
+    // Only allow admin or the user who owns the order
+    if (requestingUserRole !== 'admin' && requestingUserId !== order.user_id) {
+      return res.status(403).json({ message: 'Access denied.' });
+    }
+
+    // Get products for this order
+    const [products] = await db.query(
+      `SELECT op.product_id, p.name AS product_name, op.quantity, op.price_at_order
+       FROM orders_products op
+       JOIN products p ON op.product_id = p.product_id
+       WHERE op.order_id = ?`,
+      [id]
+    );
+
+    order.products = products;
+    res.json(order);
+  } catch (err) {
+    console.error('Error fetching order details:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
   }
 });
 

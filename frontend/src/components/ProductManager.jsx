@@ -1,7 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { FaUser, FaEnvelope, FaPhone, FaCity, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
+import ProductModal from './ProductModal';
+import { useSettings } from '../context/SettingsContext';
 
 function ProductManager() {
   const [products, setProducts] = useState([]);
@@ -16,38 +18,42 @@ function ProductManager() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [settings, setSettings] = useState({ currency: 'ILS' });
   const [currencies, setCurrencies] = useState({});
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const { isUserAdmin, loadingSettings } = useSettings();
+  const navigate = useNavigate();
 
   const token = localStorage.getItem('token');
 
-  // Load products, suppliers, categories, settings, and currencies
-  useEffect(() => {
-    const fetchProductData = async () => {
-      try {
-        const headers = { Authorization: `Bearer ${token}` };
-        const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
-          axios.get('/api/products'),
-          axios.get('/api/suppliers', { headers }),
-          axios.get('/api/categories', { headers }),
-          axios.get('/api/settings'),
-          axios.get('/api/currencies'),
-        ]);
-        setProducts(productsRes.data);
-        setSuppliers(suppliersRes.data);
-        setCategories(categoriesRes.data);
-        setSettings(settingsRes.data);
-        setCurrencies(currenciesRes.data);
-      } catch (err) {
-        console.error('Error fetching initial product data:', err);
-        setMessage('Failed to load products, suppliers, categories, or settings.');
+  const fetchProductData = useCallback(async () => {
+    if (!loadingSettings) {
+      if (!isUserAdmin) {
+        navigate('/');
+      } else {
+        try {
+          const headers = { Authorization: `Bearer ${token}` };
+          const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
+            axios.get('/api/products'),
+            axios.get('/api/suppliers', { headers }),
+            axios.get('/api/categories', { headers }),
+            axios.get('/api/settings'),
+            axios.get('/api/currencies'),
+          ]);
+          setProducts(productsRes.data);
+          setSuppliers(suppliersRes.data);
+          setCategories(categoriesRes.data);
+          setSettings(settingsRes.data);
+          setCurrencies(currenciesRes.data);
+        } catch (err) {
+          console.error('Error fetching initial product data:', err);
+          setMessage('Failed to load products, suppliers, categories, or settings.');
+        }
       }
-    };
-
-    if (token) {
-      fetchProductData();
-    } else {
-      setMessage('Authentication token missing. Please log in as an administrator.');
     }
-  }, [token]);
+  }, [isUserAdmin, loadingSettings, navigate, token]);
+
+  useEffect(() => {
+    fetchProductData();
+  }, [fetchProductData]);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -287,6 +293,43 @@ function ProductManager() {
     return `${currency.symbol}${convertedPrice.toFixed(2)}`;
   };
 
+  const handleOpenModalForAdd = () => {
+    setEditingProduct(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenModalForEdit = (product) => {
+    setEditingProduct(product);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setEditingProduct(null);
+  };
+
+  const handleSuccess = async () => {
+    handleCloseModal();
+    try {
+      const headers = { Authorization: `Bearer ${token}` };
+      const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
+        axios.get('/api/products'),
+        axios.get('/api/suppliers', { headers }),
+        axios.get('/api/categories', { headers }),
+        axios.get('/api/settings'),
+        axios.get('/api/currencies'),
+      ]);
+      setProducts(productsRes.data);
+      setSuppliers(suppliersRes.data);
+      setCategories(categoriesRes.data);
+      setSettings(settingsRes.data);
+      setCurrencies(currenciesRes.data);
+    } catch (err) {
+      console.error('Error fetching product data after success:', err);
+      setMessage('Product was added, but failed to refresh the list.');
+    }
+  };
+
   return (
     <div>
       <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Products</h1>
@@ -314,58 +357,13 @@ function ProductManager() {
       <div style={{ textAlign: 'right', marginBottom: '20px' }}>
         <button
           style={{ padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', borderRadius: '5px', border: 'none', cursor: 'pointer' }}
-          onClick={() => { setShowAddForm(!showAddForm); setEditingProduct(null); setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' }); setImageFile(null); setImagePreview(''); setMessage(''); }}
+          onClick={handleOpenModalForAdd}
         >
-          {showAddForm ? 'Cancel' : 'Add New Product'}
+          Add New Product
         </button>
       </div>
 
-      {showAddForm && (
-        <div style={{ marginBottom: '30px', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-          <h2>{editingProduct ? 'Edit Product' : 'Add New Product'}</h2>
-          <form onSubmit={editingProduct ? handleUpdateProduct : handleSubmit}>
-            <div style={{ marginBottom: '10px' }}>
-              <input name="name" placeholder="name" value={form.name} onChange={handleChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /> <span style={{color:'red'}}>*</span>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <input name="description" placeholder="description" value={form.description} onChange={handleChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /> <span style={{color:'red'}}>*</span>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <input name="price" placeholder="price" type="number" value={form.price} onChange={handleChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /> <span style={{color:'red'}}>*</span>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <input name="stock" placeholder="stock" type="number" value={form.stock} onChange={handleChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /> <span style={{color:'red'}}>*</span>
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label>Image File: <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ border: '1px solid #ddd', padding: '5px', borderRadius: '4px' }} /></label><br />
-              <label>or Image URL: <input name="image" placeholder="Image URL" value={form.image} onChange={handleImageUrlChange} style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }} /></label> <span style={{color:'red'}}>*</span>
-              {imagePreview && <img src={imagePreview} alt="Preview" style={{ maxWidth: 120, maxHeight: 120, margin: '10px 0' }} />}
-            </div>
-            <div style={{ marginBottom: '10px' }}>
-              <label>Supplier:
-                <select name="supplier_id" value={form.supplier_id} onChange={handleChange} required style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <option value="">Select supplier</option>
-                  {suppliers.map(s => (
-                    <option key={s.supplier_id} value={s.supplier_id}>{s.name || s.supplier_id}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <div style={{ marginBottom: '20px' }}>
-              <label>Category:
-                <select name="category_id" value={form.category_id} onChange={handleChange} required style={{ width: '100%', padding: '8px', border: '1px solid #ddd', borderRadius: '4px' }}>
-                  <option value="">Select category</option>
-                  {categories.map(c => (
-                    <option key={c.category_id} value={c.category_id}>{c.name || c.category_id}</option>
-                  ))}
-                </select>
-              </label>
-            </div>
-            <button type="submit" style={{ padding: '10px 20px', backgroundColor: '#28a745', color: '#fff', borderRadius: '5px', border: 'none', cursor: 'pointer' }}>Add Product</button>
-          </form>
-          <p style={{ marginTop: '10px', color: message === 'Product added successfully' ? 'green' : 'red' }}>{message}</p>
-        </div>
-      )}
+      {message && <p>{message}</p>}
 
       <h3>Products List</h3>
       <div style={{ overflowX: 'auto' }}>
@@ -394,7 +392,7 @@ function ProductManager() {
                 <td style={{ padding: '15px' }}>{formatPrice(parseFloat(p.price))}</td>
                 <td style={{ padding: '15px', color: p.stock < 10 ? 'orange' : 'green' }}>{p.stock}</td>
                 <td style={{ padding: '15px' }}>
-                  <button onClick={() => handleEditProduct(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
+                  <button onClick={() => handleOpenModalForEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
                   <button onClick={() => handleDeleteProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
                 </td>
               </tr>
@@ -407,6 +405,15 @@ function ProductManager() {
           </tbody>
         </table>
       </div>
+
+      <ProductModal
+        isOpen={isModalOpen}
+        onClose={handleCloseModal}
+        product={editingProduct}
+        suppliers={suppliers}
+        categories={categories}
+        onSuccess={handleSuccess}
+      />
     </div>
   );
 }

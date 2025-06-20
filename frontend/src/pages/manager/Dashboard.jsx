@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { Line, Bar, Pie } from 'react-chartjs-2';
+import './Dashboard.css';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -28,80 +29,43 @@ export default function Dashboard() {
   const [currencies, setCurrencies] = useState({});
 
   useEffect(() => {
-    if (!loadingSettings && !isUserAdmin) {
-      navigate('/');
-    }
-    const fetchStats = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/admin/dashboard-stats', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setStats(data);
-        }
-      } catch (err) {
-        console.error('Error fetching dashboard stats:', err);
+    if (!loadingSettings) {
+      if (!isUserAdmin) {
+        navigate('/');
+      } else {
+        const fetchAllDashboardData = async () => {
+          try {
+            const token = localStorage.getItem('token');
+            const headers = { 'Authorization': `Bearer ${token}` };
+            
+            const [
+              statsRes,
+              salesRes,
+              topProductsRes,
+              orderStatusRes,
+              settingsRes,
+              currenciesRes
+            ] = await Promise.all([
+              axios.get('/api/admin/dashboard-stats', { headers }),
+              axios.get('/api/admin/sales-over-time', { headers }),
+              axios.get('/api/admin/top-products', { headers }),
+              axios.get('/api/admin/order-status-distribution', { headers }),
+              axios.get('/api/settings'),
+              axios.get('/api/currencies')
+            ]);
+
+            setStats(statsRes.data);
+            setSalesData(salesRes.data);
+            setTopProducts(topProductsRes.data);
+            setOrderStatus(orderStatusRes.data);
+            setSettings(settingsRes.data);
+            setCurrencies(currenciesRes.data);
+          } catch (err) {
+            console.error('Error fetching dashboard data:', err);
+          }
+        };
+        fetchAllDashboardData();
       }
-    };
-    const fetchSales = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/admin/sales-over-time', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          setSalesData(await response.json());
-        }
-      } catch (err) {
-        console.error('Error fetching sales over time:', err);
-      }
-    };
-    const fetchTopProducts = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/admin/top-products', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          setTopProducts(await response.json());
-        }
-      } catch (err) {
-        console.error('Error fetching top products:', err);
-      }
-    };
-    const fetchOrderStatus = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/admin/order-status-distribution', {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
-        if (response.ok) {
-          setOrderStatus(await response.json());
-        }
-      } catch (err) {
-        console.error('Error fetching order status distribution:', err);
-      }
-    };
-    const fetchSettingsAndCurrencies = async () => {
-      try {
-        const [settingsRes, currenciesRes] = await Promise.all([
-          axios.get('/api/settings'),
-          axios.get('/api/currencies')
-        ]);
-        setSettings(settingsRes.data);
-        setCurrencies(currenciesRes.data);
-      } catch (err) {
-        // ignore
-      }
-    };
-    if (isUserAdmin && !loadingSettings) {
-      fetchStats();
-      fetchSales();
-      fetchTopProducts();
-      fetchOrderStatus();
-      fetchSettingsAndCurrencies();
     }
   }, [isUserAdmin, loadingSettings, navigate]);
 
@@ -114,10 +78,8 @@ export default function Dashboard() {
 
   if (loadingSettings) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>
-          <p>Loading Admin Panel...</p>
-        </div>
+      <div className="dashboard-container">
+        <p>Loading Admin Panel...</p>
       </div>
     );
   }
@@ -191,41 +153,39 @@ export default function Dashboard() {
   };
 
   return (
-    <div style={{ display: 'flex', minHeight: '100vh' }}>
-      <div style={{ flex: 1, padding: '20px' }}>
-        <h2>Dashboard</h2>
-        <p style={{ color: '#666', marginTop: '5px' }}>Overview of your store's performance</p>
+    <div className="dashboard-container">
+      <h2>Dashboard</h2>
+      <p className="subtitle">Overview of your store's performance</p>
 
-        <div style={{ display: 'flex', gap: '30px', marginBottom: '30px' }}>
-          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <h3 style={{ color: '#222', marginBottom: '10px' }}>Total Revenue</h3>
-            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{formatPrice(stats.total_revenue)}</div>
-          </div>
-          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <h3 style={{ color: '#222', marginBottom: '10px' }}>Total Orders</h3>
-            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{stats.total_orders}</div>
-          </div>
-          <div style={{ flex: 1, background: '#fff', borderRadius: '8px', padding: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
-            <h3 style={{ color: '#222', marginBottom: '10px' }}>Products</h3>
-            <div style={{ fontSize: '2em', fontWeight: 'bold', color: '#222' }}>{stats.total_products}</div>
-          </div>
+      <div className="stats-container">
+        <div className="stat-card">
+          <h3>Total Revenue</h3>
+          <p>{formatPrice(stats.total_revenue)}</p>
         </div>
+        <div className="stat-card">
+          <h3>Total Orders</h3>
+          <p>{stats.total_orders}</p>
+        </div>
+        <div className="stat-card">
+          <h3>Products</h3>
+          <p>{stats.total_products}</p>
+        </div>
+      </div>
 
-        {/* Charts Section */}
-        <div style={{ marginTop: '40px', display: 'grid', gridTemplateColumns: '1fr', gap: '40px' }}>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3>Sales Over Time (Last 30 Days)</h3>
-            <Line data={salesLineData} options={salesLineOptions} height={80} />
-          </div>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
-            <h3>Top Selling Products</h3>
-            <Bar data={topProductsBarData} options={topProductsBarOptions} height={80} />
-          </div>
-          <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', maxWidth: 500, margin: '0 auto' }}>
-            <h3>Order Status Distribution</h3>
-            <Pie data={orderStatusPieData} />
-          </div>
+      <div className="charts-grid">
+        <div className="chart-container">
+          <h3>Sales Over Time</h3>
+          <Line data={salesLineData} options={salesLineOptions} />
         </div>
+        <div className="chart-container">
+          <h3>Order Status</h3>
+          <Pie data={orderStatusPieData} />
+        </div>
+      </div>
+
+      <div className="chart-container">
+        <h3>Top Selling Products</h3>
+        <Bar data={topProductsBarData} options={topProductsBarOptions} />
       </div>
     </div>
   );

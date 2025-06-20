@@ -50,19 +50,22 @@ export const CartProvider = ({ children }) => {
   }, [cartItems, user_id]); // Re-run when cartItems or user_id changes
 
   const addToCart = (product, quantity = 1) => {
-    console.log('CartContext: addToCart called. Checking user_id:', user_id);
     if (!user_id) {
       alert('Please log in to add items to your cart.');
       return;
     }
     setCartItems((prevItems) => {
-      const existingItemIndex = prevItems.findIndex((item) => item.product_id === product.product_id);
+      const existingItem = prevItems.find((item) => item.product_id === product.product_id);
 
-      if (existingItemIndex > -1) {
-        const updatedItems = [...prevItems];
-        updatedItems[existingItemIndex].quantity += quantity;
-        return updatedItems;
+      if (existingItem) {
+        // If item exists, return a new array with the updated item
+        return prevItems.map((item) =>
+          item.product_id === product.product_id
+            ? { ...item, quantity: item.quantity + quantity }
+            : item
+        );
       } else {
+        // If item doesn't exist, return a new array with the new item
         return [...prevItems, { ...product, quantity }];
       }
     });

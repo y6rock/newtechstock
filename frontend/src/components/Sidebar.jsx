@@ -1,42 +1,42 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import './Sidebar.css'; // Import the CSS file
 
-const Sidebar = () => {
+const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     const location = useLocation();
 
-    const linkStyle = (path) => ({
-        display: 'block',
-        padding: '10px 20px',
-        color: location.pathname === path ? '#007bff' : '#333',
-        textDecoration: 'none',
-        fontWeight: location.pathname === path ? 'bold' : 'normal',
-        backgroundColor: location.pathname === path ? '#e9f7ff' : 'transparent',
-        borderRadius: '5px',
-        marginBottom: '5px',
-        transition: 'all 0.2s ease-in-out',
-    });
+    const handleLinkClick = () => {
+        // Close the sidebar when a link is clicked on mobile
+        if (window.innerWidth <= 768) {
+            setSidebarOpen(false);
+        }
+    };
+
+    const linkClassName = (path) => {
+        return location.pathname === path ? 'active' : '';
+    };
 
     return (
-        <div style={{
-            width: '220px',
-            backgroundColor: '#f8f9fa',
-            padding: '20px',
-            borderRight: '1px solid #e0e0e0',
-            position: 'fixed',
-            height: '100%',
-            overflowY: 'auto',
-            boxShadow: '2px 0 5px rgba(0,0,0,0.05)',
-        }}>
-            <h3 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Admin Panel</h3>
-            <nav>
-                <Link to="/manager/dashboard" style={linkStyle('/manager/dashboard')}>Dashboard</Link>
-                <Link to="/manager/products" style={linkStyle('/manager/products')}>Products</Link>
-                <Link to="/manager/customers" style={linkStyle('/manager/customers')}>Customers</Link>
-                <Link to="/manager/categories" style={linkStyle('/manager/categories')}>Categories</Link>
-                <Link to="/manager/suppliers" style={linkStyle('/manager/suppliers')}>Suppliers</Link>
-                <Link to="/manager/settings" style={linkStyle('/manager/settings')}>Settings</Link>
-            </nav>
-        </div>
+        <>
+            {/* Overlay for closing the sidebar when clicking outside */}
+            {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{
+                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
+                background: 'rgba(0,0,0,0.4)', zIndex: 999
+            }}></div>}
+            
+            <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+                <h3 className="sidebar-header">Admin Panel</h3>
+                <nav className="sidebar-nav">
+                    <Link to="/manager/dashboard" className={linkClassName('/manager/dashboard')} onClick={handleLinkClick}>Dashboard</Link>
+                    <Link to="/manager/products" className={linkClassName('/manager/products')} onClick={handleLinkClick}>Products</Link>
+                    <Link to="/manager/customers" className={linkClassName('/manager/customers')} onClick={handleLinkClick}>Customers</Link>
+                    <Link to="/manager/categories" className={linkClassName('/manager/categories')} onClick={handleLinkClick}>Categories</Link>
+                    <Link to="/manager/suppliers" className={linkClassName('/manager/suppliers')} onClick={handleLinkClick}>Suppliers</Link>
+                    <Link to="/manager/orders" className={linkClassName('/manager/orders')} onClick={handleLinkClick}>Orders</Link>
+                    <Link to="/manager/settings" className={linkClassName('/manager/settings')} onClick={handleLinkClick}>Settings</Link>
+                </nav>
+            </div>
+        </>
     );
 };
 
