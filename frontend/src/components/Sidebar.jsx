@@ -29,6 +29,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
                 <nav className="sidebar-nav">
                     <Link to="/manager/dashboard" className={linkClassName('/manager/dashboard')} onClick={handleLinkClick}>Dashboard</Link>
                     <Link to="/manager/products" className={linkClassName('/manager/products')} onClick={handleLinkClick}>Products</Link>
+                    <Link to="/manager/promotions" className={linkClassName('/manager/promotions')} onClick={handleLinkClick}>Promotions</Link>
                     <Link to="/manager/customers" className={linkClassName('/manager/customers')} onClick={handleLinkClick}>Customers</Link>
                     <Link to="/manager/categories" className={linkClassName('/manager/categories')} onClick={handleLinkClick}>Categories</Link>
                     <Link to="/manager/suppliers" className={linkClassName('/manager/suppliers')} onClick={handleLinkClick}>Suppliers</Link>

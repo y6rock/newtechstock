@@ -11,6 +11,7 @@ import Sidebar from './components/Sidebar';
 import ProductsPage from './pages/ProductsPage';
 import Footer from './components/Footer';
 import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Checkout from './pages/Checkout';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
@@ -18,6 +19,7 @@ import ProductDetails from './pages/ProductDetails';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
+import Promotions from './pages/manager/Promotions';
 import Customers from './pages/manager/Customers';
 import Settings from './pages/manager/Settings';
 import Categories from './pages/manager/Categories';
@@ -44,12 +46,14 @@ function App({ isManagerRoute }) {
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/profile" element={<Profile />} />
 
         {/* Manager Routes */}
         <Route path="/manager/dashboard" element={<Dashboard />} />
         <Route path="/manager/products" element={<Products />} />
+        <Route path="/manager/promotions" element={<Promotions />} />
         <Route path="/manager/customers" element={<Customers />} />
         <Route path="/manager/categories" element={<Categories />} />
         <Route path="/manager/suppliers" element={<Suppliers />} />

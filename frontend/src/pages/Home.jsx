@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
+import PromotionsBanner from '../components/PromotionsBanner';
 import './Home.css'; // Import the new CSS file
 
 // Import category images
@@ -62,6 +63,9 @@ const Home = () => {
 
   return (
     <div className="home-container">
+      {/* Promotions Banner */}
+      <PromotionsBanner />
+      
       {/* Hero Section */}
       <section className="hero-section">
         <h1>Tech Excellence</h1>

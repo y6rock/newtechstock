@@ -5,6 +5,7 @@ const jwt = require('jsonwebtoken');
 const multer = require('multer');
 const path = require('path');
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const dbSingleton = require('./dbSingleton');
@@ -902,6 +903,399 @@ app.get('/api/orders/:id', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error('Error fetching order details:', err);
     res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// ===== PROMOTIONS API ENDPOINTS =====
+
+// Get all promotions (admin only)
+app.get('/api/promotions', authenticateToken, requireAdmin, async (req, res) => {
+  try {
+    const [promotions] = await db.query(`
+      SELECT * FROM promotions 
+      ORDER BY created_at DESC
+    `);
+    res.json(promotions);
+  } catch (err) {
+    console.error('Error fetching promotions:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Get active promotions (public endpoint)
+app.get('/api/promotions/active', async (req, res) => {
+  try {
+    const currentDate = new Date().toISOString().split('T')[0];
+    const [promotions] = await db.query(`
+      SELECT * FROM promotions 
+      WHERE is_active = 1 
+      AND start_date <= ? 
+      AND end_date >= ?
+      ORDER BY created_at DESC
+    `, [currentDate, currentDate]);
+    res.json(promotions);
+  } catch (err) {
+    console.error('Error fetching active promotions:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Create new promotion (admin only)
+app.post('/api/promotions', authenticateToken, requireAdmin, async (req, res) => {
+  const { 
+    name, 
+    description, 
+    type, 
+    value, 
+    minQuantity, 
+    maxQuantity, 
+    startDate, 
+    endDate, 
+    isActive, 
+    applicableProducts, 
+    applicableCategories, 
+    code 
+  } = req.body;
+
+  // Validation
+  if (!name || !type || !value || !startDate || !endDate) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  if (new Date(startDate) >= new Date(endDate)) {
+    return res.status(400).json({ message: 'End date must be after start date' });
+  }
+
+  try {
+    const sql = `
+      INSERT INTO promotions (
+        name, description, type, value, min_quantity, max_quantity, 
+        start_date, end_date, is_active, applicable_products, 
+        applicable_categories, code, created_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+    `;
+
+    const [result] = await db.query(sql, [
+      name,
+      description || '',
+      type,
+      value,
+      minQuantity || 1,
+      maxQuantity || null,
+      startDate,
+      endDate,
+      isActive ? 1 : 0,
+      applicableProducts ? JSON.stringify(applicableProducts) : null,
+      applicableCategories ? JSON.stringify(applicableCategories) : null,
+      code || null
+    ]);
+
+    res.json({ 
+      message: 'Promotion created successfully',
+      promotion_id: result.insertId 
+    });
+  } catch (err) {
+    console.error('Error creating promotion:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Update promotion (admin only)
+app.put('/api/promotions/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+  const { 
+    name, 
+    description, 
+    type, 
+    value, 
+    minQuantity, 
+    maxQuantity, 
+    startDate, 
+    endDate, 
+    isActive, 
+    applicableProducts, 
+    applicableCategories, 
+    code 
+  } = req.body;
+
+  // Validation
+  if (!name || !type || !value || !startDate || !endDate) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  if (new Date(startDate) >= new Date(endDate)) {
+    return res.status(400).json({ message: 'End date must be after start date' });
+  }
+
+  try {
+    const sql = `
+      UPDATE promotions SET 
+        name = ?, description = ?, type = ?, value = ?, 
+        min_quantity = ?, max_quantity = ?, start_date = ?, 
+        end_date = ?, is_active = ?, applicable_products = ?, 
+        applicable_categories = ?, code = ?, updated_at = NOW()
+      WHERE promotion_id = ?
+    `;
+
+    const [result] = await db.query(sql, [
+      name,
+      description || '',
+      type,
+      value,
+      minQuantity || 1,
+      maxQuantity || null,
+      startDate,
+      endDate,
+      isActive ? 1 : 0,
+      applicableProducts ? JSON.stringify(applicableProducts) : null,
+      applicableCategories ? JSON.stringify(applicableCategories) : null,
+      code || null,
+      id
+    ]);
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Promotion not found' });
+    }
+
+    res.json({ message: 'Promotion updated successfully' });
+  } catch (err) {
+    console.error('Error updating promotion:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Delete promotion (admin only)
+app.delete('/api/promotions/:id', authenticateToken, requireAdmin, async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    const [result] = await db.query('DELETE FROM promotions WHERE promotion_id = ?', [id]);
+    
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Promotion not found' });
+    }
+
+    res.json({ message: 'Promotion deleted successfully' });
+  } catch (err) {
+    console.error('Error deleting promotion:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// Helper function to check if an item is applicable for a promotion
+function isItemApplicable(item, promotion) {
+  const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
+  const applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [];
+
+  // If promotion is not restricted to any products or categories, then it applies to all items
+  if (applicableProducts.length === 0 && applicableCategories.length === 0) {
+    return true;
+  }
+
+  // Check if item's product ID is in the applicable list
+  if (applicableProducts.length > 0 && applicableProducts.includes(item.product_id)) {
+    return true;
+  }
+
+  // Check if item's category ID is in the applicable list
+  if (applicableCategories.length > 0 && item.category_id && applicableCategories.includes(item.category_id)) {
+    return true;
+  }
+
+  // If the item is not in any applicable list, it's not eligible
+  return false;
+}
+
+// Apply promotion to cart (public endpoint)
+app.post('/api/promotions/apply', async (req, res) => {
+  const { promotionCode, cartItems } = req.body;
+
+  if (!promotionCode || !cartItems || !Array.isArray(cartItems) || cartItems.length === 0) {
+    return res.status(400).json({ message: 'Promotion code and cart items are required' });
+  }
+
+  try {
+    // Find the promotion by code
+    const [promotions] = await db.query(`
+      SELECT * FROM promotions 
+      WHERE code = ? AND is_active = 1 
+      AND start_date <= CURDATE() 
+      AND end_date >= CURDATE()
+    `, [promotionCode]);
+
+    if (promotions.length === 0) {
+      return res.status(404).json({ message: 'Invalid or expired promotion code' });
+    }
+
+    const promotion = promotions[0];
+    const cartTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    
+    // Check for minimum purchase requirement (especially for fixed discounts)
+    if (promotion.type === 'fixed' && promotion.min_quantity > cartTotal) {
+      return res.status(400).json({ message: `This code requires a minimum purchase of ${promotion.min_quantity}` });
+    }
+
+    let totalDiscount = 0;
+    let discountedItems = [];
+    let isAnyItemApplicable = false;
+
+    // Apply promotion logic based on type
+    switch (promotion.type) {
+      case 'percentage':
+        cartItems.forEach(item => {
+          if (isItemApplicable(item, promotion)) {
+            isAnyItemApplicable = true;
+            const discount = (item.price * item.quantity * parseFloat(promotion.value)) / 100;
+            totalDiscount += discount;
+            discountedItems.push({ ...item, discount });
+          } else {
+            discountedItems.push({ ...item, discount: 0 });
+          }
+        });
+        break;
+
+      case 'fixed':
+        // For a fixed total discount, we apply it once if any item is eligible
+        const applicableItems = cartItems.filter(item => isItemApplicable(item, promotion));
+        if (applicableItems.length > 0) {
+          isAnyItemApplicable = true;
+          totalDiscount = Math.min(cartTotal, parseFloat(promotion.value));
+        }
+        discountedItems = cartItems; // Return all items, discount is applied to total
+        break;
+
+      case 'buy_x_get_y':
+        cartItems.forEach(item => {
+          if (isItemApplicable(item, promotion)) {
+            isAnyItemApplicable = true;
+            const [buyX, getY] = promotion.value.split(':').map(Number);
+            if (item.quantity >= buyX) {
+              const freeItemsCount = Math.floor(item.quantity / buyX) * getY;
+              const discount = freeItemsCount * item.price;
+              totalDiscount += discount;
+              discountedItems.push({ ...item, discount });
+            } else {
+              discountedItems.push({ ...item, discount: 0 });
+            }
+          } else {
+            discountedItems.push({ ...item, discount: 0 });
+          }
+        });
+        break;
+
+      default:
+        return res.status(400).json({ message: 'Invalid promotion type' });
+    }
+    
+    if (!isAnyItemApplicable) {
+        return res.status(400).json({ message: 'This promotion is not applicable to any items in your cart.' });
+    }
+
+    res.json({
+      promotion: {
+        id: promotion.promotion_id,
+        name: promotion.name,
+        code: promotion.code,
+        type: promotion.type,
+        value: promotion.value
+      },
+      totalDiscount: totalDiscount,
+      discountedItems: discountedItems
+    });
+
+  } catch (err) {
+    console.error('Error applying promotion:', err);
+    res.status(500).json({ message: 'Database error', details: err.message });
+  }
+});
+
+// ✅ API - שכחתי סיסמה
+app.post('/api/forgot-password', async (req, res) => {
+  const { email } = req.body;
+  
+  if (!process.env.GMAIL_USER || !process.env.GMAIL_PASS) {
+    console.error('Gmail credentials are not set in the .env file.');
+    return res.status(500).json({ message: 'Server email configuration error.' });
+  }
+  
+  try {
+    const transporter = nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+            user: process.env.GMAIL_USER,
+            pass: process.env.GMAIL_PASS,
+        },
+    });
+
+    const token = crypto.randomBytes(20).toString('hex');
+    const tokenExpiry = Date.now() + 3600000; // 1 hour
+
+    const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    if (users.length === 0) {
+      // Return a generic success message to prevent user enumeration attacks
+      return res.status(200).json({ message: "If your email is in our system, you will receive a password reset link." });
+    }
+    
+    await db.query('UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE email = ?', [token, tokenExpiry, email]);
+
+    const mailOptions = {
+      from: process.env.GMAIL_USER,
+      to: email,
+      subject: 'Password Reset for TechStock',
+      text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n` +
+            `Please click on the following link, or paste this into your browser to complete the process:\n\n` +
+            `http://localhost:3000/reset-password/${token}\n\n` +
+            `If you did not request this, please ignore this email and your password will remain unchanged.\n`
+    };
+    
+    transporter.sendMail(mailOptions, (err, response) => {
+      if (err) {
+        console.error('Nodemailer Error:', err);
+        return res.status(500).json({ message: 'Error sending email.' });
+      }
+      res.status(200).json({ message: 'Password reset email sent successfully.' });
+    });
+
+  } catch (err) {
+    console.error('Server Error during password reset:', err);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
+// ✅ API - איפוס סיסמה
+app.post('/api/reset-password', async (req, res) => {
+  const { token, newPassword } = req.body;
+
+  if (!token || !newPassword) {
+    return res.status(400).json({ message: 'Token and new password are required.' });
+  }
+
+  try {
+    // Verify the token
+    const decoded = jwt.verify(token, 'secretKey');
+    
+    // Hash the new password
+    const hashedPassword = bcrypt.hashSync(newPassword, 10);
+
+    // Update the user's password in the database
+    const sql = 'UPDATE users SET password = ? WHERE user_id = ?';
+    const [result] = await db.query(sql, [hashedPassword, decoded.user_id]);
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ message: 'User not found or token invalid.' });
+    }
+
+    res.status(200).json({ message: "Password has been reset successfully." });
+
+  } catch (err) {
+    if (err instanceof jwt.TokenExpiredError) {
+      return res.status(400).json({ message: 'Password reset link has expired. Please request a new one.' });
+    }
+    if (err instanceof jwt.JsonWebTokenError) {
+      return res.status(400).json({ message: 'Invalid password reset link.' });
+    }
+    console.error('Error during password reset:', err);
+    res.status(500).json({ message: 'An internal error occurred.' });
   }
 });
 

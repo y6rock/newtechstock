@@ -18,23 +18,21 @@ const ForgotPassword = () => {
         }
 
         try {
-            // Placeholder for API call to send reset link
-            // const response = await fetch('/api/forgot-password', {
-            //     method: 'POST',
-            //     headers: {
-            //         'Content-Type': 'application/json',
-            //     },
-            //     body: JSON.stringify({ email }),
-            // });
+            const response = await fetch('http://localhost:3001/api/forgot-password', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ email }),
+            });
 
-            // const data = await response.json();
+            const data = await response.json();
 
-            // if (response.ok) {
-            //     setMessage(data.message || 'If an account with that email exists, a password reset link has been sent.');
-            // } else {
-            //     setError(data.message || 'Failed to send reset link. Please try again.');
-            // }
-            setMessage('If an account with that email exists, a password reset link has been sent.');
+            if (response.ok) {
+                setMessage(data.message || 'If an account with that email exists, a password reset link has been sent.');
+            } else {
+                setError(data.message || 'Failed to send reset link. Please try again.');
+            }
         } catch (err) {
             console.error('Forgot password error:', err);
             setError('An unexpected error occurred. Please try again later.');

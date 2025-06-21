@@ -31,7 +31,12 @@ const Checkout = () => {
           axios.get('/api/settings'),
           axios.get('/api/currencies')
         ]);
-        setSettings(settingsRes.data);
+        // Ensure vat_rate is preserved if not present in the API response
+        setSettings(prevSettings => ({
+          ...prevSettings,
+          ...settingsRes.data,
+          vat_rate: settingsRes.data.vat_rate || prevSettings.vat_rate,
+        }));
         setCurrencies(currenciesRes.data);
       } catch (err) {
         console.error('Error fetching settings:', err);
