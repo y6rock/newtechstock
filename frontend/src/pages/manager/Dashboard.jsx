@@ -90,7 +90,7 @@ export default function Dashboard() {
 
   // Prepare chart data
   const salesLineData = {
-    labels: salesData.map(d => d.day),
+    labels: salesData.map(d => new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
     datasets: [
       {
         label: 'Total Sales',
