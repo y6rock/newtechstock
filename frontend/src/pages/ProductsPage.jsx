@@ -7,33 +7,35 @@ import './ProductsPage.css'; // Import the new CSS file
 
 const ProductsPage = () => {
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([
+    { category_id: 'All Products', name: 'All Products' }
+  ]);
   const [manufacturers, setManufacturers] = useState([]);
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
-  // Initialize selectedCategory from URL query parameter
   const getInitialCategory = () => {
     const params = new URLSearchParams(location.search);
     const categoryName = params.get('category');
     if (categoryName) {
-      // Find the corresponding category_id if it exists
-      const foundCategory = categories.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
-      return foundCategory ? foundCategory.category_id : 'All Products';
+      // Since categories are not dynamically fetched anymore, we can simplify this
+      return categoryName;
     }
     return 'All Products';
   };
 
-  const [selectedCategory, setSelectedCategory] = useState(getInitialCategory);
+  const [selectedCategory, setSelectedCategory] = useState('All Products');
   const [priceRange, setPriceRange] = useState(100000);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false); // State for mobile filters
 
   // Update selectedCategory if URL changes
   useEffect(() => {
-    setSelectedCategory(getInitialCategory());
-  }, [location.search, categories]); // Re-run when location.search or categories change
+    const params = new URLSearchParams(location.search);
+    const categoryName = params.get('category');
+    setSelectedCategory(categoryName || 'All Products');
+  }, [location.search]);
 
   useEffect(() => {
     // Fetch products
@@ -43,14 +45,6 @@ const ProductsPage = () => {
         setProducts(res.data);
       })
       .catch(err => console.error('ProductsPage: Error fetching products:', err));
-
-    // Fetch categories
-    axios.get('/api/categories')
-      .then(res => {
-        console.log('ProductsPage: Categories fetched from backend:', res.data);
-        setCategories([{ category_id: 'All Products', name: 'All Products' }, ...res.data]);
-      })
-      .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
     // Fetch manufacturers (assuming a /api/manufacturers endpoint exists or can be derived)
     // For now, let's use a placeholder if no dedicated API exists
@@ -74,15 +68,10 @@ const ProductsPage = () => {
     if (category === 'All Products') {
       params.delete('category');
     } else {
-      // Find the category name to put in URL
-      const catName = categories.find(cat => cat.category_id === category)?.name;
-      if (catName) {
-        params.set('category', catName);
-      } else {
-        params.delete('category'); // Fallback if category_id doesn't map to a name
-      }
+      params.set('category', category);
     }
-    window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+    // Use navigate to update URL without full page reload
+    navigate(`${location.pathname}?${params.toString()}`);
   };
 
   const handlePriceChange = (e) => {
@@ -97,7 +86,9 @@ const ProductsPage = () => {
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'All Products' || product.category_id === selectedCategory;
+    const categoryObject = categories.find(c => c.category_id === product.category_id);
+    const categoryName = categoryObject ? categoryObject.name : '';
+    const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
     const matchesPrice = parseFloat(product.price) <= parseFloat(priceRange);
     const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.manufacturer_id);
     // Assuming product has a manufacturer_id. For now, this will just filter by the dummy manufacturers.
