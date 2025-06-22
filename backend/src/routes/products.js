@@ -30,6 +30,19 @@ router.get('/', async (req, res) => {
     }
 });
 
+/*
+// Get all categories
+router.get('/categories', async (req, res) => {
+    try {
+        const [categories] = await db.query('SELECT * FROM categories ORDER BY name');
+        res.json(categories);
+    } catch (err) {
+        console.error('Database error in GET /categories:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+*/
+
 // Get a single product by ID (public)
 router.get('/:id', async (req, res) => {
     const { id } = req.params;

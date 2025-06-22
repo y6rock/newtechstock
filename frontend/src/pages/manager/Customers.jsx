@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
+import { formatPrice } from '../../utils/currency';
 
 const Customers = () => {
-    const { isUserAdmin, loadingSettings } = useSettings();
+    const { isUserAdmin, loadingSettings, currency } = useSettings();
     const navigate = useNavigate();
     const [customers, setCustomers] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
@@ -26,7 +27,7 @@ const Customers = () => {
                 if (!token) {
                     throw new Error('No token found');
                 }
-                const response = await fetch('/api/customers', {
+                const response = await fetch('/api/admin/customers', {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -124,7 +125,7 @@ const Customers = () => {
                                 <td style={{ padding: '15px' }}>{customer.email}</td>
                                 <td style={{ padding: '15px' }}>{customer.phone || 'N/A'}</td>
                                 <td style={{ padding: '15px' }}>{customer.order_count}</td>
-                                <td style={{ padding: '15px' }}>${parseFloat(customer.total_spent).toFixed(2)}</td>
+                                <td style={{ padding: '15px' }}>{formatPrice(customer.total_spent, currency)}</td>
                                 <td style={{ padding: '15px', textAlign: 'center' }}>
                                     <button
                                         onClick={() => handleViewOrders(customer)}
@@ -198,24 +199,15 @@ const Customers = () => {
                                 {customerOrders.map(order => (
                                     <div key={order.order_id} style={{
                                         border: '1px solid #eee',
-                                        borderRadius: '8px',
+                                        borderRadius: '5px',
                                         padding: '15px',
-                                        marginBottom: '15px'
+                                        marginBottom: '10px',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center'
                                     }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-                                            <h3 style={{ margin: 0 }}>Order #{order.order_id}</h3>
-                                            <span style={{ fontWeight: 'bold' }}>${parseFloat(order.total_price).toFixed(2)}</span>
-                                        </div>
-                                        <p style={{ margin: '5px 0', color: '#666' }}>
-                                            Date: {new Date(order.order_date).toLocaleDateString()}
-                                        </p>
-                                        <p style={{ margin: '5px 0', color: '#666' }}>
-                                            Status: <span style={{
-                                                color: order.status === 'pending' ? '#ffc107' : '#28a745',
-                                                fontWeight: 'bold',
-                                                textTransform: 'capitalize'
-                                            }}>{order.status}</span>
-                                        </p>
+                                        <span>Order #{order.order_id} - {new Date(order.order_date).toLocaleDateString()}</span>
+                                        <span style={{ fontWeight: 'bold' }}>{formatPrice(order.total_price, currency)}</span>
                                     </div>
                                 ))}
                             </div>

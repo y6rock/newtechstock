@@ -3,9 +3,11 @@ import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign, FaGift } from 'react-icons/fa';
 import './Promotions.css';
+import axios from 'axios';
+import { formatPrice } from '../../utils/currency';
 
 export default function Promotions() {
-  const { isUserAdmin, loadingSettings } = useSettings();
+  const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -195,9 +197,10 @@ export default function Promotions() {
   };
 
   const formatValue = (type, value) => {
+    if (!value) return 'N/A';
     switch (type) {
       case 'percentage': return `${value}%`;
-      case 'fixed': return `$${value}`;
+      case 'fixed': return formatPrice(value, currency);
       case 'buy_x_get_y': return `Buy ${value.split(':')[0]} Get ${value.split(':')[1]} Free`;
       default: return value;
     }

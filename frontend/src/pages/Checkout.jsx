@@ -1,208 +1,161 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { formatPrice } from '../utils/currency';
+import './Checkout.css';
 
 const Checkout = () => {
-  const { cartItems, getTotalPrice, clearCart } = useCart();
-  const { user_id, username } = useSettings();
-  const navigate = useNavigate();
-  const [paymentSimulated, setPaymentSimulated] = useState(false);
-  const [loadingOrder, setLoadingOrder] = useState(false);
-  const [orderError, setOrderError] = useState(null);
-  const [settings, setSettings] = useState({ currency: 'ILS', vat_rate: 17 });
-  const [currencies, setCurrencies] = useState({});
+    const { cartItems, clearCart, appliedPromotion, total, subtotal, discountAmount } = useCart();
+    const { user_id, currency } = useSettings();
+    const navigate = useNavigate();
 
-  useEffect(() => {
-    // Redirect if cart is empty or user is not logged in
-    if (cartItems.length === 0) {
-      navigate('/cart');
-    }
-    if (!user_id) {
-      navigate('/login');
-    }
-  }, [cartItems, user_id, navigate]);
+    const [shippingAddress, setShippingAddress] = useState('');
+    const [paymentMethod, setPaymentMethod] = useState('credit_card');
+    const [orderError, setOrderError] = useState(null);
+    const [isPlacingOrder, setIsPlacingOrder] = useState(false);
 
-  useEffect(() => {
-    const fetchSettings = async () => {
-      try {
-        const [settingsRes, currenciesRes] = await Promise.all([
-          axios.get('/api/settings'),
-          axios.get('/api/currencies')
-        ]);
-        // Ensure vat_rate is preserved if not present in the API response
-        setSettings(prevSettings => ({
-          ...prevSettings,
-          ...settingsRes.data,
-          vat_rate: settingsRes.data.vat_rate || prevSettings.vat_rate,
-        }));
-        setCurrencies(currenciesRes.data);
-      } catch (err) {
-        console.error('Error fetching settings:', err);
-      }
+    const handlePlaceOrder = async (e) => {
+        e.preventDefault();
+        if (!shippingAddress.trim()) {
+            setOrderError('Shipping address is required.');
+            return;
+        }
+        if (!user_id) {
+            setOrderError('You must be logged in to place an order.');
+            return;
+        }
+        if (cartItems.length === 0) {
+            setOrderError('Your cart is empty.');
+            return;
+        }
+
+        setIsPlacingOrder(true);
+        setOrderError(null);
+
+        const orderData = {
+            user_id,
+            items: cartItems.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+            })),
+            total_amount: total,
+            shipping_address: shippingAddress,
+            payment_method: paymentMethod,
+            promotion_id: appliedPromotion ? appliedPromotion.promotion_id : null,
+        };
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('/api/orders', orderData, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const orderId = response.data.orderId;
+            console.log('Order created with ID:', orderId);
+
+            alert('Order placed successfully!');
+            clearCart();
+            console.log(`Navigating to /order-confirmation/${orderId}`);
+            navigate(`/order-confirmation/${orderId}`);
+        } catch (error) {
+            const message = error.response?.data?.message || 'There was an issue placing your order.';
+            console.error('Order placement error:', error);
+            setOrderError(message);
+            alert(`Error: ${message}`);
+        } finally {
+            setIsPlacingOrder(false);
+        }
     };
-    fetchSettings();
-  }, []);
-
-  const handleSimulatePayment = () => {
-    setPaymentSimulated(true);
-    alert('Payment simulated successfully! You can now place your order.');
-  };
-
-  const formatPrice = (price) => {
-    const currency = currencies[settings.currency];
-    if (!currency) return `₪${price.toFixed(2)}`; // Default to shekel if currency not found
     
-    const convertedPrice = price * currency.rate;
-    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
-  };
-
-  const handlePlaceOrder = async () => {
-    if (!paymentSimulated) {
-      alert('Please simulate payment first.');
-      return;
-    }
-    if (cartItems.length === 0) {
-      alert('Your cart is empty. Cannot place an empty order.');
-      navigate('/cart');
-      return;
-    }
-    if (!user_id) {
-      alert('You must be logged in to place an order.');
-      navigate('/login');
-      return;
-    }
-
-    setLoadingOrder(true);
-    setOrderError(null);
-
-    try {
-      const token = localStorage.getItem('token');
-      const orderData = {
-        user_id: user_id,
-        total_amount: parseFloat(getTotalPrice()),
-        items: cartItems.map(item => ({
-          product_id: item.product_id,
-          quantity: item.quantity,
-          price: parseFloat(item.price)
-        })),
-      };
-
-      console.log('Placing order with data:', orderData);
-
-      const response = await fetch('/api/orders', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(orderData),
-      });
-
-      if (!response.ok) {
-        const errorDetails = await response.json().catch(() => ({ message: 'Failed to parse error response.' }));
-        throw new Error(errorDetails.message || 'Failed to place order.');
-      }
-
-      const result = await response.json();
-      console.log('Order placed successfully:', result);
-      alert('Order placed successfully!');
-      clearCart();
-      navigate('/order-confirmation');
-
-    } catch (error) {
-      console.error('Error placing order:', error);
-      setOrderError(`Error placing order: ${error.message}`);
-      alert(`Error placing order: ${error.message}`);
-    } finally {
-      setLoadingOrder(false);
-    }
-  };
-
-  const subtotal = parseFloat(getTotalPrice());
-  const vatAmount = subtotal * (settings.vat_rate / 100);
-  const total = subtotal + vatAmount;
-
-  return (
-    <div style={{ maxWidth: '800px', margin: '20px auto', padding: '20px', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 10px rgba(0,0,0,0.05)' }}>
-      <h1 style={{ fontSize: '2em', marginBottom: '20px', textAlign: 'center', color: '#333' }}>Checkout</h1>
-
-      {cartItems.length === 0 ? (
-        <p style={{ textAlign: 'center', color: '#666' }}>Redirecting to cart...</p>
-      ) : (
-        <div>
-          <h2 style={{ fontSize: '1.5em', marginBottom: '15px', color: '#555' }}>Order Summary</h2>
-          <ul style={{ listStyle: 'none', padding: '0' }}>
-            {cartItems.map(item => (
-              <li key={item.product_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px dashed #eee' }}>
-                <span>{item.name} (x{item.quantity})</span>
-                <span>{formatPrice(parseFloat(item.price) * item.quantity)}</span>
-              </li>
-            ))}
-          </ul>
-
-          <div style={{ marginTop: '20px', padding: '15px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
-              <span>Subtotal:</span>
-              <span>{formatPrice(subtotal)}</span>
+    if (cartItems.length === 0 && !isPlacingOrder) {
+        return (
+            <div className="checkout-container empty-cart">
+                <h1>Checkout</h1>
+                <p>Your cart is empty. You cannot proceed to checkout.</p>
+                <button onClick={() => navigate('/products')} className="start-shopping-button">Continue Shopping</button>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', color: '#666' }}>
-              <span>VAT ({settings.vat_rate}%):</span>
-              <span>{formatPrice(vatAmount)}</span>
+        );
+    }
+
+    return (
+        <div className="checkout-container">
+            <h1>Checkout</h1>
+            <div className="checkout-content">
+                <div className="order-summary-card">
+                    <h2>Order Summary</h2>
+                    {cartItems.map(item => (
+                        <div key={item.product_id} className="summary-item">
+                            <span>{item.name} (x{item.quantity})</span>
+                            <span>{formatPrice(item.price * item.quantity, currency)}</span>
+                        </div>
+                    ))}
+                    <div className="summary-total">
+                        <strong>Subtotal:</strong>
+                        <strong>{formatPrice(subtotal, currency)}</strong>
+                    </div>
+                    {discountAmount > 0 && (
+                        <div className="summary-item discount">
+                            <span>Discount ({appliedPromotion.name})</span>
+                            <span>-{formatPrice(discountAmount, currency)}</span>
+                        </div>
+                    )}
+                    <div className="summary-total">
+                        <strong>Total:</strong>
+                        <strong>{formatPrice(total, currency)}</strong>
+                    </div>
+                </div>
+
+                <form onSubmit={handlePlaceOrder} className="checkout-form-card">
+                    <h2>Shipping & Payment</h2>
+                    <div className="form-group">
+                        <label htmlFor="shippingAddress">Shipping Address</label>
+                        <input
+                            id="shippingAddress"
+                            type="text"
+                            value={shippingAddress}
+                            onChange={(e) => setShippingAddress(e.target.value)}
+                            placeholder="Enter your full address"
+                            required
+                        />
+                    </div>
+                    <div className="form-group">
+                        <label>Payment Method</label>
+                        <div className="payment-options">
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="paymentMethod"
+                                    value="credit_card"
+                                    checked={paymentMethod === 'credit_card'}
+                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                />
+                                Credit Card
+                            </label>
+                            <label>
+                                <input
+                                    type="radio"
+                                    name="paymentMethod"
+                                    value="paypal"
+                                    checked={paymentMethod === 'paypal'}
+                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                />
+                                PayPal
+                            </label>
+                        </div>
+                    </div>
+
+                    {orderError && <p className="error-message">{orderError}</p>}
+
+                    <button type="submit" className="place-order-button" disabled={isPlacingOrder}>
+                        {isPlacingOrder ? 'Placing Order...' : `Place Order (${formatPrice(total, currency)})`}
+                    </button>
+                </form>
             </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '1.2em', fontWeight: 'bold', borderTop: '1px solid #ddd', paddingTop: '10px' }}>
-              <span>Total:</span>
-              <span>{formatPrice(total)}</span>
-            </div>
-          </div>
-
-          <h2 style={{ fontSize: '1.5em', marginTop: '30px', marginBottom: '15px', color: '#555' }}>Payment</h2>
-          <div style={{ border: '1px solid #ddd', padding: '20px', borderRadius: '8px', textAlign: 'center' }}>
-            <p style={{ color: '#777' }}>This is a sandbox payment module. Click to simulate payment.</p>
-            {!paymentSimulated ? (
-              <button
-                onClick={handleSimulatePayment}
-                style={{
-                  padding: '12px 25px',
-                  backgroundColor: '#007bff',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  fontSize: '1.1em',
-                  marginTop: '10px'
-                }}
-              >Simulate Payment</button>
-            ) : (
-              <p style={{ color: '#28a745', fontWeight: 'bold' }}>Payment Simulated!</p>
-            )}
-          </div>
-
-          {orderError && <p style={{ color: 'red', textAlign: 'center', marginTop: '15px' }}>{orderError}</p>}
-
-          <button
-            onClick={handlePlaceOrder}
-            disabled={!paymentSimulated || loadingOrder || cartItems.length === 0}
-            style={{
-              width: '100%',
-              padding: '15px',
-              backgroundColor: paymentSimulated ? '#28a745' : '#cccccc',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '5px',
-              cursor: paymentSimulated ? 'pointer' : 'not-allowed',
-              fontSize: '1.2em',
-              marginTop: '30px',
-              opacity: loadingOrder ? 0.7 : 1
-            }}
-          >
-            {loadingOrder ? 'Placing Order...' : 'Place Order'}
-          </button>
         </div>
-      )}
-    </div>
-  );
+    );
 };
 
 export default Checkout; 

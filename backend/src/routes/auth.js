@@ -79,7 +79,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '1h' },
     );
     console.log(`Login successful for user: ${user.name}`);
-    res.json({ message: 'Login successful', token });
+    res.json({ message: 'Login successful', token, role: user.role });
   } catch (err) {
     console.error('Login database error:', err);
     return res.status(500).json({ message: 'Database error', details: err.message });

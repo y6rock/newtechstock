@@ -6,8 +6,8 @@ import Logo from './Logo';
 import './Header.css'; // Import the new CSS file
 
 export default function Header() {
-  const { isUserAdmin, username, setIsUserAdmin, setUsername } = useSettings();
-  const { getTotalItems } = useCart();
+  const { isUserAdmin, username, reEvaluateToken } = useSettings();
+  const { totalItems } = useCart();
   const navigate = useNavigate();
   const cartTabRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -23,10 +23,8 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    setIsUserAdmin(false);
-    setUsername(null);
-    setMenuOpen(false); // Close menu on logout
-    navigate('/');
+    reEvaluateToken(); // This will reload the page and clear the state
+    // No need to navigate manually, the reload handles it.
   };
 
   const closeMenu = () => {
@@ -45,8 +43,8 @@ export default function Header() {
           <Link to="/products" onClick={closeMenu}>Products</Link>
           {username && (
             <Link to="/cart" ref={cartTabRef} className="cart-link" onClick={closeMenu}>
-              Cart {getTotalItems() > 0 && (
-                <span className="cart-badge">{getTotalItems()}</span>
+              Cart {totalItems > 0 && (
+                <span className="cart-badge">{totalItems}</span>
               )}
             </Link>
           )}

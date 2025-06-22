@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaUser, FaEnvelope, FaPhone, FaCity, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import './AuthForm.css'; // Import the new shared CSS
 
 function Signup() {
   const [form, setForm] = useState({
@@ -49,298 +50,114 @@ function Signup() {
   };
 
   return (
-    <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        minHeight: '100vh',
-        background: '#f0f2f5',
-        padding: '20px',
-        boxSizing: 'border-box'
-    }}>
-        <div style={{
-            background: '#fff',
-            padding: '40px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-            width: '100%',
-            maxWidth: '500px',
-            textAlign: 'center'
-        }}>
-            <h2 style={{
-                fontSize: '1.8em',
-                marginBottom: '10px',
-                color: '#333'
-            }}>Create account</h2>
-            <p style={{
-                color: '#666',
-                marginBottom: '30px',
-                fontSize: '0.95em'
-            }}>Enter your information to create your account</p>
+    <div className="auth-container">
+        <div className="auth-form-wrapper">
+            <h2>Create account</h2>
+            <p className="auth-form-subtitle">Enter your information to create your account</p>
 
-            <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
-                <div style={{ display: 'flex', gap: '20px', marginBottom: '20px' }}>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                        <FaUser style={{
-                            position: 'absolute',
-                            left: '15px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#aaa'
-                        }} />
+            <form onSubmit={handleSubmit} className="auth-form" noValidate>
+                <div className="auth-flex-group">
+                    <div className="auth-input-group">
+                        <FaUser className="auth-input-icon" />
                         <input
                             type="text"
                             name="name"
                             placeholder="First name"
                             value={form.name}
                             onChange={handleChange}
-                            style={{
-                                width: 'calc(100% - 30px)',
-                                padding: '12px 15px 12px 45px',
-                                border: '1px solid #ddd',
-                                borderRadius: '5px',
-                                fontSize: '1em',
-                                boxSizing: 'border-box',
-                                transition: 'border-color 0.3s'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                            onBlur={(e) => e.target.style.borderColor = '#ddd'}
                             required
                         />
                     </div>
-                    <div style={{ position: 'relative', flex: 1 }}>
-                        <FaUser style={{
-                            position: 'absolute',
-                            left: '15px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#aaa'
-                        }} />
+                    <div className="auth-input-group">
+                        <FaUser className="auth-input-icon" />
                         <input
                             type="text"
                             name="lastName"
                             placeholder="Last name"
                             value={form.lastName}
                             onChange={handleChange}
-                            style={{
-                                width: 'calc(100% - 30px)',
-                                padding: '12px 15px 12px 45px',
-                                border: '1px solid #ddd',
-                                borderRadius: '5px',
-                                fontSize: '1em',
-                                boxSizing: 'border-box',
-                                transition: 'border-color 0.3s'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                            onBlur={(e) => e.target.style.borderColor = '#ddd'}
                             required
                         />
                     </div>
                 </div>
 
-                <div style={{ marginBottom: '20px', position: 'relative' }}>
-                    <FaEnvelope style={{
-                        position: 'absolute',
-                        left: '15px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#aaa'
-                    }} />
+                <div className="auth-input-group">
+                    <FaEnvelope className="auth-input-icon" />
                     <input
                         type="email"
                         name="email"
                         placeholder="Enter your email"
                         value={form.email}
                         onChange={handleChange}
-                        style={{
-                            width: 'calc(100% - 30px)',
-                            padding: '12px 15px 12px 45px',
-                            border: '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '1em',
-                            boxSizing: 'border-box',
-                            transition: 'border-color 0.3s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
                         required
                     />
                 </div>
 
-                <div style={{ marginBottom: '20px', position: 'relative' }}>
-                    <FaPhone style={{
-                        position: 'absolute',
-                        left: '15px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#aaa'
-                    }} />
+                <div className="auth-input-group">
+                    <FaPhone className="auth-input-icon" />
                     <input
                         type="text"
                         name="phone"
                         placeholder="Phone number"
                         value={form.phone}
                         onChange={handleChange}
-                        style={{
-                            width: 'calc(100% - 30px)',
-                            padding: '12px 15px 12px 45px',
-                            border: '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '1em',
-                            boxSizing: 'border-box',
-                            transition: 'border-color 0.3s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
                         required
                     />
                 </div>
 
-                <div style={{ marginBottom: '20px', position: 'relative' }}>
-                    <FaCity style={{
-                        position: 'absolute',
-                        left: '15px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#aaa'
-                    }} />
+                <div className="auth-input-group">
+                    <FaCity className="auth-input-icon" />
                     <input
                         type="text"
                         name="city"
                         placeholder="City"
                         value={form.city}
                         onChange={handleChange}
-                        style={{
-                            width: 'calc(100% - 30px)',
-                            padding: '12px 15px 12px 45px',
-                            border: '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '1em',
-                            boxSizing: 'border-box',
-                            transition: 'border-color 0.3s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
                         required
                     />
                 </div>
 
-                <div style={{ marginBottom: '20px', position: 'relative' }}>
-                    <FaLock style={{
-                        position: 'absolute',
-                        left: '15px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#aaa'
-                    }} />
+                <div className="auth-input-group">
+                    <FaLock className="auth-input-icon" />
                     <input
                         type={showPassword ? 'text' : 'password'}
                         name="password"
                         placeholder="Create a password"
                         value={form.password}
                         onChange={handleChange}
-                        style={{
-                            width: 'calc(100% - 30px)',
-                            padding: '12px 15px 12px 45px',
-                            border: '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '1em',
-                            boxSizing: 'border-box',
-                            transition: 'border-color 0.3s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
                         required
                     />
-                    <span
-                        onClick={() => setShowPassword(!showPassword)}
-                        style={{
-                            position: 'absolute',
-                            right: '15px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            cursor: 'pointer',
-                            color: '#aaa'
-                        }}
-                    >
+                    <span onClick={() => setShowPassword(!showPassword)} className="auth-password-toggle-icon">
                         {showPassword ? <FaEyeSlash /> : <FaEye />}
                     </span>
                 </div>
 
-                <div style={{ marginBottom: '30px', position: 'relative' }}>
-                    <FaLock style={{
-                        position: 'absolute',
-                        left: '15px',
-                        top: '50%',
-                        transform: 'translateY(-50%)',
-                        color: '#aaa'
-                    }} />
+                <div className="auth-input-group">
+                    <FaLock className="auth-input-icon" />
                     <input
                         type={showConfirmPassword ? 'text' : 'password'}
                         name="confirmPassword"
                         placeholder="Confirm your password"
                         value={form.confirmPassword}
                         onChange={handleChange}
-                        style={{
-                            width: 'calc(100% - 30px)',
-                            padding: '12px 15px 12px 45px',
-                            border: '1px solid #ddd',
-                            borderRadius: '5px',
-                            fontSize: '1em',
-                            boxSizing: 'border-box',
-                            transition: 'border-color 0.3s'
-                        }}
-                        onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                        onBlur={(e) => e.target.style.borderColor = '#ddd'}
                         required
                     />
-                    <span
-                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                        style={{
-                            position: 'absolute',
-                            right: '15px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            cursor: 'pointer',
-                            color: '#aaa'
-                        }}
-                    >
+                    <span onClick={() => setShowConfirmPassword(!showConfirmPassword)} className="auth-password-toggle-icon">
                         {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
                     </span>
                 </div>
 
-                {message && <p style={{ color: message.includes('match') || message.includes('failed') ? 'red' : 'green', marginBottom: '15px' }}>{message}</p>}
+                {message && (
+                    <p className={`auth-message ${message.includes('failed') || message.includes('match') ? 'error' : 'success'}`}>
+                        {message}
+                    </p>
+                )}
 
-                <button
-                    type="submit"
-                    style={{
-                        width: '100%',
-                        padding: '12px',
-                        background: '#007bff',
-                        color: '#fff',
-                        border: 'none',
-                        borderRadius: '5px',
-                        fontSize: '1.1em',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.3s',
-                        boxSizing: 'border-box'
-                    }}
-                    onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                    onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
-                >
-                    Create account
-                </button>
+                <button type="submit" className="auth-submit-button">Sign up</button>
             </form>
 
-            <div style={{ marginTop: '25px', fontSize: '0.95em', color: '#666' }}>
-                Already have an account? <Link to="/login" style={{
-                    color: '#007bff',
-                    textDecoration: 'none',
-                    transition: 'color 0.3s'
-                }}
-                onMouseOver={(e) => e.target.style.color = '#0056b3'}
-                onMouseOut={(e) => e.target.style.color = '#007bff'}
-                >Sign in</Link>
+            <div className="auth-redirect-link">
+                Already have an account? <Link to="/login">Sign in</Link>
             </div>
         </div>
     </div>

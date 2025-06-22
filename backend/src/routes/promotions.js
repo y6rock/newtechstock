@@ -106,21 +106,121 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 });
 
 function isItemApplicable(item, promotion) {
-    // ... (logic for checking if an item is applicable)
-    // This will be filled in from the original file
     const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
     const applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [];
 
-    if (applicableProducts.length > 0 && !applicableProducts.includes(item.product_id)) {
+    // Convert to strings for comparison since JSON.parse returns strings
+    const itemProductId = item.product_id.toString();
+    const itemCategoryId = item.category_id ? item.category_id.toString() : null;
+
+    if (applicableProducts.length > 0 && !applicableProducts.includes(itemProductId)) {
         return false;
     }
-    if (applicableCategories.length > 0 && !applicableCategories.includes(item.category_id)) {
+    if (applicableCategories.length > 0 && !applicableCategories.includes(itemCategoryId)) {
         return false;
     }
     return true;
 }
 
-// Apply a promotion code (public)
+// Apply a promotion code (public) - Frontend calls this endpoint
+router.post('/apply', async (req, res) => {
+    const { promotionCode, cartItems } = req.body;
+    if (!promotionCode || !cartItems) {
+        return res.status(400).json({ message: 'Promotion code and cart items are required.' });
+    }
+
+    console.log('Applying promotion code:', promotionCode);
+    console.log('Cart items:', cartItems);
+
+    try {
+        const [promotions] = await db.query(
+            "SELECT * FROM promotions WHERE code = ? AND start_date <= CURDATE() AND end_date >= CURDATE()",
+            [promotionCode]
+        );
+
+        if (promotions.length === 0) {
+            console.log('No valid promotion found for code:', promotionCode);
+            return res.status(404).json({ message: 'Invalid or expired promotion code.' });
+        }
+
+        const promotion = promotions[0];
+        console.log('Found promotion:', promotion);
+        
+        let totalDiscount = 0;
+        let discountedItems = [];
+
+        const totalCartAmount = cartItems.reduce((total, item) => total + (item.price * item.quantity), 0);
+        console.log('Total cart amount:', totalCartAmount);
+        
+        if (promotion.min_purchase && totalCartAmount < promotion.min_purchase) {
+            console.log('Minimum purchase not met:', promotion.min_purchase);
+            return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
+        }
+
+        // Check which items are applicable
+        cartItems.forEach(item => {
+            const isApplicable = isItemApplicable(item, promotion);
+            console.log(`Item ${item.product_id} (category ${item.category_id}) applicable:`, isApplicable);
+        });
+
+        if (promotion.type === 'percentage') {
+            cartItems.forEach(item => {
+                if (isItemApplicable(item, promotion)) {
+                    totalDiscount += (item.price * item.quantity) * (promotion.value / 100);
+                    discountedItems.push(item.product_id);
+                }
+            });
+        } else if (promotion.type === 'fixed') {
+            // Distribute fixed discount proportionally among applicable items
+            const applicableTotal = cartItems.reduce((total, item) => {
+                return isItemApplicable(item, promotion) ? total + (item.price * item.quantity) : total;
+            }, 0);
+
+            console.log('Applicable total for fixed discount:', applicableTotal);
+
+            if (applicableTotal > 0) {
+                cartItems.forEach(item => {
+                    if (isItemApplicable(item, promotion)) {
+                        const itemTotal = item.price * item.quantity;
+                        const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
+                        totalDiscount += itemDiscount;
+                        discountedItems.push(item.product_id);
+                    }
+                });
+            }
+        } else if (promotion.type === 'bogo') {
+            // Buy One Get One Free logic
+            cartItems.forEach(item => {
+                if (isItemApplicable(item, promotion) && item.quantity >= 2) {
+                    const pairs = Math.floor(item.quantity / 2);
+                    totalDiscount += pairs * item.price;
+                    discountedItems.push(item.product_id);
+                }
+            });
+        }
+
+        console.log('Final discount:', totalDiscount);
+        console.log('Discounted items:', discountedItems);
+
+        res.json({
+            promotion: {
+                promotion_id: promotion.promotion_id,
+                name: promotion.name || promotion.description,
+                code: promotion.code,
+                type: promotion.type,
+                value: promotion.value
+            },
+            totalDiscount: parseFloat(totalDiscount.toFixed(2)),
+            discountedItems
+        });
+
+    } catch (error) {
+        console.error("Error applying promotion:", error);
+        res.status(500).json({ message: "Internal Server Error" });
+    }
+});
+
+// Apply a promotion code (public) - Original endpoint
 router.post('/apply-promotion', async (req, res) => {
     const { code, cart } = req.body;
     if (!code || !cart) {

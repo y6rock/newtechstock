@@ -16,6 +16,8 @@ import Checkout from './pages/Checkout';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';
 import ProductDetails from './pages/ProductDetails';
+import OrderHistory from './pages/OrderHistory';
+import OrderConfirmation from './pages/OrderConfirmation';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
@@ -49,6 +51,8 @@ function App({ isManagerRoute }) {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/checkout" element={<Checkout />} />
         <Route path="/profile" element={<Profile />} />
+        <Route path="/order-history" element={<OrderHistory />} />
+        <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
 
         {/* Manager Routes */}
         <Route path="/manager/dashboard" element={<Dashboard />} />

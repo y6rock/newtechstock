@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import { formatPrice } from '../../utils/currency';
 import './Orders.css';
 
 const Orders = () => {
@@ -11,47 +11,57 @@ const Orders = () => {
   const [error, setError] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const { isUserAdmin, loadingSettings } = useSettings();
+  const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
   const processStats = (distribution) => {
-    const newStats = {
-      pending_orders: 0,
-      processing_orders: 0,
-      shipped_orders: 0,
-      delivered_orders: 0,
-    };
+    const newStats = { pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 };
     let total = 0;
-    distribution.forEach(item => {
-        const key = `${item.status.toLowerCase()}_orders`;
-        if (key in newStats) {
-            newStats[key] = item.count;
-        }
-        total += item.count;
-    });
+    if (Array.isArray(distribution)) {
+      distribution.forEach(item => {
+          const key = `${item.status.toLowerCase()}_orders`;
+          if (key in newStats) {
+              newStats[key] = item.count;
+          }
+          total += item.count;
+      });
+    }
     newStats.total_orders = total;
     return newStats;
   };
 
-  const fetchOrdersAndStats = async () => {
+  const fetchOrdersAndStats = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      const headers = { Authorization: `Bearer ${token}` };
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
       const [ordersRes, distributionRes] = await Promise.all([
-        axios.get('/api/admin/orders', { headers }),
-        axios.get('/api/admin/order-status-distribution', { headers })
+        fetch('/api/admin/orders', { headers }),
+        fetch('/api/admin/order-status-distribution', { headers })
       ]);
-      setOrders(ordersRes.data);
-      const processedStats = processStats(distributionRes.data);
+
+      if (!ordersRes.ok || !distributionRes.ok) {
+        throw new Error('Failed to fetch orders data');
+      }
+
+      const ordersData = await ordersRes.json();
+      const distributionData = await distributionRes.json();
+
+      setOrders(ordersData);
+      const processedStats = processStats(distributionData);
       setStats(processedStats);
+
     } catch (err) {
-      setError('Failed to fetch orders data.');
+      setError(err.message || 'Failed to fetch orders data.');
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (!loadingSettings) {
@@ -61,31 +71,44 @@ const Orders = () => {
         navigate('/');
       }
     }
-  }, [isUserAdmin, loadingSettings, navigate]);
+  }, [isUserAdmin, loadingSettings, navigate, fetchOrdersAndStats]);
 
   const handleStatusChange = async (orderId, newStatus) => {
+    setError(null);
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/orders/${orderId}/status`, { status: newStatus }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`/api/orders/${orderId}/status`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ status: newStatus }),
       });
-      // Refresh data after status update
+      if (!response.ok) {
+        throw new Error('Failed to update status');
+      }
       fetchOrdersAndStats();
     } catch (err) {
-      setError('Failed to update order status.');
+      setError(err.message || 'Failed to update order status.');
     }
   };
 
   const handleOrderClick = async (orderId) => {
+    setError(null);
     try {
       const token = localStorage.getItem('token');
-      const res = await axios.get(`/api/orders/${orderId}`, {
-        headers: { Authorization: `Bearer ${token}` }
+      const response = await fetch(`/api/orders/${orderId}`, {
+        headers: { 'Authorization': `Bearer ${token}` }
       });
-      setSelectedOrder(res.data);
+       if (!response.ok) {
+        throw new Error('Failed to fetch details');
+      }
+      const data = await response.json();
+      setSelectedOrder(data);
       setShowModal(true);
     } catch (err) {
-      setError('Failed to fetch order details.');
+      setError(err.message || 'Failed to fetch order details.');
     }
   };
 
@@ -141,7 +164,7 @@ const Orders = () => {
                 <td>#{order.order_id}</td>
                 <td>{new Date(order.order_date).toLocaleDateString()}</td>
                 <td>{order.user_name || order.user_email}</td>
-                <td>${parseFloat(order.total_price).toFixed(2)}</td>
+                <td>{formatPrice(order.total_price, currency)}</td>
                 <td>
                   <select
                     className={`status-dropdown status-${order.status}`}
@@ -171,13 +194,13 @@ const Orders = () => {
             <h2>Order #{selectedOrder.order_id}</h2>
             <p><strong>User:</strong> {selectedOrder.user_name || selectedOrder.user_email || '-'}</p>
             <p><strong>Date:</strong> {new Date(selectedOrder.order_date).toLocaleString()}</p>
-            <p><strong>Total:</strong> ${parseFloat(selectedOrder.total_price).toFixed(2)}</p>
+            <p><strong>Total:</strong> {formatPrice(selectedOrder.total_price, currency)}</p>
             <h3>Products</h3>
             <ul className="order-products-list">
               {(selectedOrder.products || []).map((item, idx) => (
                 <li key={idx}>
                   <span>{item.product_name || item.name} (x{item.quantity})</span>
-                  <span>${(parseFloat(item.price_at_order) * item.quantity).toFixed(2)}</span>
+                  <span>{formatPrice(item.price_at_order * item.quantity, currency)}</span>
                 </li>
               ))}
             </ul>

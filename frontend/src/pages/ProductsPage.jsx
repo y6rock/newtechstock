@@ -2,10 +2,22 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { BsCart } from 'react-icons/bs';
 import './ProductsPage.css'; // Import the new CSS file
 
+// Helper to get currency symbol
+const getCurrencySymbol = (currencyCode) => {
+  const symbols = {
+    'ILS': '₪',
+    'USD': '$',
+    'EUR': '€',
+  };
+  return symbols[currencyCode] || '$';
+};
+
 const ProductsPage = () => {
+  const { currency } = useSettings();
   const [products, setProducts] = useState([]);
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
@@ -45,6 +57,17 @@ const ProductsPage = () => {
         setProducts(res.data);
       })
       .catch(err => console.error('ProductsPage: Error fetching products:', err));
+
+    // Fetch categories
+    axios.get('/api/categories/public')
+      .then(res => {
+        console.log('ProductsPage: Categories fetched from backend:', res.data);
+        setCategories([
+          { category_id: 'All Products', name: 'All Products' },
+          ...res.data
+        ]);
+      })
+      .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
     // Fetch manufacturers (assuming a /api/manufacturers endpoint exists or can be derived)
     // For now, let's use a placeholder if no dedicated API exists
@@ -102,8 +125,8 @@ const ProductsPage = () => {
         <h3>Price Range</h3>
         <input type="range" min="0" max="100000" value={priceRange} onChange={handlePriceChange} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-          <span>$0</span>
-          <span>${priceRange}</span>
+          <span>{getCurrencySymbol(currency)}0</span>
+          <span>{getCurrencySymbol(currency)}{priceRange}</span>
         </div>
       </div>
       <div className="filter-group">
@@ -134,8 +157,8 @@ const ProductsPage = () => {
           {categories.map(cat => (
             <button
               key={cat.category_id}
-              onClick={() => handleCategoryChange(cat.category_id)}
-              className={`category-button ${selectedCategory === cat.category_id ? 'active' : ''}`}
+              onClick={() => handleCategoryChange(cat.name)}
+              className={`category-button ${selectedCategory === cat.name ? 'active' : ''}`}
             >
               {cat.name}
             </button>
@@ -161,7 +184,7 @@ const ProductsPage = () => {
                   <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
                   <h4 className="product-name">{product.name}</h4>
                   <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
-                  <p className="product-price">${parseFloat(product.price).toFixed(2)}</p>
+                  <p className="product-price">{getCurrencySymbol(currency)}{parseFloat(product.price).toFixed(2)}</p>
                   <div className="product-card-actions">
                     <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
                     <button className="add-to-cart-button" onClick={() => addToCart(product)}>
