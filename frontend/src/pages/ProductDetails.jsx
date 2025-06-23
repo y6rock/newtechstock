@@ -2,12 +2,23 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
+import { formatPrice } from '../utils/currency';
+
+// Helper to get currency symbol
+const getCurrencySymbol = (currencyCode) => {
+  const symbols = {
+    'ILS': '₪',
+    'USD': '$',
+    'EUR': '€',
+  };
+  return symbols[currencyCode] || '$';
+};
 
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { user_id, username } = useSettings();
+  const { user_id, username, currency } = useSettings();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -46,23 +57,24 @@ export default function ProductDetails() {
   return (
     <div style={{ maxWidth: 1100, margin: '40px auto', display: 'flex', gap: 40, alignItems: 'flex-start', fontFamily: 'Arial, sans-serif' }}>
       <button onClick={() => navigate(-1)} style={{ position: 'absolute', left: 30, top: 30, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '1em' }}>&lt; Back to all products</button>
-      <img
-        src={
-          product.image
-            ? product.image.startsWith('/uploads')
-              ? `http://localhost:3001${product.image}`
-              : product.image
-            : ''
-        }
-        alt={product.name}
-        style={{ width: 400, height: 400, objectFit: 'cover', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.07)' }}
-      />
-      <div style={{ flex: 1 }}>
-        <h2 style={{ fontSize: '2em', fontWeight: 'bold', marginBottom: 10 }}>{product.name}</h2>
-        <div style={{ color: '#888', marginBottom: 10 }}>By {product.brand || 'Unknown'}</div>
-        <div style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: 15 }}>${product.price}</div>
-        <div style={{ color: '#444', marginBottom: 20 }}>{product.description}</div>
-        <div style={{ color: product.stock > 0 ? 'green' : 'red', marginBottom: 20 }}>
+      <div className="product-image-container">
+        <img
+          src={
+            product.image
+              ? product.image.startsWith('/uploads')
+                ? `http://localhost:3001${product.image}`
+                : product.image
+              : 'https://via.placeholder.com/400'
+          }
+          alt={product.name}
+          className="product-main-image"
+        />
+      </div>
+      <div className="product-info-container">
+        <h1 className="product-title">{product.name}</h1>
+        <div style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: 15 }}>{formatPrice(product.price, currency)}</div>
+        <p className="product-description">{product.description}</p>
+        <div className="product-stock-status">
           {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>

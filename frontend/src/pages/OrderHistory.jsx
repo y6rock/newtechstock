@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import { formatPrice } from '../utils/currency';
 
 const OrderHistory = ({ userId }) => {
-  const { user_id: contextUserId, loadingSettings } = useSettings();
+  const { user_id: contextUserId, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -31,8 +32,8 @@ const OrderHistory = ({ userId }) => {
       setError(null);
       try {
         const token = localStorage.getItem('token');
-        // Always call /api/orders, no query param
-        const response = await fetch(`/api/orders`, {
+        // Corrected API call to include /history/:userId
+        const response = await fetch(`/api/orders/history/${currentUserId}`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -90,17 +91,20 @@ const OrderHistory = ({ userId }) => {
             <div key={order.order_id} style={{ marginBottom: '30px', border: '1px solid #eee', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 5px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #ddd' }}>
                 <h2 style={{ margin: '0', fontSize: '1.4em', color: '#007bff' }}>Order #{order.order_id}</h2>
-                <span style={{ fontSize: '1.1em', fontWeight: 'bold' }}>Total: ${parseFloat(order.total_price).toFixed(2)}</span>
+                <span style={{ fontSize: '1.1em', fontWeight: 'bold' }}>Total: {formatPrice(order.total_amount, currency)}</span>
               </div>
-              <p style={{ margin: '0 0 10px 0', color: '#777' }}>Date: {new Date(order.date).toLocaleDateString()} {new Date(order.date).toLocaleTimeString()}</p>
+              <p style={{ margin: '0 0 10px 0', color: '#777' }}>Date: {new Date(order.order_date).toLocaleDateString()} {new Date(order.order_date).toLocaleTimeString()}</p>
               <p style={{ margin: '0 0 15px 0', color: '#777' }}>Status: <span style={{ color: order.status === 'pending' ? '#ffc107' : '#28a745', fontWeight: 'bold', textTransform: 'capitalize' }}>{order.status}</span></p>
 
               <h3 style={{ fontSize: '1.2em', marginBottom: '10px', color: '#555' }}>Items:</h3>
               <ul style={{ listStyle: 'none', padding: '0' }}>
-                {(Array.isArray(order.products) ? order.products : []).map(item => (
-                  <li key={item.product_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #f0f0f0' }}>
-                    <span>{item.name} (x{item.quantity})</span>
-                    <span>${(parseFloat(item.price_at_order) * item.quantity).toFixed(2)}</span>
+                {(Array.isArray(order.items) ? order.items : []).map(item => (
+                  <li key={item.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #f0f0f0' }}>
+                    <div style={{ display: 'flex', alignItems: 'center' }}>
+                      <img src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} alt={item.product_name} style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '15px', borderRadius: '4px' }}/>
+                      <span>{item.product_name} (x{item.quantity})</span>
+                    </div>
+                    <span>{formatPrice(item.price * item.quantity, currency)}</span>
                   </li>
                 ))}
               </ul>

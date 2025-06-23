@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { FaTag, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
+import { useSettings } from '../context/SettingsContext';
+import { formatPrice } from '../utils/currency';
 
 const PromotionsBanner = () => {
   const [promotions, setPromotions] = useState([]);
   const [isVisible, setIsVisible] = useState(true);
+  const { currency } = useSettings();
+  const [currentPromotionIndex, setCurrentPromotionIndex] = useState(0);
 
   useEffect(() => {
     const fetchActivePromotions = async () => {
@@ -23,17 +27,17 @@ const PromotionsBanner = () => {
     return null;
   }
 
-  const formatPromotionValue = (type, value) => {
+  const formatValue = (type, value) => {
     switch (type) {
       case 'percentage':
         return `${value}% OFF`;
       case 'fixed':
-        return `$${value} OFF`;
+        return `${formatPrice(value, currency)} OFF`;
       case 'buy_x_get_y':
         const [buyX, getY] = value.split(':');
         return `BUY ${buyX} GET ${getY} FREE`;
       default:
-        return value;
+        return '';
     }
   };
 
@@ -86,7 +90,7 @@ const PromotionsBanner = () => {
             fontSize: '14px'
           }}>
             <span style={{ fontWeight: 'bold' }}>
-              {formatPromotionValue(promotion.type, promotion.value)}
+              {formatValue(promotion.type, promotion.value)}
             </span>
             {promotion.code && (
               <span style={{ 

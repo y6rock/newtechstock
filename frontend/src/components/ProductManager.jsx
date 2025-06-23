@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
-import { FaUser, FaEnvelope, FaPhone, FaCity, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import ProductModal from './ProductModal';
 import { useSettings } from '../context/SettingsContext';
 
@@ -19,37 +17,44 @@ function ProductManager() {
   const [settings, setSettings] = useState({ currency: 'ILS' });
   const [currencies, setCurrencies] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [error, setError] = useState('');
+  
   const { isUserAdmin, loadingSettings } = useSettings();
   const navigate = useNavigate();
 
-  const token = localStorage.getItem('token');
-
   const fetchProductData = useCallback(async () => {
-    if (!loadingSettings) {
-      if (!isUserAdmin) {
-        navigate('/');
-      } else {
-        try {
-          const headers = { Authorization: `Bearer ${token}` };
-          const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
-            axios.get('/api/products'),
-            axios.get('/api/suppliers', { headers }),
-            axios.get('/api/categories', { headers }),
-            axios.get('/api/settings'),
-            axios.get('/api/currencies'),
-          ]);
-          setProducts(productsRes.data);
-          setSuppliers(suppliersRes.data);
-          setCategories(categoriesRes.data);
-          setSettings(settingsRes.data);
-          setCurrencies(currenciesRes.data);
-        } catch (err) {
-          console.error('Error fetching initial product data:', err);
-          setMessage('Failed to load products, suppliers, categories, or settings.');
-        }
-      }
+    if (loadingSettings || !isUserAdmin) {
+      if (!loadingSettings && !isUserAdmin) navigate('/');
+      return;
     }
-  }, [isUserAdmin, loadingSettings, navigate, token]);
+
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      
+      const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
+        fetch('/api/products', { headers }),
+        fetch('/api/suppliers', { headers }), // Assuming this exists and requires auth
+        fetch('/api/categories', { headers })
+      ]);
+
+      if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+        throw new Error('Failed to fetch initial product data.');
+      }
+
+      const productsData = await productsRes.json();
+      const suppliersData = await suppliersRes.json();
+      const categoriesData = await categoriesRes.json();
+
+      setProducts(productsData);
+      setSuppliers(suppliersData);
+      setCategories(categoriesData);
+
+    } catch (err) {
+      console.error('Error fetching initial product data:', err);
+      setError('Failed to load necessary data. Please try again.');
+    }
+  }, [isUserAdmin, loadingSettings, navigate]);
 
   useEffect(() => {
     fetchProductData();

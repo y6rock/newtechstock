@@ -2,38 +2,52 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
+import { useSettings } from '../context/SettingsContext';
 import { BsCart } from 'react-icons/bs';
 import './ProductsPage.css'; // Import the new CSS file
 
+// Helper to get currency symbol
+const getCurrencySymbol = (currencyCode) => {
+  const symbols = {
+    'ILS': '₪',
+    'USD': '$',
+    'EUR': '€',
+  };
+  return symbols[currencyCode] || '$';
+};
+
 const ProductsPage = () => {
+  const { currency } = useSettings();
   const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([]);
+  const [categories, setCategories] = useState([
+    { category_id: 'All Products', name: 'All Products' }
+  ]);
   const [manufacturers, setManufacturers] = useState([]);
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
 
-  // Initialize selectedCategory from URL query parameter
   const getInitialCategory = () => {
     const params = new URLSearchParams(location.search);
     const categoryName = params.get('category');
     if (categoryName) {
-      // Find the corresponding category_id if it exists
-      const foundCategory = categories.find(cat => cat.name.toLowerCase() === categoryName.toLowerCase());
-      return foundCategory ? foundCategory.category_id : 'All Products';
+      // Since categories are not dynamically fetched anymore, we can simplify this
+      return categoryName;
     }
     return 'All Products';
   };
 
-  const [selectedCategory, setSelectedCategory] = useState(getInitialCategory);
+  const [selectedCategory, setSelectedCategory] = useState('All Products');
   const [priceRange, setPriceRange] = useState(100000);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false); // State for mobile filters
 
   // Update selectedCategory if URL changes
   useEffect(() => {
-    setSelectedCategory(getInitialCategory());
-  }, [location.search, categories]); // Re-run when location.search or categories change
+    const params = new URLSearchParams(location.search);
+    const categoryName = params.get('category');
+    setSelectedCategory(categoryName || 'All Products');
+  }, [location.search]);
 
   useEffect(() => {
     // Fetch products
@@ -45,10 +59,13 @@ const ProductsPage = () => {
       .catch(err => console.error('ProductsPage: Error fetching products:', err));
 
     // Fetch categories
-    axios.get('/api/categories')
+    axios.get('/api/categories/public')
       .then(res => {
         console.log('ProductsPage: Categories fetched from backend:', res.data);
-        setCategories([{ category_id: 'All Products', name: 'All Products' }, ...res.data]);
+        setCategories([
+          { category_id: 'All Products', name: 'All Products' },
+          ...res.data
+        ]);
       })
       .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
@@ -74,15 +91,10 @@ const ProductsPage = () => {
     if (category === 'All Products') {
       params.delete('category');
     } else {
-      // Find the category name to put in URL
-      const catName = categories.find(cat => cat.category_id === category)?.name;
-      if (catName) {
-        params.set('category', catName);
-      } else {
-        params.delete('category'); // Fallback if category_id doesn't map to a name
-      }
+      params.set('category', category);
     }
-    window.history.replaceState({}, '', `${location.pathname}?${params.toString()}`);
+    // Use navigate to update URL without full page reload
+    navigate(`${location.pathname}?${params.toString()}`);
   };
 
   const handlePriceChange = (e) => {
@@ -97,7 +109,9 @@ const ProductsPage = () => {
   };
 
   const filteredProducts = products.filter(product => {
-    const matchesCategory = selectedCategory === 'All Products' || product.category_id === selectedCategory;
+    const categoryObject = categories.find(c => c.category_id === product.category_id);
+    const categoryName = categoryObject ? categoryObject.name : '';
+    const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
     const matchesPrice = parseFloat(product.price) <= parseFloat(priceRange);
     const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.manufacturer_id);
     // Assuming product has a manufacturer_id. For now, this will just filter by the dummy manufacturers.
@@ -111,8 +125,8 @@ const ProductsPage = () => {
         <h3>Price Range</h3>
         <input type="range" min="0" max="100000" value={priceRange} onChange={handlePriceChange} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-          <span>$0</span>
-          <span>${priceRange}</span>
+          <span>{getCurrencySymbol(currency)}0</span>
+          <span>{getCurrencySymbol(currency)}{priceRange}</span>
         </div>
       </div>
       <div className="filter-group">
@@ -143,8 +157,8 @@ const ProductsPage = () => {
           {categories.map(cat => (
             <button
               key={cat.category_id}
-              onClick={() => handleCategoryChange(cat.category_id)}
-              className={`category-button ${selectedCategory === cat.category_id ? 'active' : ''}`}
+              onClick={() => handleCategoryChange(cat.name)}
+              className={`category-button ${selectedCategory === cat.name ? 'active' : ''}`}
             >
               {cat.name}
             </button>
@@ -170,7 +184,7 @@ const ProductsPage = () => {
                   <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
                   <h4 className="product-name">{product.name}</h4>
                   <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
-                  <p className="product-price">${parseFloat(product.price).toFixed(2)}</p>
+                  <p className="product-price">{getCurrencySymbol(currency)}{parseFloat(product.price).toFixed(2)}</p>
                   <div className="product-card-actions">
                     <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
                     <button className="add-to-cart-button" onClick={() => addToCart(product)}>

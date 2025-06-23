@@ -13,7 +13,6 @@ import keyboardsImage from '../assets/images/keyboards.jpg';
 import monitorsImage from '../assets/images/monitors.jpeg';
 
 const Home = () => {
-  const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -22,10 +21,7 @@ const Home = () => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const categoriesRes = await axios.get('/api/categories');
         const productsRes = await axios.get('/api/products');
-        
-        setCategories(categoriesRes.data);
         setProducts(productsRes.data);
       } catch (err) {
         console.error('Error fetching data for home page:', err);
@@ -45,13 +41,6 @@ const Home = () => {
     return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>{error}</div>;
   }
 
-  // Group products by category for display
-  const productsByCategory = categories.reduce((acc, category) => {
-    acc[category.name] = products.filter(product => product.category_id === category.category_id);
-    return acc;
-  }, {});
-
-  // Dummy data for categories that might not have products or for display purposes
   const displayCategories = [
     { name: 'Laptops', description: 'Powerful laptops for work, gaming, and creativity. From ultrabooks to gaming rigs, find the perfect portable computing solution.', imageUrl: laptopsImage },
     { name: 'Smartphones', description: 'Stay connected with cutting-edge smartphones featuring advanced cameras, powerful processors, and stunning displays.', imageUrl: smartphonesImage },

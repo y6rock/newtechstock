@@ -4,104 +4,8 @@ import { useSettings as useLocalSettings } from '../../context/SettingsContext';
 import './Settings.css';
 
 const Settings = () => {
-  const { user_id, username } = useLocalSettings();
-  const [settings, setSettings] = useState({
-    currency: 'ILS',
-    vat_rate: 17,
-    site_name: '',
-    site_description: '',
-    contact_email: '',
-    contact_phone: '',
-    address: '',
-    facebook_url: '',
-    instagram_url: '',
-    twitter_url: '',
-    maintenance_mode: false,
-    allow_registration: true,
-    allow_guest_checkout: true,
-    min_order_amount: 0,
-    max_order_amount: 10000,
-    order_notification_email: '',
-    smtp_host: '',
-    smtp_port: '',
-    smtp_user: '',
-    smtp_password: '',
-    smtp_secure: true,
-    google_analytics_id: '',
-    facebook_pixel_id: '',
-    recaptcha_site_key: '',
-    recaptcha_secret_key: '',
-    stripe_public_key: '',
-    stripe_secret_key: '',
-    paypal_client_id: '',
-    paypal_secret: '',
-    shipping_methods: [],
-    payment_methods: [],
-    tax_rates: [],
-    discount_codes: [],
-    return_policy: '',
-    privacy_policy: '',
-    terms_conditions: '',
-    shipping_policy: '',
-    refund_policy: '',
-    cookie_policy: '',
-    about_us: '',
-    faq: '',
-    support_email: '',
-    support_phone: '',
-    support_hours: '',
-    social_media_links: {},
-    seo_meta_title: '',
-    seo_meta_description: '',
-    seo_meta_keywords: '',
-    seo_og_title: '',
-    seo_og_description: '',
-    seo_og_image: '',
-    seo_twitter_card: '',
-    seo_twitter_title: '',
-    seo_twitter_description: '',
-    seo_twitter_image: '',
-    seo_robots_txt: '',
-    seo_sitemap_xml: '',
-    seo_canonical_url: '',
-    seo_alternate_languages: {},
-    seo_schema_markup: '',
-    seo_structured_data: {},
-    seo_meta_tags: {},
-    seo_meta_properties: {},
-    seo_meta_names: {},
-    seo_meta_http_equiv: {},
-    seo_meta_charset: '',
-    seo_meta_viewport: '',
-    seo_meta_theme_color: '',
-    seo_meta_msapplication_TileColor: '',
-    seo_meta_msapplication_TileImage: '',
-    seo_meta_msapplication_config: '',
-    seo_meta_apple_mobile_web_app_capable: '',
-    seo_meta_apple_mobile_web_app_status_bar_style: '',
-    seo_meta_apple_mobile_web_app_title: '',
-    seo_meta_apple_touch_icon: '',
-    seo_meta_apple_touch_icon_72x72: '',
-    seo_meta_apple_touch_icon_114x114: '',
-    seo_meta_apple_touch_icon_144x144: '',
-    seo_meta_apple_touch_icon_152x152: '',
-    seo_meta_apple_touch_icon_180x180: '',
-    seo_meta_apple_touch_icon_192x192: '',
-    seo_meta_apple_touch_icon_512x512: '',
-    seo_meta_apple_touch_startup_image: '',
-    seo_meta_apple_touch_startup_image_640x1136: '',
-    seo_meta_apple_touch_startup_image_750x1334: '',
-    seo_meta_apple_touch_startup_image_1242x2208: '',
-    seo_meta_apple_touch_startup_image_1125x2436: '',
-    seo_meta_apple_touch_startup_image_1536x2048: '',
-    seo_meta_apple_touch_startup_image_1668x2224: '',
-    seo_meta_apple_touch_startup_image_2048x2732: '',
-    seo_meta_apple_touch_startup_image_2208x1242: '',
-    seo_meta_apple_touch_startup_image_2436x1125: '',
-    seo_meta_apple_touch_startup_image_2732x2048: '',
-    seo_meta_apple_touch_startup_image_2224x1668: '',
-    seo_meta_apple_touch_startup_image_2048x1536: ''
-  });
+  const { refreshSiteSettings, ...initialSettings } = useLocalSettings();
+  const [settings, setSettings] = useState(initialSettings);
   const [currencies, setCurrencies] = useState({});
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
@@ -112,7 +16,7 @@ const Settings = () => {
       try {
         const [settingsRes, currenciesRes] = await Promise.all([
           axios.get('/api/settings'),
-          axios.get('/api/currencies')
+          axios.get('/api/settings/currencies')
         ]);
         const fetchedSettings = Array.isArray(settingsRes.data) ? settingsRes.data[0] : settingsRes.data;
         setSettings(prev => ({...prev, ...fetchedSettings}));
@@ -136,6 +40,7 @@ const Settings = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage('Settings updated successfully');
+      await refreshSiteSettings();
     } catch (err) {
       setMessage('Error updating settings');
     } finally {

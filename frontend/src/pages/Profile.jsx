@@ -26,7 +26,6 @@ const Profile = () => {
       return; // Wait for settings to load
     }
     if (!user_id) {
-      alert('Please log in to view your profile.');
       navigate('/login');
       return;
     }

@@ -12,14 +12,16 @@ import {
   BarElement,
   ArcElement,
   Tooltip,
-  Legend
+  Legend,
+  Title
 } from 'chart.js';
 import axios from 'axios';
+import { formatPrice } from '../../utils/currency';
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend);
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Title);
 
 export default function Dashboard() {
-  const { isUserAdmin, loadingSettings } = useSettings();
+  const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total_revenue: 0, total_orders: 0, total_products: 0 });
   const [salesData, setSalesData] = useState([]);
@@ -69,13 +71,6 @@ export default function Dashboard() {
     }
   }, [isUserAdmin, loadingSettings, navigate]);
 
-  const formatPrice = (price) => {
-    const currency = currencies[settings.currency];
-    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
-    const convertedPrice = price * currency.rate;
-    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
-  };
-
   if (loadingSettings) {
     return (
       <div className="dashboard-container">
@@ -115,8 +110,31 @@ export default function Dashboard() {
     responsive: true,
     plugins: { legend: { position: 'top' } },
     scales: {
-      y: { beginAtZero: true, title: { display: true, text: 'Sales ($)' } },
+      y: {
+        beginAtZero: true,
+        ticks: {
+          callback: function(value) {
+            return formatPrice(value, currency);
+          }
+        }
+      },
       y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Orders' } }
+    },
+    plugins: {
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              label += formatPrice(context.parsed.y, currency);
+            }
+            return label;
+          }
+        }
+      }
     }
   };
 
@@ -160,7 +178,7 @@ export default function Dashboard() {
       <div className="stats-container">
         <div className="stat-card">
           <h3>Total Revenue</h3>
-          <p>{formatPrice(stats.total_revenue)}</p>
+          <p className="stat-number">{formatPrice(stats.total_revenue, currency)}</p>
         </div>
         <div className="stat-card">
           <h3>Total Orders</h3>
@@ -186,6 +204,18 @@ export default function Dashboard() {
       <div className="chart-container">
         <h3>Top Selling Products</h3>
         <Bar data={topProductsBarData} options={topProductsBarOptions} />
+      </div>
+
+      <div className="product-list-container">
+        <h3>Top Selling Products</h3>
+        <ul className="product-list">
+          {topProducts.map((product, index) => (
+            <li key={index}>
+              <span>{product.name}</span>
+              <span className="product-sales">{formatPrice(product.total_sales, currency)}</span>
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

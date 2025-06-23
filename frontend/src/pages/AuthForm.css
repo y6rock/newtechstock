@@ -1,0 +1,151 @@
+/* frontend/src/pages/AuthForm.css */
+
+.auth-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f0f2f5;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.auth-form-wrapper {
+  background: #fff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 450px; /* Adjusted for a better look on login/signup */
+  text-align: center;
+}
+
+.auth-form-wrapper h2 {
+  font-size: 1.8em;
+  margin-bottom: 10px;
+  color: #333;
+}
+
+.auth-form-wrapper .auth-form-subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 0.95em;
+}
+
+.auth-form {
+  text-align: left;
+}
+
+.auth-input-group {
+  margin-bottom: 20px;
+  position: relative;
+}
+
+.auth-input-group .auth-input-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #aaa;
+}
+
+.auth-input-group .auth-password-toggle-icon {
+    position: absolute;
+    right: 15px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    color: #aaa;
+}
+
+.auth-input-group input {
+  width: 100%; /* Let the container's padding handle space */
+  padding: 12px 15px 12px 45px; /* Left padding for icon */
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1em;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+}
+
+.auth-input-group input:focus {
+  border-color: #007bff;
+  outline: none; /* Remove default focus outline */
+}
+
+.auth-form .auth-flex-group {
+    display: flex;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.auth-form .auth-flex-group > div {
+    flex: 1;
+}
+
+.auth-form-links {
+  text-align: right;
+  margin-bottom: 20px;
+}
+
+.auth-form-links a {
+  color: #007bff;
+  text-decoration: none;
+  font-size: 0.9em;
+  transition: color 0.3s;
+}
+
+.auth-form-links a:hover {
+  color: #0056b3;
+}
+
+.auth-submit-button {
+  width: 100%;
+  padding: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  box-sizing: border-box;
+}
+
+.auth-submit-button:hover {
+  background-color: #0056b3;
+}
+
+.auth-submit-button:disabled {
+    background-color: #a0c7e4;
+    cursor: not-allowed;
+}
+
+.auth-message {
+  margin-bottom: 15px;
+  font-weight: bold;
+}
+
+.auth-message.error {
+    color: #dc3545; /* Red for errors */
+}
+
+.auth-message.success {
+    color: #28a745; /* Green for success */
+}
+
+.auth-redirect-link {
+    margin-top: 25px;
+    font-size: 0.95em;
+    color: #666;
+}
+
+.auth-redirect-link a {
+    color: #007bff;
+    text-decoration: none;
+    transition: color 0.3s;
+}
+
+.auth-redirect-link a:hover {
+    color: #0056b3;
+} 
