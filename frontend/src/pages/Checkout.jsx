@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { formatPrice } from '../utils/currency';
+import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
 
 const Checkout = () => {
@@ -15,6 +16,7 @@ const Checkout = () => {
     const [paymentMethod, setPaymentMethod] = useState('credit_card');
     const [orderError, setOrderError] = useState(null);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    const [showPayPal, setShowPayPal] = useState(false);
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
@@ -63,6 +65,59 @@ const Checkout = () => {
         } catch (error) {
             const message = error.response?.data?.message || 'There was an issue placing your order.';
             console.error('Order placement error:', error);
+            setOrderError(message);
+            alert(`Error: ${message}`);
+        } finally {
+            setIsPlacingOrder(false);
+        }
+    };
+
+    const handlePayPalPayment = async (details) => {
+        if (!shippingAddress.trim()) {
+            setOrderError('Shipping address is required.');
+            return;
+        }
+        if (!user_id) {
+            setOrderError('You must be logged in to place an order.');
+            return;
+        }
+        if (cartItems.length === 0) {
+            setOrderError('Your cart is empty.');
+            return;
+        }
+
+        setIsPlacingOrder(true);
+        setOrderError(null);
+
+        const orderData = {
+            user_id,
+            items: cartItems.map(item => ({
+                product_id: item.product_id,
+                quantity: item.quantity,
+                price: item.price,
+            })),
+            total_amount: total,
+            shipping_address: shippingAddress,
+            payment_method: 'paypal',
+            promotion_id: appliedPromotion ? appliedPromotion.promotion_id : null,
+            paypal_payment_id: details.id,
+        };
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await axios.post('/api/orders', orderData, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            
+            const orderId = response.data.orderId;
+            console.log('Order created with PayPal payment, ID:', orderId);
+
+            alert('Order placed successfully with PayPal!');
+            clearCart();
+            navigate(`/order-confirmation/${orderId}`);
+        } catch (error) {
+            const message = error.response?.data?.message || 'There was an issue placing your order.';
+            console.error('PayPal order placement error:', error);
             setOrderError(message);
             alert(`Error: ${message}`);
         } finally {
@@ -130,7 +185,10 @@ const Checkout = () => {
                                     name="paymentMethod"
                                     value="credit_card"
                                     checked={paymentMethod === 'credit_card'}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                    onChange={(e) => {
+                                        setPaymentMethod(e.target.value);
+                                        setShowPayPal(false);
+                                    }}
                                 />
                                 Credit Card
                             </label>
@@ -140,7 +198,10 @@ const Checkout = () => {
                                     name="paymentMethod"
                                     value="paypal"
                                     checked={paymentMethod === 'paypal'}
-                                    onChange={(e) => setPaymentMethod(e.target.value)}
+                                    onChange={(e) => {
+                                        setPaymentMethod(e.target.value);
+                                        setShowPayPal(true);
+                                    }}
                                 />
                                 PayPal
                             </label>
@@ -149,9 +210,40 @@ const Checkout = () => {
 
                     {orderError && <p className="error-message">{orderError}</p>}
 
-                    <button type="submit" className="place-order-button" disabled={isPlacingOrder}>
-                        {isPlacingOrder ? 'Placing Order...' : `Place Order (${formatPrice(total, currency)})`}
-                    </button>
+                    {paymentMethod === 'credit_card' && (
+                        <button type="submit" className="place-order-button" disabled={isPlacingOrder}>
+                            {isPlacingOrder ? 'Placing Order...' : `Place Order (${formatPrice(total, currency)})`}
+                        </button>
+                    )}
+
+                    {paymentMethod === 'paypal' && (
+                        <div className="paypal-container">
+                            <PayPalButtons
+                                createOrder={(data, actions) => {
+                                    return actions.order.create({
+                                        purchase_units: [
+                                            {
+                                                amount: {
+                                                    value: total.toString(),
+                                                    currency_code: "ILS"
+                                                },
+                                                description: `TechStock Order - ${cartItems.length} items`
+                                            }
+                                        ]
+                                    });
+                                }}
+                                onApprove={(data, actions) => {
+                                    return actions.order.capture().then((details) => {
+                                        handlePayPalPayment(details);
+                                    });
+                                }}
+                                onError={(err) => {
+                                    console.error('PayPal error:', err);
+                                    setOrderError('PayPal payment failed. Please try again.');
+                                }}
+                            />
+                        </div>
+                    )}
                 </form>
             </div>
         </div>

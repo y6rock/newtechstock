@@ -1,13 +1,16 @@
 const express = require('express');
 const dbSingleton = require('../../dbSingleton.js');
 const { authenticateToken, requireAdmin } = require('../middleware/auth.js');
+const InvoiceGenerator = require('../../utils/invoiceGenerator.js');
+const EmailService = require('../../utils/emailService.js');
 
 const router = express.Router();
 const db = dbSingleton.getConnection();
+const emailService = new EmailService();
 
 // Create a new order (checkout)
 router.post('/', authenticateToken, async (req, res) => {
-    const { user_id, items, total_amount, shipping_address, payment_method, promotion_id } = req.body;
+    const { user_id, items, total_amount, shipping_address, payment_method, promotion_id, paypal_payment_id } = req.body;
     let connection;
 
     try {
@@ -19,6 +22,11 @@ router.post('/', authenticateToken, async (req, res) => {
             VALUES (?, ?, ?, ?, ?)
         `;
         const [orderResult] = await connection.query(orderSql, [user_id, total_amount, shipping_address, payment_method, promotion_id]);
+        
+        // If PayPal payment, you might want to store the payment ID in a separate table
+        if (payment_method === 'paypal' && paypal_payment_id) {
+            console.log('PayPal payment processed:', paypal_payment_id);
+        }
         const orderId = orderResult.insertId;
 
         const orderItemsSql = `
@@ -37,6 +45,55 @@ router.post('/', authenticateToken, async (req, res) => {
         }
 
         await connection.commit();
+
+        // Get user information for invoice
+        const [userResult] = await connection.query('SELECT name, email FROM users WHERE user_id = ?', [user_id]);
+        const user = userResult[0];
+
+        // Get order items with product names for invoice
+        const [itemsResult] = await connection.query(`
+            SELECT oi.product_id, oi.quantity, oi.price, p.name as product_name
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.product_id
+            WHERE oi.order_id = ?
+        `, [orderId]);
+
+        // Prepare order data for invoice
+        const orderData = {
+            order_id: orderId,
+            order_date: new Date(),
+            total_amount: total_amount,
+            shipping_address: shipping_address,
+            payment_method: payment_method,
+            items: itemsResult
+        };
+
+        const userData = {
+            name: user.name,
+            email: user.email
+        };
+
+        try {
+            // Generate PDF invoice
+            const invoiceGenerator = new InvoiceGenerator();
+            const invoicePath = await invoiceGenerator.generateInvoice(orderData, userData);
+
+            // Send invoice email
+            await emailService.sendInvoiceEmail(user.email, user.name, orderId, invoicePath);
+
+            // Send order confirmation email
+            await emailService.sendOrderConfirmationEmail(user.email, user.name, orderId, {
+                total_amount: total_amount,
+                payment_method: payment_method,
+                shipping_address: shipping_address
+            });
+
+            console.log(`Invoice and confirmation emails sent for order ${orderId}`);
+        } catch (emailError) {
+            console.error('Error sending emails:', emailError);
+            // Don't fail the order if email fails
+        }
+
         res.status(201).json({ message: 'Order created successfully', orderId });
 
     } catch (err) {

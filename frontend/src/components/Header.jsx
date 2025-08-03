@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import Logo from './Logo';
@@ -8,7 +8,6 @@ import './Header.css'; // Import the new CSS file
 export default function Header() {
   const { isUserAdmin, username, reEvaluateToken } = useSettings();
   const { totalItems } = useCart();
-  const navigate = useNavigate();
   const cartTabRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
 

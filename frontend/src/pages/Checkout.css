@@ -127,4 +127,12 @@
     text-decoration: none;
     border-radius: 6px;
     font-weight: 500;
+}
+
+.paypal-container {
+    margin-top: 20px;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background-color: #f9fafb;
 } 

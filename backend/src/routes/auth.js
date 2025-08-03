@@ -7,6 +7,7 @@ const dbSingleton = require('../../dbSingleton.js');
 const { authenticateToken } = require('../middleware/auth.js');
 const multer = require('multer');
 const path = require('path');
+const loginLimiter = require('../../utils/loginLimiter.js');
 
 const router = express.Router();
 const db = dbSingleton.getConnection();
@@ -36,11 +37,33 @@ router.post('/upload-image', authenticateToken, upload.single('image'), (req, re
 // ✅ API - הרשמה
 router.post('/register', async (req, res) => {
   const { email, password, name, phone, city } = req.body;
+  
+  // Server-side validation
+  if (!email || !password || !name || !phone || !city) {
+    return res.status(400).json({ message: 'All fields are required' });
+  }
+  
+  // Trim whitespace and check for empty strings
+  if (!email.trim() || !password.trim() || !name.trim() || !phone.trim() || !city.trim()) {
+    return res.status(400).json({ message: 'All fields must not be empty' });
+  }
+  
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    return res.status(400).json({ message: 'Please enter a valid email address' });
+  }
+  
+  // Validate password length
+  if (password.length < 6) {
+    return res.status(400).json({ message: 'Password must be at least 6 characters long' });
+  }
+  
   const hashedPassword = bcrypt.hashSync(password, 10);
 
   const sql = `INSERT INTO users (email, password, name, phone, city) VALUES (?, ?, ?, ?, ?)`;
   try {
-    await db.query(sql, [email, hashedPassword, name, phone, city]);
+    await db.query(sql, [email.trim(), hashedPassword, name.trim(), phone.trim(), city.trim()]);
     res.json({ message: 'User registered successfully' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -58,20 +81,59 @@ router.post('/login', async (req, res) => {
 
   try {
     console.log(`Login attempt for email: ${email}`);
+
+    // Check if user is blocked
+    if (loginLimiter.isBlocked(email)) {
+      const remainingTime = loginLimiter.getRemainingBlockTime(email);
+      return res.status(429).json({ 
+        message: `Too many failed attempts. Please try again in ${remainingTime} seconds.`,
+        remainingTime: remainingTime
+      });
+    }
+
     const [results] = await db.query(sql, [email]);
 
     if (results.length === 0) {
-      console.log(`Login failed: Invalid email or password for ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      loginLimiter.recordFailedAttempt(email);
+      const remainingAttempts = loginLimiter.getRemainingAttempts(email);
+      console.log(`Login failed: Invalid email or password for ${email}. Remaining attempts: ${remainingAttempts}`);
+      
+      if (remainingAttempts === 0) {
+        return res.status(429).json({ 
+          message: `Too many failed attempts. Please try again in 60 seconds.`,
+          remainingTime: 60
+        });
+      }
+      
+      return res.status(401).json({ 
+        message: 'Invalid email or password',
+        remainingAttempts: remainingAttempts
+      });
     }
 
     const user = results[0];
     const passwordMatch = bcrypt.compareSync(password, user.password);
 
     if (!passwordMatch) {
-      console.log(`Login failed: Invalid password for ${email}`);
-      return res.status(401).json({ message: 'Invalid email or password' });
+      loginLimiter.recordFailedAttempt(email);
+      const remainingAttempts = loginLimiter.getRemainingAttempts(email);
+      console.log(`Login failed: Invalid password for ${email}. Remaining attempts: ${remainingAttempts}`);
+      
+      if (remainingAttempts === 0) {
+        return res.status(429).json({ 
+          message: `Too many failed attempts. Please try again in 60 seconds.`,
+          remainingTime: 60
+        });
+      }
+      
+      return res.status(401).json({ 
+        message: 'Invalid email or password',
+        remainingAttempts: remainingAttempts
+      });
     }
+
+    // Successful login - reset failed attempts
+    loginLimiter.recordSuccessfulAttempt(email);
 
     const token = jwt.sign(
       { user_id: user.user_id, role: user.role, username: user.name },
@@ -102,6 +164,16 @@ router.post('/forgot-password', async (req, res) => {
 
         await db.query('UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE user_id = ?', [resetToken, resetPasswordExpires, user.user_id]);
 
+        // Check if email credentials are configured
+        if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+            console.warn('Email credentials not configured. Password reset email will not be sent.');
+            return res.status(200).json({ 
+                message: 'Password reset token generated. Email service not configured.',
+                resetToken: resetToken,
+                resetUrl: `http://localhost:3000/reset-password/${resetToken}`
+            });
+        }
+
         // Send the email
         const transporter = nodemailer.createTransport({
             host: 'smtp.gmail.com',
@@ -123,8 +195,18 @@ router.post('/forgot-password', async (req, res) => {
                    If you did not request this, please ignore this email and your password will remain unchanged.\n`
         };
 
-        await transporter.sendMail(mailOptions);
-        res.status(200).json({ message: 'Password reset email sent' });
+        try {
+            await transporter.sendMail(mailOptions);
+            console.log(`Password reset email sent to ${user.email}`);
+            res.status(200).json({ message: 'Password reset email sent' });
+        } catch (emailError) {
+            console.error('Error sending password reset email:', emailError);
+            res.status(200).json({ 
+                message: 'Password reset token generated but email failed to send.',
+                resetToken: resetToken,
+                resetUrl: `http://localhost:3000/reset-password/${resetToken}`
+            });
+        }
 
     } catch (err) {
         console.error('Forgot password error:', err);

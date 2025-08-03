@@ -29,13 +29,34 @@ function Signup() {
     e.preventDefault();
     setMessage('');
 
+    // Validate that all fields are filled
+    if (!form.name.trim() || !form.lastName.trim() || !form.email.trim() || 
+        !form.phone.trim() || !form.city.trim() || !form.password.trim() || 
+        !form.confirmPassword.trim()) {
+      setMessage('All fields are required!');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(form.email)) {
+      setMessage('Please enter a valid email address!');
+      return;
+    }
+
+    // Validate password length
+    if (form.password.length < 6) {
+      setMessage('Password must be at least 6 characters long!');
+      return;
+    }
+
     if (form.password !== form.confirmPassword) {
       setMessage('Passwords do not match!');
       return;
     }
 
     try {
-      const res = await axios.post('/api/register', {
+      const res = await axios.post('/api/auth/register', {
         name: form.name + ' ' + form.lastName,
         email: form.email,
         phone: form.phone,

@@ -53,9 +53,18 @@ export default function Dashboard() {
               axios.get('/api/admin/top-products', { headers }),
               axios.get('/api/admin/order-status-distribution', { headers }),
               axios.get('/api/settings'),
-              axios.get('/api/currencies')
+              axios.get('/api/settings/currencies')
             ]);
 
+            console.log('Dashboard Data:', {
+              stats: statsRes.data,
+              sales: salesRes.data,
+              topProducts: topProductsRes.data,
+              orderStatus: orderStatusRes.data,
+              settings: settingsRes.data,
+              currencies: currenciesRes.data
+            });
+            
             setStats(statsRes.data);
             setSalesData(salesRes.data);
             setTopProducts(topProductsRes.data);
@@ -85,11 +94,11 @@ export default function Dashboard() {
 
   // Prepare chart data
   const salesLineData = {
-    labels: salesData.map(d => new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })),
+    labels: salesData.length > 0 ? salesData.map(d => new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : ['No Data'],
     datasets: [
       {
         label: 'Total Sales',
-        data: salesData.map(d => d.total_sales),
+        data: salesData.length > 0 ? salesData.map(d => d.total_sales) : [0],
         borderColor: '#007bff',
         backgroundColor: 'rgba(0,123,255,0.1)',
         tension: 0.3,
@@ -97,7 +106,7 @@ export default function Dashboard() {
       },
       {
         label: 'Order Count',
-        data: salesData.map(d => d.order_count),
+        data: salesData.length > 0 ? salesData.map(d => d.order_count) : [0],
         borderColor: '#28a745',
         backgroundColor: 'rgba(40,167,69,0.1)',
         tension: 0.3,
@@ -139,16 +148,16 @@ export default function Dashboard() {
   };
 
   const topProductsBarData = {
-    labels: topProducts.map(p => p.name),
+    labels: topProducts.length > 0 ? topProducts.map(p => p.name) : ['No Products'],
     datasets: [
       {
         label: 'Units Sold',
-        data: topProducts.map(p => p.total_quantity),
+        data: topProducts.length > 0 ? topProducts.map(p => p.total_quantity) : [0],
         backgroundColor: '#ffc107',
       },
       {
         label: 'Total Sales',
-        data: topProducts.map(p => p.total_sales),
+        data: topProducts.length > 0 ? topProducts.map(p => p.total_sales) : [0],
         backgroundColor: '#007bff',
       }
     ]
@@ -160,11 +169,11 @@ export default function Dashboard() {
   };
 
   const orderStatusPieData = {
-    labels: orderStatus.map(s => s.status),
+    labels: orderStatus.length > 0 ? orderStatus.map(s => s.status) : ['No Orders'],
     datasets: [
       {
         label: 'Orders',
-        data: orderStatus.map(s => s.count),
+        data: orderStatus.length > 0 ? orderStatus.map(s => s.count) : [0],
         backgroundColor: ['#007bff', '#28a745', '#ffc107', '#dc3545', '#6c757d'],
       }
     ]

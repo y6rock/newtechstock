@@ -36,9 +36,9 @@ const Footer = () => {
         <div style={{ flex: '1 1 150px' }}>
           <h3 style={{ color: 'white', marginBottom: '15px' }}>Follow Us</h3>
           <div style={{ display: 'flex', gap: '15px' }}>
-            <a href="#" style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em' }}>f</a> {/* Placeholder for Facebook icon */}
-            <a href="#" style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em' }}></a> {/* Placeholder for Twitter icon */}
-            <a href="#" style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em' }}></a> {/* Placeholder for Instagram icon */}
+            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}>f</button> {/* Placeholder for Facebook icon */}
+            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}></button> {/* Placeholder for Twitter icon */}
+            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}></button> {/* Placeholder for Instagram icon */}
           </div>
         </div>
       </div>

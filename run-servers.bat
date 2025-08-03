@@ -1,8 +1,8 @@
 @echo off
 rem ==== CONFIGURATION ====
 rem Change these paths to match your environment
-set "BACKEND_DIR=C:\Users\yamen\CodeStudio\MonirBisharaProject\forked\Proj-TechStock\backend"
-set "FRONTEND_DIR=C:\Users\yamen\CodeStudio\MonirBisharaProject\forked\Proj-TechStock\frontend"
+set "BACKEND_DIR=C:\Dev\monirbisharats\backend"
+set "FRONTEND_DIR=C:\Dev\monirbisharats\frontend"
 set "XAMPP_DIR=C:\xampp"
 rem =======================
 

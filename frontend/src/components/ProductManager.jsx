@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import ProductModal from './ProductModal';
 import { useSettings } from '../context/SettingsContext';
 
@@ -21,6 +22,7 @@ function ProductManager() {
   
   const { isUserAdmin, loadingSettings } = useSettings();
   const navigate = useNavigate();
+  const token = localStorage.getItem('token');
 
   const fetchProductData = useCallback(async () => {
     if (loadingSettings || !isUserAdmin) {
@@ -322,7 +324,7 @@ function ProductManager() {
         axios.get('/api/suppliers', { headers }),
         axios.get('/api/categories', { headers }),
         axios.get('/api/settings'),
-        axios.get('/api/currencies'),
+                    axios.get('/api/settings/currencies'),
       ]);
       setProducts(productsRes.data);
       setSuppliers(suppliersRes.data);
