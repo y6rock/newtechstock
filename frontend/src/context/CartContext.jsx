@@ -61,11 +61,29 @@ export const CartProvider = ({ children }) => {
       alert('Please log in to add items to your cart.');
       return;
     }
+    
+    // Check if product is out of stock
+    if (product.stock <= 0) {
+      alert('This product is out of stock and cannot be added to cart.');
+      return;
+    }
+    
+    // Check if requested quantity exceeds available stock
+    if (quantity > product.stock) {
+      alert(`Only ${product.stock} units available. Cannot add ${quantity} to cart.`);
+      return;
+    }
+    
     setCartItems((prevItems) => {
       const existingItem = prevItems.find((item) => item.product_id === product.product_id);
       if (existingItem) {
+        const newQuantity = existingItem.quantity + quantity;
+        if (newQuantity > product.stock) {
+          alert(`Cannot add more than ${product.stock} units of this product to cart.`);
+          return prevItems;
+        }
         return prevItems.map((item) =>
-          item.product_id === product.product_id ? { ...item, quantity: item.quantity + quantity } : item
+          item.product_id === product.product_id ? { ...item, quantity: newQuantity } : item
         );
       }
       return [...prevItems, { ...product, quantity }];
@@ -79,7 +97,17 @@ export const CartProvider = ({ children }) => {
   const updateQuantity = (productId, newQuantity) => {
     const quantity = parseInt(newQuantity);
     if (isNaN(quantity) || quantity < 1) return;
+    
     setCartItems((prevItems) => {
+      const item = prevItems.find(item => item.product_id === productId);
+      if (!item) return prevItems;
+      
+      // Check if new quantity exceeds stock
+      if (quantity > item.stock) {
+        alert(`Only ${item.stock} units available. Cannot set quantity to ${quantity}.`);
+        return prevItems;
+      }
+      
       return prevItems.map((item) =>
         item.product_id === productId ? { ...item, quantity: quantity } : item
       );

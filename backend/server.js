@@ -6,7 +6,7 @@ require('dotenv').config();
 // Singleton DB connection
 const dbSingleton = require('./dbSingleton.js'); 
 
-let authRoutes, productRoutes, userRoutes, promotionRoutes, orderRoutes, adminRoutes, supplierRoutes, categoryRoutes, settingsRoutes;
+let authRoutes, productRoutes, userRoutes, promotionRoutes, orderRoutes, adminRoutes, supplierRoutes, categoryRoutes, settingsRoutes, contactRoutes;
 try {
     authRoutes = require('./src/routes/auth.js');
     productRoutes = require('./src/routes/products.js');
@@ -17,6 +17,7 @@ try {
     supplierRoutes = require('./src/routes/suppliers.js');
     categoryRoutes = require('./src/routes/categories.js');
     settingsRoutes = require('./src/routes/settings.js');
+    contactRoutes = require('./src/routes/contact.js');
 } catch (error) {
     console.error('--- A FATAL ERROR OCCURRED DURING SERVER STARTUP ---');
     console.error('This is likely an incorrect file path in one of the `require` statements.');
@@ -46,6 +47,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/suppliers', supplierRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingsRoutes);
+app.use('/api/contact', contactRoutes);
 
 // General API health check
 app.get('/api/health', (req, res) => {

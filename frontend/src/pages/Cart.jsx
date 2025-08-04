@@ -59,8 +59,11 @@ const Cart = () => {
             <div key={item.product_id} className="cart-item">
               <div className="cart-item-image">
                 <img
-                  src={item.image.startsWith('/uploads') ? `http://localhost:3001${item.image}` : item.image}
+                  src={item.image && item.image.startsWith('/uploads') ? `http://localhost:3001${item.image}` : item.image || 'https://via.placeholder.com/150'}
                   alt={item.name}
+                  onError={(e) => {
+                    e.target.src = 'https://via.placeholder.com/150';
+                  }}
                 />
               </div>
               <div className="cart-item-details">

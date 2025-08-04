@@ -171,29 +171,39 @@ const ProductsPage = () => {
         <div className="product-grid-container">
           <button className="mobile-filter-button" onClick={() => setFiltersOpen(true)}>Show Filters</button>
           <div className="product-grid">
-            {filteredProducts.map(product => (
-              <div key={product.product_id} className="product-card">
-                <div className="product-image-container">
-                  {product.image ? (
-                    <img src={product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image} alt={product.name} className="product-image" />
-                  ) : (
-                    <div className="product-placeholder-image">Product Image</div>
-                  )}
-                </div>
-                <div>
-                  <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
-                  <h4 className="product-name">{product.name}</h4>
-                  <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
-                  <p className="product-price">{getCurrencySymbol(currency)}{parseFloat(product.price).toFixed(2)}</p>
-                  <div className="product-card-actions">
-                    <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
-                    <button className="add-to-cart-button" onClick={() => addToCart(product)}>
-                      <BsCart />
-                    </button>
+            {filteredProducts.map(product => {
+              const isOutOfStock = product.stock <= 0;
+              return (
+                <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
+                  <div className="product-image-container">
+                    {product.image ? (
+                      <img src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/150'} alt={product.name} className="product-image" />
+                    ) : (
+                      <div className="product-placeholder-image">Product Image</div>
+                    )}
+                    {isOutOfStock && (
+                      <div className="out-of-stock-badge">Out of Stock</div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
+                    <h4 className="product-name">{product.name}</h4>
+                    <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
+                    <p className="product-price">{getCurrencySymbol(currency)}{parseFloat(product.price).toFixed(2)}</p>
+                    <div className="product-card-actions">
+                      <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
+                      <button 
+                        className={`add-to-cart-button ${isOutOfStock ? 'disabled' : ''}`} 
+                        onClick={() => !isOutOfStock && addToCart(product)}
+                        disabled={isOutOfStock}
+                      >
+                        <BsCart />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

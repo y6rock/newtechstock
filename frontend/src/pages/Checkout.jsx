@@ -65,6 +65,15 @@ const Checkout = () => {
         } catch (error) {
             const message = error.response?.data?.message || 'There was an issue placing your order.';
             console.error('Order placement error:', error);
+            
+            // Handle token expiration specifically
+            if (error.response?.status === 403 && error.response?.data?.message === 'Invalid token') {
+                alert('Your session has expired. Please log in again to continue.');
+                localStorage.removeItem('token');
+                navigate('/login');
+                return;
+            }
+            
             setOrderError(message);
             alert(`Error: ${message}`);
         } finally {
@@ -118,6 +127,15 @@ const Checkout = () => {
         } catch (error) {
             const message = error.response?.data?.message || 'There was an issue placing your order.';
             console.error('PayPal order placement error:', error);
+            
+            // Handle token expiration specifically
+            if (error.response?.status === 403 && error.response?.data?.message === 'Invalid token') {
+                alert('Your session has expired. Please log in again to continue.');
+                localStorage.removeItem('token');
+                navigate('/login');
+                return;
+            }
+            
             setOrderError(message);
             alert(`Error: ${message}`);
         } finally {

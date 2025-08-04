@@ -21,7 +21,7 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
         supplier_id: product.supplier_id || '',
         category_id: product.category_id || '',
       });
-      setImagePreview(product.image ? (product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}`: product.image) : '');
+              setImagePreview(product.image ? (product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}`: product.image) : '');
       setImageFile(null);
     } else {
       // Adding a new product

@@ -121,11 +121,11 @@ const Customers = () => {
                     <tbody>
                         {filteredCustomers.map((customer) => (
                             <tr key={customer.user_id} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '15px' }}>{customer.username}</td>
-                                <td style={{ padding: '15px' }}>{customer.email}</td>
+                                <td style={{ padding: '15px' }}>{customer.username || 'N/A'}</td>
+                                <td style={{ padding: '15px' }}>{customer.email || 'N/A'}</td>
                                 <td style={{ padding: '15px' }}>{customer.phone || 'N/A'}</td>
-                                <td style={{ padding: '15px' }}>{customer.order_count}</td>
-                                <td style={{ padding: '15px' }}>{formatPrice(customer.total_spent, currency)}</td>
+                                <td style={{ padding: '15px' }}>{customer.order_count || 0}</td>
+                                <td style={{ padding: '15px' }}>{formatPrice(customer.total_spent || 0, currency)}</td>
                                 <td style={{ padding: '15px', textAlign: 'center' }}>
                                     <button
                                         onClick={() => handleViewOrders(customer)}

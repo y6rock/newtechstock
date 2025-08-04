@@ -19,10 +19,10 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage: storage });
 
-// Get all products (public)
+// Get all products (public) - only active products
 router.get('/', async (req, res) => {
     try {
-        const [products] = await db.query('SELECT * FROM products');
+        const [products] = await db.query('SELECT * FROM products WHERE is_active = 1 ORDER BY name');
         res.json(products);
     } catch (err) {
         console.error('Error fetching products:', err);
@@ -43,11 +43,11 @@ router.get('/categories', async (req, res) => {
 });
 */
 
-// Get a single product by ID (public)
+// Get a single product by ID (public) - only active products
 router.get('/:id', async (req, res) => {
     const { id } = req.params;
     try {
-        const [products] = await db.query('SELECT * FROM products WHERE product_id = ?', [id]);
+        const [products] = await db.query('SELECT * FROM products WHERE product_id = ? AND is_active = 1', [id]);
         if (products.length === 0) {
             return res.status(404).json({ message: 'Product not found' });
         }
@@ -125,18 +125,45 @@ router.put('/:id', authenticateToken, requireAdmin, upload.single('image'), asyn
     }
 });
 
-// Delete a product (admin only)
+// Soft delete a product (admin only)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
-    const sql = `DELETE FROM products WHERE product_id = ?`;
+    const sql = `UPDATE products SET is_active = 0 WHERE product_id = ?`;
     try {
         const [result] = await db.query(sql, [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Product not found.' });
         }
-        res.json({ message: 'Product deleted successfully' });
+        res.json({ message: 'Product deactivated successfully' });
     } catch (err) {
-        console.error('Error deleting product:', err);
+        console.error('Error deactivating product:', err);
+        return res.status(500).json({ message: 'Database error', details: err.message });
+    }
+});
+
+// Get all products including inactive (admin only)
+router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [products] = await db.query('SELECT * FROM products ORDER BY name');
+        res.json(products);
+    } catch (err) {
+        console.error('Error fetching all products:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
+// Restore a deactivated product (admin only)
+router.patch('/:id/restore', authenticateToken, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    const sql = `UPDATE products SET is_active = 1 WHERE product_id = ?`;
+    try {
+        const [result] = await db.query(sql, [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Product not found.' });
+        }
+        res.json({ message: 'Product restored successfully' });
+    } catch (err) {
+        console.error('Error restoring product:', err);
         return res.status(500).json({ message: 'Database error', details: err.message });
     }
 });

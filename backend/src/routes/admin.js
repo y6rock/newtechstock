@@ -106,7 +106,7 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
                 u.email,
                 u.phone,
                 COUNT(o.order_id) AS order_count,
-                SUM(o.total_amount) AS total_spent
+                COALESCE(SUM(o.total_amount), 0) AS total_spent
             FROM users u
             LEFT JOIN orders o ON u.user_id = o.user_id
             WHERE u.role != 'admin'
@@ -116,6 +116,55 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
         res.json(customers);
     } catch (err) {
         console.error("Error fetching customers:", err);
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
+// Fix negative inventory
+router.post('/fix-inventory', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [result] = await db.query(`
+            UPDATE products 
+            SET stock = 0 
+            WHERE stock < 0
+        `);
+        res.json({ 
+            message: `Fixed ${result.affectedRows} products with negative inventory`,
+            affectedRows: result.affectedRows
+        });
+    } catch (err) {
+        console.error("Error fixing inventory:", err);
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
+// Fix missing images by setting image to NULL for products with missing image files
+router.post('/fix-missing-images', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        
+        // Get all products with image paths
+        const [products] = await db.query('SELECT product_id, name, image FROM products WHERE image IS NOT NULL');
+        
+        let fixedCount = 0;
+        for (const product of products) {
+            if (product.image && product.image.startsWith('/uploads/')) {
+                const imagePath = path.join(__dirname, '../../..', product.image);
+                if (!fs.existsSync(imagePath)) {
+                    await db.query('UPDATE products SET image = NULL WHERE product_id = ?', [product.product_id]);
+                    fixedCount++;
+                    console.log(`Fixed missing image for product: ${product.name}`);
+                }
+            }
+        }
+        
+        res.json({ 
+            message: `Fixed ${fixedCount} products with missing images`,
+            fixedCount: fixedCount
+        });
+    } catch (err) {
+        console.error("Error fixing missing images:", err);
         res.status(500).json({ message: "Database error" });
     }
 });

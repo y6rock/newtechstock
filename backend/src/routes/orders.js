@@ -17,6 +17,27 @@ router.post('/', authenticateToken, async (req, res) => {
         connection = await db.getConnection();
         await connection.beginTransaction();
 
+        // Validate inventory before processing order
+        for (const item of items) {
+            const [productResult] = await connection.query(
+                'SELECT stock, name FROM products WHERE product_id = ?',
+                [item.product_id]
+            );
+            
+            if (productResult.length === 0) {
+                await connection.rollback();
+                return res.status(400).json({ message: `Product with ID ${item.product_id} not found` });
+            }
+            
+            const product = productResult[0];
+            if (product.stock < item.quantity) {
+                await connection.rollback();
+                return res.status(400).json({ 
+                    message: `Insufficient stock for ${product.name}. Available: ${product.stock}, Requested: ${item.quantity}` 
+                });
+            }
+        }
+
         const orderSql = `
             INSERT INTO orders (user_id, total_amount, shipping_address, payment_method, promotion_id)
             VALUES (?, ?, ?, ?, ?)

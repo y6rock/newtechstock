@@ -35,7 +35,7 @@ function ProductManager() {
       const headers = { 'Authorization': `Bearer ${token}` };
       
       const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-        fetch('/api/products', { headers }),
+        fetch('/api/products/admin/all', { headers }), // Get all products including inactive
         fetch('/api/suppliers', { headers }), // Assuming this exists and requires auth
         fetch('/api/categories', { headers })
       ]);
@@ -141,7 +141,7 @@ function ProductManager() {
       data.append('image', imageFile);
       try {
         console.log('Attempting to upload image...');
-        const uploadRes = await axios.post('/api/upload-image', data, {
+        const uploadRes = await axios.post('/api/auth/upload-image', data, {
           headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
         });
         imageUrl = uploadRes.data.imageUrl;
@@ -238,7 +238,7 @@ function ProductManager() {
       const data = new FormData();
       data.append('image', imageFile);
       try {
-        const uploadRes = await axios.post('/api/upload-image', data, {
+        const uploadRes = await axios.post('/api/auth/upload-image', data, {
           headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
         });
         imageUrl = uploadRes.data.imageUrl;
@@ -272,17 +272,37 @@ function ProductManager() {
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to delete this product?')) {
+    if (window.confirm('Are you sure you want to deactivate this product? It will be hidden from customers but can be restored later.')) {
       try {
         const res = await axios.delete(`/api/products/${productId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
         setMessage(res.data.message);
-        // Reload products after deleting
-        const updated = await axios.get('/api/products');
+        // Reload products after deactivating
+        const updated = await axios.get('/api/products/admin/all', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
         setProducts(updated.data);
       } catch (err) {
-        setMessage(err.response?.data?.message || 'Error deleting product');
+        setMessage(err.response?.data?.message || 'Error deactivating product');
+      }
+    }
+  };
+
+  const handleRestoreProduct = async (productId) => {
+    if (window.confirm('Are you sure you want to restore this product? It will be visible to customers again.')) {
+      try {
+        const res = await axios.patch(`/api/products/${productId}/restore`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setMessage(res.data.message);
+        // Reload products after restoring
+        const updated = await axios.get('/api/products/admin/all', {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        setProducts(updated.data);
+      } catch (err) {
+        setMessage(err.response?.data?.message || 'Error restoring product');
       }
     }
   };
@@ -320,11 +340,11 @@ function ProductManager() {
     try {
       const headers = { Authorization: `Bearer ${token}` };
       const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
-        axios.get('/api/products'),
+        axios.get('/api/products/admin/all', { headers }),
         axios.get('/api/suppliers', { headers }),
         axios.get('/api/categories', { headers }),
         axios.get('/api/settings'),
-                    axios.get('/api/settings/currencies'),
+        axios.get('/api/settings/currencies'),
       ]);
       setProducts(productsRes.data);
       setSuppliers(suppliersRes.data);
@@ -382,6 +402,7 @@ function ProductManager() {
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Category</th>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Price</th>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Inventory</th>
+              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Status</th>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Actions</th>
             </tr>
           </thead>
@@ -389,7 +410,35 @@ function ProductManager() {
             {filteredProducts.map(p => (
               <tr key={p.product_id} style={{ borderBottom: '1px solid #eee' }}>
                 <td style={{ padding: '15px' }}>
-                  {p.image && <img src={p.image.startsWith('/uploads') ? `http://localhost:3001${p.image}` : p.image} alt={p.name} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }} />}
+                  {p.image ? (
+                    <img 
+                                             src={p.image && p.image.startsWith('/uploads') ? `http://localhost:3001${p.image}` : p.image || 'https://via.placeholder.com/50'} 
+                      alt={p.name} 
+                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }}
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                        e.target.nextSibling.style.display = 'block';
+                      }}
+                    />
+                  ) : null}
+                  <div 
+                    style={{ 
+                      width: '50px', 
+                      height: '50px', 
+                      backgroundColor: '#f0f0f0', 
+                      borderRadius: '5px', 
+                      display: p.image ? 'none' : 'flex',
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      fontSize: '12px',
+                      color: '#666',
+                      textAlign: 'center',
+                      padding: '2px'
+                    }}
+                    className="image-placeholder"
+                  >
+                    {p.name ? p.name.substring(0, 8) : 'No Image'}
+                  </div>
                 </td>
                 <td style={{ padding: '15px' }}>
                   {p.name}
@@ -397,16 +446,38 @@ function ProductManager() {
                 </td>
                 <td style={{ padding: '15px' }}>{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
                 <td style={{ padding: '15px' }}>{formatPrice(parseFloat(p.price))}</td>
-                <td style={{ padding: '15px', color: p.stock < 10 ? 'orange' : 'green' }}>{p.stock}</td>
+                <td style={{ 
+                  padding: '15px', 
+                  color: p.stock < 0 ? 'red' : p.stock < 10 ? 'orange' : 'green',
+                  fontWeight: p.stock < 0 ? 'bold' : 'normal'
+                }}>
+                  {p.stock < 0 ? `${p.stock} (OUT OF STOCK)` : p.stock}
+                </td>
+                <td style={{ padding: '15px' }}>
+                  <span style={{ 
+                    padding: '4px 8px', 
+                    borderRadius: '4px', 
+                    fontSize: '12px',
+                    fontWeight: 'bold',
+                    backgroundColor: p.is_active ? '#d4edda' : '#f8d7da',
+                    color: p.is_active ? '#155724' : '#721c24'
+                  }}>
+                    {p.is_active ? 'Active' : 'Inactive'}
+                  </span>
+                </td>
                 <td style={{ padding: '15px' }}>
                   <button onClick={() => handleOpenModalForEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
-                  <button onClick={() => handleDeleteProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer' }}>🗑️</button>
+                  {p.is_active ? (
+                    <button onClick={() => handleDeleteProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} title="Deactivate">🗑️</button>
+                  ) : (
+                    <button onClick={() => handleRestoreProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} title="Restore">🔄</button>
+                  )}
                 </td>
               </tr>
             ))}
             {filteredProducts.length === 0 && (
               <tr>
-                <td colSpan="6" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No products found.</td>
+                <td colSpan="7" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No products found.</td>
               </tr>
             )}
           </tbody>

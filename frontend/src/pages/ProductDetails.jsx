@@ -61,7 +61,7 @@ export default function ProductDetails() {
         <img
           src={
             product.image
-              ? product.image.startsWith('/uploads')
+              ? product.image && product.image.startsWith('/uploads')
                 ? `http://localhost:3001${product.image}`
                 : product.image
               : 'https://via.placeholder.com/400'
@@ -75,13 +75,45 @@ export default function ProductDetails() {
         <div style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: 15 }}>{formatPrice(product.price, currency)}</div>
         <p className="product-description">{product.description}</p>
         <div className="product-stock-status">
-          {product.stock > 0 ? `In Stock (${product.stock} available)` : 'Out of Stock'}
+          {product.stock > 0 ? (
+            <span style={{ color: '#28a745', fontWeight: 'bold' }}>
+              In Stock ({product.stock} available)
+            </span>
+          ) : (
+            <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
+              Out of Stock
+            </span>
+          )}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
           <span>Quantity:</span>
-          <button onClick={() => setQuantity(q => Math.max(1, q - 1))} style={{ padding: '5px 12px', fontSize: '1.1em', borderRadius: 4, border: '1px solid #ddd', background: '#f3f4f6', cursor: 'pointer' }}>-</button>
+          <button 
+            onClick={() => setQuantity(q => Math.max(1, q - 1))} 
+            style={{ 
+              padding: '5px 12px', 
+              fontSize: '1.1em', 
+              borderRadius: 4, 
+              border: '1px solid #ddd', 
+              background: '#f3f4f6', 
+              cursor: product.stock > 0 ? 'pointer' : 'not-allowed',
+              opacity: product.stock > 0 ? 1 : 0.6
+            }}
+            disabled={product.stock <= 0}
+          >-</button>
           <span style={{ minWidth: 30, textAlign: 'center' }}>{quantity}</span>
-          <button onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} style={{ padding: '5px 12px', fontSize: '1.1em', borderRadius: 4, border: '1px solid #ddd', background: '#f3f4f6', cursor: 'pointer' }}>+</button>
+          <button 
+            onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} 
+            style={{ 
+              padding: '5px 12px', 
+              fontSize: '1.1em', 
+              borderRadius: 4, 
+              border: '1px solid #ddd', 
+              background: '#f3f4f6', 
+              cursor: product.stock > 0 ? 'pointer' : 'not-allowed',
+              opacity: product.stock > 0 ? 1 : 0.6
+            }}
+            disabled={product.stock <= 0}
+          >+</button>
         </div>
         <button
           style={{ padding: '12px 0', width: 250, background: '#111827', color: 'white', border: 'none', borderRadius: 6, fontWeight: 'bold', fontSize: '1em', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', opacity: product.stock > 0 ? 1 : 0.6 }}

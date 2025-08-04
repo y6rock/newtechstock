@@ -30,6 +30,21 @@ import Orders from './pages/manager/Orders';
 import FloatingCart from './components/FloatingCart';
 import useWindowSize from './hooks/useWindowSize';
 
+import axios from 'axios';
+
+// Global axios interceptor for token expiration
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 403 && error.response?.data?.message === 'Invalid token') {
+      // Token is expired, redirect to login
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 function App({ isManagerRoute }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { width } = useWindowSize();

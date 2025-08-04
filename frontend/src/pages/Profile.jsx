@@ -91,7 +91,7 @@ const Profile = () => {
         const data = new FormData();
         data.append('image', imageFile);
         const token = localStorage.getItem('token');
-        const uploadRes = await axios.post('/api/upload-image', data, {
+        const uploadRes = await axios.post('/api/auth/upload-image', data, {
           headers: { 'Content-Type': 'multipart/form-data', Authorization: `Bearer ${token}` }
         });
         profile_image = uploadRes.data.imageUrl;
@@ -118,7 +118,7 @@ const Profile = () => {
   // Helper to get the correct profile image URL
   const getProfilePicUrl = (pic) => {
     if (!pic) return 'https://via.placeholder.com/150';
-    if (pic.startsWith('/uploads')) return `http://localhost:3001${pic}`;
+    if (pic && pic.startsWith('/uploads')) return `http://localhost:3001${pic}`;
     return pic;
   };
 
