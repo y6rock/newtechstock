@@ -1,18 +1,20 @@
 import React, { useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import axios from 'axios';
-import './shared.css';
+import './AuthForm.css';
 
 const ResetPassword = () => {
-  const [searchParams] = useSearchParams();
+  const { token } = useParams();
   const navigate = useNavigate();
-  const token = searchParams.get('token');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -52,47 +54,79 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="simple-page-container">
-      <div className="form-container" style={{ maxWidth: '400px' }}>
-        <h1 style={{ textAlign: 'center' }}>Reset Your Password</h1>
+    <div className="auth-container">
+      <div className="auth-form-wrapper">
+        <h2>Reset Your Password</h2>
+        <p className="auth-form-subtitle">Enter your new password to complete the reset process</p>
         
         {!token ? (
-          <p className="error-message">Invalid password reset link. Please request a new one.</p>
+          <div className="auth-message error">
+            Invalid password reset link. Please request a new one.
+          </div>
         ) : (
-          <form onSubmit={handleSubmit}>
-            <div className="form-group">
-              <label htmlFor="password">New Password</label>
+          <form onSubmit={handleSubmit} className="auth-form" noValidate>
+            {error && <p className="auth-message error">{error}</p>}
+            {message && <p className="auth-message success">{message}</p>}
+
+            <div className="auth-input-group">
+              <FaLock className="auth-input-icon" />
               <input
-                type="password"
-                id="password"
+                type={showPassword ? "text" : "password"}
+                placeholder="New Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="form-control"
-                placeholder="Enter new password"
+                className="auth-input"
               />
+              {showPassword ? (
+                <FaEyeSlash 
+                  className="auth-password-toggle-icon"
+                  onClick={() => setShowPassword(false)}
+                />
+              ) : (
+                <FaEye 
+                  className="auth-password-toggle-icon"
+                  onClick={() => setShowPassword(true)}
+                />
+              )}
             </div>
-            <div className="form-group">
-              <label htmlFor="confirmPassword">Confirm New Password</label>
+
+            <div className="auth-input-group">
+              <FaLock className="auth-input-icon" />
               <input
-                type="password"
-                id="confirmPassword"
+                type={showConfirmPassword ? "text" : "password"}
+                placeholder="Confirm New Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="form-control"
-                placeholder="Confirm new password"
+                className="auth-input"
               />
+              {showConfirmPassword ? (
+                <FaEyeSlash 
+                  className="auth-password-toggle-icon"
+                  onClick={() => setShowConfirmPassword(false)}
+                />
+              ) : (
+                <FaEye 
+                  className="auth-password-toggle-icon"
+                  onClick={() => setShowConfirmPassword(true)}
+                />
+              )}
             </div>
 
-            {error && <p className="error-message">{error}</p>}
-            {message && <p className="success-message">{message}</p>}
-
-            <button type="submit" className="btn btn-primary btn-block" disabled={loading}>
+            <button 
+              type="submit" 
+              className="auth-submit-button" 
+              disabled={loading}
+            >
               {loading ? 'Resetting...' : 'Reset Password'}
             </button>
           </form>
         )}
+
+        <div className="auth-redirect-link">
+          Remember your password? <Link to="/login">Back to Login</Link>
+        </div>
       </div>
     </div>
   );
