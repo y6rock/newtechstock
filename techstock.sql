@@ -205,7 +205,7 @@ CREATE TABLE `settings` (
   `storeName` varchar(255) NOT NULL DEFAULT 'My Store',
   `contactEmail` varchar(255) NOT NULL DEFAULT 'contact@example.com',
   `contactPhone` varchar(50) NOT NULL DEFAULT '123-456-7890',
-  `taxRate` decimal(5,2) NOT NULL DEFAULT 0.00,
+  `taxRate` decimal(5,2) NOT NULL DEFAULT 18.00,
   `emailNotifications` tinyint(1) NOT NULL DEFAULT 1,
   `createdAt` timestamp NOT NULL DEFAULT current_timestamp(),
   `updatedAt` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -217,7 +217,7 @@ CREATE TABLE `settings` (
 --
 
 INSERT INTO `settings` (`id`, `storeName`, `contactEmail`, `contactPhone`, `taxRate`, `emailNotifications`, `createdAt`, `updatedAt`, `currency`) VALUES
-(1, 'TechStock', '', '', 0.00, 1, '2025-06-07 04:48:02', '2025-06-22 09:39:08', 'ILS');
+(1, 'TechStock', '', '', 18.00, 1, '2025-06-07 04:48:02', '2025-06-22 09:39:08', 'ILS');
 
 -- --------------------------------------------------------
 

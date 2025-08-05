@@ -120,6 +120,51 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
     }
 });
 
+// Delete customer (user)
+router.delete('/customers/:userId', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Check if user exists and is not an admin
+        const [userCheck] = await db.query(`
+            SELECT user_id, role FROM users WHERE user_id = ?
+        `, [userId]);
+        
+        if (userCheck.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        if (userCheck[0].role === 'admin') {
+            return res.status(403).json({ message: "Cannot delete admin users" });
+        }
+        
+        // Check if user has any orders
+        const [ordersCheck] = await db.query(`
+            SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?
+        `, [userId]);
+        
+        if (ordersCheck[0].order_count > 0) {
+            return res.status(400).json({ 
+                message: "Cannot delete customer with existing orders. Please handle their orders first." 
+            });
+        }
+        
+        // Delete the user
+        const [result] = await db.query(`
+            DELETE FROM users WHERE user_id = ?
+        `, [userId]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        res.json({ message: "Customer deleted successfully" });
+    } catch (err) {
+        console.error("Error deleting customer:", err);
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
 // Fix negative inventory
 router.post('/fix-inventory', authenticateToken, requireAdmin, async (req, res) => {
     try {

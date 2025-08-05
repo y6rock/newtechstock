@@ -7,7 +7,7 @@ export const SettingsProvider = ({ children }) => {
   const [siteSettings, setSiteSettings] = useState({
     site_name: 'TechStock',
     currency: 'ILS',
-    vat_rate: 17,
+    vat_rate: 18,
   });
   const [isUserAdmin, setIsUserAdmin] = useState(false);
   const [username, setUsername] = useState(null);

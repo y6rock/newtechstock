@@ -8,6 +8,9 @@ const db = dbSingleton.getConnection();
 // Get all promotions (admin only)
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
+        // First, automatically deactivate expired promotions
+        await deactivateExpiredPromotions();
+        
         const [promotions] = await db.query("SELECT * FROM promotions ORDER BY start_date DESC");
         res.json(promotions);
     } catch (error) {
@@ -36,20 +39,21 @@ router.get('/active', async (req, res) => {
 // Create a new promotion (admin only)
 router.post('/', authenticateToken, requireAdmin, async (req, res) => {
     const {
-        code, description, type, value,
-        start_date, end_date, min_purchase,
-        applicable_products, applicable_categories
+        name, code, description, type, value,
+        startDate, endDate, minQuantity, maxQuantity, isActive,
+        applicableProducts, applicableCategories
     } = req.body;
 
     try {
         const sql = `
-            INSERT INTO promotions (code, description, type, value, start_date, end_date, min_purchase, applicable_products, applicable_categories)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO promotions (name, code, description, type, value, start_date, end_date, 
+            min_quantity, max_quantity, is_active, applicable_products, applicable_categories)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `;
         await db.query(sql, [
-            code, description, type, value,
-            start_date, end_date, min_purchase,
-            JSON.stringify(applicable_products), JSON.stringify(applicable_categories)
+            name, code, description, type, value,
+            startDate, endDate, minQuantity || 1, maxQuantity || null, isActive ? 1 : 0,
+            JSON.stringify(applicableProducts || []), JSON.stringify(applicableCategories || [])
         ]);
         res.status(201).json({ message: 'Promotion created successfully.' });
     } catch (error) {
@@ -62,22 +66,23 @@ router.post('/', authenticateToken, requireAdmin, async (req, res) => {
 router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     const {
-        code, description, type, value,
-        start_date, end_date, min_purchase,
-        applicable_products, applicable_categories
+        name, code, description, type, value,
+        startDate, endDate, minQuantity, maxQuantity, isActive,
+        applicableProducts, applicableCategories
     } = req.body;
 
     try {
         const sql = `
             UPDATE promotions SET
-            code = ?, description = ?, type = ?, value = ?, start_date = ?, end_date = ?,
-            min_purchase = ?, applicable_products = ?, applicable_categories = ?
+            name = ?, code = ?, description = ?, type = ?, value = ?, 
+            start_date = ?, end_date = ?, min_quantity = ?, max_quantity = ?, is_active = ?,
+            applicable_products = ?, applicable_categories = ?
             WHERE promotion_id = ?
         `;
         const [result] = await db.query(sql, [
-            code, description, type, value,
-            start_date, end_date, min_purchase,
-            JSON.stringify(applicable_products), JSON.stringify(applicable_categories),
+            name, code, description, type, value,
+            startDate, endDate, minQuantity || 1, maxQuantity || null, isActive ? 1 : 0,
+            JSON.stringify(applicableProducts || []), JSON.stringify(applicableCategories || []),
             id
         ]);
         if (result.affectedRows === 0) {
@@ -101,6 +106,25 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
         res.json({ message: 'Promotion deleted successfully.' });
     } catch (error) {
         console.error('Error deleting promotion:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+});
+
+// Manually deactivate expired promotions (admin only)
+router.post('/deactivate-expired', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const [result] = await db.query(`
+            UPDATE promotions 
+            SET is_active = 0 
+            WHERE end_date < CURDATE() AND is_active = 1
+        `);
+        
+        res.json({ 
+            message: `Deactivated ${result.affectedRows} expired promotions.`,
+            deactivatedCount: result.affectedRows
+        });
+    } catch (error) {
+        console.error('Error deactivating expired promotions:', error);
         res.status(500).json({ message: 'Internal server error' });
     }
 });
@@ -134,7 +158,7 @@ router.post('/apply', async (req, res) => {
 
     try {
         const [promotions] = await db.query(
-            "SELECT * FROM promotions WHERE code = ? AND start_date <= CURDATE() AND end_date >= CURDATE()",
+            "SELECT * FROM promotions WHERE code = ? AND start_date <= CURDATE() AND end_date >= CURDATE() AND is_active = 1",
             [promotionCode]
         );
 
@@ -229,7 +253,7 @@ router.post('/apply-promotion', async (req, res) => {
 
     try {
         const [promotions] = await db.query(
-            "SELECT * FROM promotions WHERE code = ? AND start_date <= CURDATE() AND end_date >= CURDATE()",
+            "SELECT * FROM promotions WHERE code = ? AND start_date <= CURDATE() AND end_date >= CURDATE() AND is_active = 1",
             [code]
         );
 
@@ -293,5 +317,22 @@ router.post('/apply-promotion', async (req, res) => {
         res.status(500).json({ message: "Internal Server Error" });
     }
 });
+
+// Function to automatically deactivate expired promotions
+async function deactivateExpiredPromotions() {
+    try {
+        const sql = `
+            UPDATE promotions 
+            SET is_active = 0 
+            WHERE end_date < CURDATE() AND is_active = 1
+        `;
+        const [result] = await db.query(sql);
+        if (result.affectedRows > 0) {
+            console.log(`Deactivated ${result.affectedRows} expired promotions`);
+        }
+    } catch (error) {
+        console.error('Error deactivating expired promotions:', error);
+    }
+}
 
 module.exports = router; 

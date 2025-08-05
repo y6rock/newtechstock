@@ -54,6 +54,12 @@ export default function ProductDetails() {
   if (loading) return <div style={{ textAlign: 'center', marginTop: 50 }}>Loading...</div>;
   if (!product) return <div style={{ textAlign: 'center', marginTop: 50 }}>Product not found.</div>;
 
+  // Enhanced inventory validation
+  const hasValidStock = product.stock && product.stock >= 0;
+  const isOutOfStock = !hasValidStock || product.stock === 0;
+  const stockStatus = !hasValidStock ? 'Invalid Stock Data' : product.stock === 0 ? 'Out of Stock' : `In Stock (${product.stock} available)`;
+  const stockColor = !hasValidStock ? '#ff6b35' : product.stock === 0 ? '#dc3545' : '#28a745';
+
   return (
     <div style={{ maxWidth: 1100, margin: '40px auto', display: 'flex', gap: 40, alignItems: 'flex-start', fontFamily: 'Arial, sans-serif' }}>
       <button onClick={() => navigate(-1)} style={{ position: 'absolute', left: 30, top: 30, background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '1em' }}>&lt; Back to all products</button>
@@ -75,52 +81,56 @@ export default function ProductDetails() {
         <div style={{ fontSize: '1.5em', fontWeight: 'bold', marginBottom: 15 }}>{formatPrice(product.price, currency)}</div>
         <p className="product-description">{product.description}</p>
         <div className="product-stock-status">
-          {product.stock > 0 ? (
-            <span style={{ color: '#28a745', fontWeight: 'bold' }}>
-              In Stock ({product.stock} available)
-            </span>
-          ) : (
-            <span style={{ color: '#dc3545', fontWeight: 'bold' }}>
-              Out of Stock
-            </span>
-          )}
+          <span style={{ color: stockColor, fontWeight: 'bold' }}>
+            {stockStatus}
+          </span>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-          <span>Quantity:</span>
-          <button 
-            onClick={() => setQuantity(q => Math.max(1, q - 1))} 
-            style={{ 
-              padding: '5px 12px', 
-              fontSize: '1.1em', 
-              borderRadius: 4, 
-              border: '1px solid #ddd', 
-              background: '#f3f4f6', 
-              cursor: product.stock > 0 ? 'pointer' : 'not-allowed',
-              opacity: product.stock > 0 ? 1 : 0.6
-            }}
-            disabled={product.stock <= 0}
-          >-</button>
-          <span style={{ minWidth: 30, textAlign: 'center' }}>{quantity}</span>
-          <button 
-            onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} 
-            style={{ 
-              padding: '5px 12px', 
-              fontSize: '1.1em', 
-              borderRadius: 4, 
-              border: '1px solid #ddd', 
-              background: '#f3f4f6', 
-              cursor: product.stock > 0 ? 'pointer' : 'not-allowed',
-              opacity: product.stock > 0 ? 1 : 0.6
-            }}
-            disabled={product.stock <= 0}
-          >+</button>
-        </div>
+        {hasValidStock && product.stock > 0 && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+            <span>Quantity:</span>
+            <button 
+              onClick={() => setQuantity(q => Math.max(1, q - 1))} 
+              style={{ 
+                padding: '5px 12px', 
+                fontSize: '1.1em', 
+                borderRadius: 4, 
+                border: '1px solid #ddd', 
+                background: '#f3f4f6', 
+                cursor: 'pointer'
+              }}
+            >-</button>
+            <span style={{ minWidth: 30, textAlign: 'center' }}>{quantity}</span>
+            <button 
+              onClick={() => setQuantity(q => Math.min(product.stock, q + 1))} 
+              style={{ 
+                padding: '5px 12px', 
+                fontSize: '1.1em', 
+                borderRadius: 4, 
+                border: '1px solid #ddd', 
+                background: '#f3f4f6', 
+                cursor: 'pointer'
+              }}
+            >+</button>
+          </div>
+        )}
         <button
-          style={{ padding: '12px 0', width: 250, background: '#111827', color: 'white', border: 'none', borderRadius: 6, fontWeight: 'bold', fontSize: '1em', cursor: product.stock > 0 ? 'pointer' : 'not-allowed', opacity: product.stock > 0 ? 1 : 0.6 }}
-          disabled={product.stock === 0}
+          style={{ 
+            padding: '12px 0', 
+            width: 250, 
+            background: isOutOfStock ? '#6c757d' : '#111827', 
+            color: 'white', 
+            border: 'none', 
+            borderRadius: 6, 
+            fontWeight: 'bold', 
+            fontSize: '1em', 
+            cursor: isOutOfStock ? 'not-allowed' : 'pointer', 
+            opacity: isOutOfStock ? 0.6 : 1 
+          }}
+          disabled={isOutOfStock}
           onClick={handleAddToCart}
+          title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : 'Add to cart'}
         >
-          Add to Cart
+          {!hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
         </button>
         {cartMsg && <div style={{ marginTop: 15, color: cartMsg.includes('Added') ? 'green' : 'red' }}>{cartMsg}</div>}
       </div>

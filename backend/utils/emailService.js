@@ -65,46 +65,6 @@ class EmailService {
         }
     }
 
-    async sendOrderConfirmationEmail(userEmail, userName, orderId, orderDetails) {
-        if (!this.transporter) {
-            console.log('Email service not configured. Skipping confirmation email.');
-            return false;
-        }
-
-        try {
-            const mailOptions = {
-                from: 'TechStock <noreply@techstock.com>',
-                to: userEmail,
-                subject: `Order Confirmation #${orderId} - TechStock`,
-                html: `
-                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                        <h2 style="color: #2563eb;">Order Confirmed!</h2>
-                        <p>Dear ${userName},</p>
-                        <p>Your order #${orderId} has been successfully placed and is being processed.</p>
-                        <p><strong>Order Summary:</strong></p>
-                        <ul>
-                            <li>Order ID: ${orderId}</li>
-                            <li>Total Amount: ₪${orderDetails.total_amount}</li>
-                            <li>Payment Method: ${orderDetails.payment_method}</li>
-                            <li>Shipping Address: ${orderDetails.shipping_address}</li>
-                        </ul>
-                        <p>You will receive a separate email with your invoice shortly.</p>
-                        <p>Thank you for choosing TechStock!</p>
-                        <br>
-                        <p>Best regards,<br>The TechStock Team</p>
-                    </div>
-                `
-            };
-
-            const info = await this.transporter.sendMail(mailOptions);
-            console.log('Order confirmation email sent successfully:', info.messageId);
-            return true;
-        } catch (error) {
-            console.error('Error sending order confirmation email:', error);
-            return false;
-        }
-    }
-
     async sendContactNotification(name, email, message) {
         if (!this.transporter) {
             console.log('Email service not configured. Skipping contact notification email.');

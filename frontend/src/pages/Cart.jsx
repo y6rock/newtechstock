@@ -11,7 +11,7 @@ const Cart = () => {
   const { 
     cartItems, removeFromCart, updateQuantity, clearCart, 
     appliedPromotion, discountAmount, applyPromotion, removePromotion,
-    subtotal, total 
+    subtotal, subtotalAfterDiscount, vatAmount, netAmount, vat_rate, total 
   } = useCart();
   const { currency } = useSettings();
   const [promotionCode, setPromotionCode] = useState('');
@@ -94,6 +94,20 @@ const Cart = () => {
               <span>-{formatPrice(discountAmount, currency)}</span>
             </div>
           )}
+          {discountAmount > 0 && (
+            <div className="summary-row">
+              <span>Subtotal after discount</span>
+              <span>{formatPrice(subtotalAfterDiscount, currency)}</span>
+            </div>
+          )}
+          <div className="summary-row">
+            <span>Net Amount (excluding VAT)</span>
+            <span>{formatPrice(netAmount, currency)}</span>
+          </div>
+          <div className="summary-row">
+            <span>VAT ({vat_rate}%)</span>
+            <span>{formatPrice(vatAmount, currency)}</span>
+          </div>
           <div className="summary-row">
             <span>Shipping</span>
             <span>FREE</span>

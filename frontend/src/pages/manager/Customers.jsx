@@ -69,6 +69,37 @@ const Customers = () => {
         setShowOrdersModal(true);
     };
 
+    const handleDeleteCustomer = async (customer) => {
+        if (!window.confirm(`Are you sure you want to delete customer "${customer.username}"? This action cannot be undone.`)) {
+            return;
+        }
+
+        try {
+            const token = localStorage.getItem('token');
+            const response = await fetch(`/api/admin/customers/${customer.user_id}`, {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Failed to delete customer');
+            }
+
+            // Remove the customer from the local state
+            setCustomers(prevCustomers => 
+                prevCustomers.filter(c => c.user_id !== customer.user_id)
+            );
+
+            alert('Customer deleted successfully');
+        } catch (error) {
+            console.error('Error deleting customer:', error);
+            alert(`Error deleting customer: ${error.message}`);
+        }
+    };
+
     if (loadingSettings) {
         return <div>Loading Admin Panel...</div>;
     }
@@ -139,6 +170,20 @@ const Customers = () => {
                                         }}
                                     >
                                         View Orders
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteCustomer(customer)}
+                                        style={{
+                                            padding: '8px 12px',
+                                            backgroundColor: '#dc3545',
+                                            color: '#fff',
+                                            border: 'none',
+                                            borderRadius: '5px',
+                                            cursor: 'pointer',
+                                            marginLeft: '10px'
+                                        }}
+                                    >
+                                        Delete
                                     </button>
                                 </td>
                             </tr>

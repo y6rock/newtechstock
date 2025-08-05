@@ -8,7 +8,7 @@ import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
 
 const Checkout = () => {
-    const { cartItems, clearCart, appliedPromotion, total, subtotal, discountAmount } = useCart();
+    const { cartItems, clearCart, appliedPromotion, total, subtotal, subtotalAfterDiscount, vatAmount, netAmount, vat_rate, discountAmount } = useCart();
     const { user_id, currency } = useSettings();
     const navigate = useNavigate();
 
@@ -16,7 +16,9 @@ const Checkout = () => {
     const [paymentMethod, setPaymentMethod] = useState('credit_card');
     const [orderError, setOrderError] = useState(null);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
+    // eslint-disable-next-line no-unused-vars
     const [showPayPal, setShowPayPal] = useState(false);
+    const [paypalLoading, setPaypalLoading] = useState(false);
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
@@ -175,6 +177,20 @@ const Checkout = () => {
                             <span>-{formatPrice(discountAmount, currency)}</span>
                         </div>
                     )}
+                    {discountAmount > 0 && (
+                        <div className="summary-item">
+                            <span>Subtotal after discount:</span>
+                            <span>{formatPrice(subtotalAfterDiscount, currency)}</span>
+                        </div>
+                    )}
+                    <div className="summary-item">
+                        <span>Net Amount (excluding VAT):</span>
+                        <span>{formatPrice(netAmount, currency)}</span>
+                    </div>
+                    <div className="summary-item">
+                        <span>VAT ({vat_rate}%):</span>
+                        <span>{formatPrice(vatAmount, currency)}</span>
+                    </div>
                     <div className="summary-total">
                         <strong>Total:</strong>
                         <strong>{formatPrice(total, currency)}</strong>
@@ -236,14 +252,26 @@ const Checkout = () => {
 
                     {paymentMethod === 'paypal' && (
                         <div className="paypal-container">
+                            <div style={{ marginBottom: '10px', padding: '10px', background: '#f8f9fa', borderRadius: '5px' }}>
+                                <p>PayPal payment for: {formatPrice(total, currency)}</p>
+                            </div>
+                            
+                            {paypalLoading && (
+                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                    <p>Loading PayPal...</p>
+                                </div>
+                            )}
+                            
                             <PayPalButtons
                                 createOrder={(data, actions) => {
+                                    console.log('Creating PayPal order for:', total);
+                                    setPaypalLoading(true);
                                     return actions.order.create({
                                         purchase_units: [
                                             {
                                                 amount: {
                                                     value: total.toString(),
-                                                    currency_code: "ILS"
+                                                    currency_code: "USD"
                                                 },
                                                 description: `TechStock Order - ${cartItems.length} items`
                                             }
@@ -251,15 +279,38 @@ const Checkout = () => {
                                     });
                                 }}
                                 onApprove={(data, actions) => {
+                                    console.log('PayPal order approved:', data);
+                                    setPaypalLoading(false);
                                     return actions.order.capture().then((details) => {
+                                        console.log('PayPal payment captured:', details);
                                         handlePayPalPayment(details);
                                     });
                                 }}
                                 onError={(err) => {
                                     console.error('PayPal error:', err);
+                                    setPaypalLoading(false);
                                     setOrderError('PayPal payment failed. Please try again.');
                                 }}
+                                onCancel={() => {
+                                    console.log('PayPal payment cancelled');
+                                    setPaypalLoading(false);
+                                    setOrderError('PayPal payment was cancelled.');
+                                }}
+                                onInit={() => {
+                                    console.log('PayPal initialized');
+                                    setPaypalLoading(false);
+                                }}
+                                style={{ layout: "horizontal" }}
                             />
+                            
+                            <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                                <p>If PayPal button doesn't appear:</p>
+                                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                                    <li>Refresh the page and try again</li>
+                                    <li>Check your internet connection</li>
+                                    <li>Try a different browser</li>
+                                </ul>
+                            </div>
                         </div>
                     )}
                 </form>

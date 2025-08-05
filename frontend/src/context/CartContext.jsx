@@ -5,7 +5,7 @@ import axios from 'axios';
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const { user_id } = useSettings();
+  const { user_id, vat_rate } = useSettings();
   const [cartItems, setCartItems] = useState([]);
   const [appliedPromotion, setAppliedPromotion] = useState(null);
   const [discountAmount, setDiscountAmount] = useState(0);
@@ -62,15 +62,27 @@ export const CartProvider = ({ children }) => {
       return;
     }
     
+    // Enhanced inventory validation
+    if (!product.stock || product.stock < 0) {
+      alert('This product has invalid inventory data and cannot be added to cart.');
+      return;
+    }
+    
     // Check if product is out of stock
-    if (product.stock <= 0) {
+    if (product.stock === 0) {
       alert('This product is out of stock and cannot be added to cart.');
+      return;
+    }
+    
+    // Validate quantity parameter
+    if (!quantity || quantity <= 0) {
+      alert('Please select a valid quantity.');
       return;
     }
     
     // Check if requested quantity exceeds available stock
     if (quantity > product.stock) {
-      alert(`Only ${product.stock} units available. Cannot add ${quantity} to cart.`);
+      alert(`Only ${product.stock} unit${product.stock === 1 ? '' : 's'} available. Cannot add ${quantity} to cart.`);
       return;
     }
     
@@ -79,7 +91,7 @@ export const CartProvider = ({ children }) => {
       if (existingItem) {
         const newQuantity = existingItem.quantity + quantity;
         if (newQuantity > product.stock) {
-          alert(`Cannot add more than ${product.stock} units of this product to cart.`);
+          alert(`Cannot add more than ${product.stock} unit${product.stock === 1 ? '' : 's'} of this product to cart. You already have ${existingItem.quantity} in your cart.`);
           return prevItems;
         }
         return prevItems.map((item) =>
@@ -96,15 +108,24 @@ export const CartProvider = ({ children }) => {
   
   const updateQuantity = (productId, newQuantity) => {
     const quantity = parseInt(newQuantity);
-    if (isNaN(quantity) || quantity < 1) return;
+    if (isNaN(quantity) || quantity < 1) {
+      alert('Please enter a valid quantity (minimum 1).');
+      return;
+    }
     
     setCartItems((prevItems) => {
       const item = prevItems.find(item => item.product_id === productId);
       if (!item) return prevItems;
       
+      // Enhanced inventory validation
+      if (!item.stock || item.stock < 0) {
+        alert('This product has invalid inventory data.');
+        return prevItems;
+      }
+      
       // Check if new quantity exceeds stock
       if (quantity > item.stock) {
-        alert(`Only ${item.stock} units available. Cannot set quantity to ${quantity}.`);
+        alert(`Only ${item.stock} unit${item.stock === 1 ? '' : 's'} available. Cannot set quantity to ${quantity}.`);
         return prevItems;
       }
       
@@ -140,7 +161,10 @@ export const CartProvider = ({ children }) => {
   };
 
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const total = subtotal - discountAmount;
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const vatAmount = (subtotalAfterDiscount * (vat_rate || 0)) / 100;
+  const netAmount = subtotalAfterDiscount - vatAmount;
+  const total = subtotalAfterDiscount; // Total stays the same, VAT is just a breakdown
   const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
 
   return (
@@ -156,6 +180,10 @@ export const CartProvider = ({ children }) => {
         applyPromotion,
         removePromotion,
         subtotal,
+        subtotalAfterDiscount,
+        vatAmount,
+        netAmount,
+        vat_rate,
         total,
         totalItems,
       }}

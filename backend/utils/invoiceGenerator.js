@@ -29,7 +29,7 @@ class InvoiceGenerator {
     }
 
     async generateInvoice(orderData, userData) {
-        const { order_id, order_date, total_amount, shipping_address, payment_method, items } = orderData;
+        const { order_id, order_date, total_amount, shipping_address, payment_method, items, promotion, discount_amount } = orderData;
         const { name, email } = userData;
         
         // Get the current currency symbol
@@ -92,6 +92,19 @@ class InvoiceGenerator {
             this.doc.text(`${currencySymbol}${(price * quantity).toFixed(2)}`, 450, yPosition);
             yPosition += 20;
         });
+
+        // Calculate subtotal
+        const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+
+        // Show discount information if applicable
+        if (promotion && discount_amount > 0) {
+            this.doc
+                .moveDown()
+                .fontSize(12)
+                .text(`Subtotal: ${currencySymbol}${subtotal.toFixed(2)}`, { align: 'right' })
+                .text(`Discount (${promotion.name}): -${currencySymbol}${discount_amount.toFixed(2)}`, { align: 'right' })
+                .text(`Total after discount: ${currencySymbol}${(subtotal - discount_amount).toFixed(2)}`, { align: 'right' });
+        }
 
         // Total
         this.doc

@@ -64,6 +64,11 @@ router.post('/register', async (req, res) => {
   const sql = `INSERT INTO users (email, password, name, phone, city) VALUES (?, ?, ?, ?, ?)`;
   try {
     await db.query(sql, [email.trim(), hashedPassword, name.trim(), phone.trim(), city.trim()]);
+    
+    // Set VAT rate to 18% for new user signups
+    const updateVatSql = `UPDATE settings SET taxRate = 18.00 WHERE id = 1`;
+    await db.query(updateVatSql);
+    
     res.json({ message: 'User registered successfully' });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {

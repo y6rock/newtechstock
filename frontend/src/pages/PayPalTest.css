@@ -1,0 +1,246 @@
+.paypal-test-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px;
+    background: #f8f9fa;
+    min-height: 100vh;
+}
+
+.paypal-test-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.paypal-test-header h1 {
+    margin: 0 0 10px 0;
+    font-size: 2.5em;
+    font-weight: 700;
+}
+
+.paypal-test-header p {
+    margin: 0;
+    font-size: 1.1em;
+    opacity: 0.9;
+}
+
+.paypal-test-content {
+    background: white;
+    border-radius: 15px;
+    padding: 30px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.test-info {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #667eea;
+}
+
+.test-info h2 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.5em;
+}
+
+.info-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 15px;
+}
+
+.info-item {
+    padding: 10px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e1e5e9;
+    font-size: 14px;
+}
+
+.info-item strong {
+    color: #667eea;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.amount-selector {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #28a745;
+}
+
+.amount-selector label {
+    display: block;
+    margin-bottom: 10px;
+    font-weight: 600;
+    color: #333;
+}
+
+.amount-input {
+    width: 200px;
+    padding: 12px 15px;
+    border: 2px solid #e1e5e9;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #667eea;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.amount-input:focus {
+    outline: none;
+    border-color: #667eea;
+    box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+}
+
+.payment-section {
+    margin-bottom: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 10px;
+    border-left: 4px solid #ffc107;
+}
+
+.payment-section h3 {
+    margin: 0 0 15px 0;
+    color: #333;
+    font-size: 1.3em;
+}
+
+.paypal-button-container {
+    display: flex;
+    justify-content: center;
+    padding: 20px;
+    background: white;
+    border-radius: 8px;
+    border: 1px solid #e1e5e9;
+}
+
+.payment-status {
+    margin-bottom: 30px;
+    padding: 20px;
+    border-radius: 10px;
+    border-left: 4px solid;
+}
+
+.payment-status.success {
+    background: #d4edda;
+    border-left-color: #28a745;
+    color: #155724;
+}
+
+.payment-status.error {
+    background: #f8d7da;
+    border-left-color: #dc3545;
+    color: #721c24;
+}
+
+.payment-status.warning {
+    background: #fff3cd;
+    border-left-color: #ffc107;
+    color: #856404;
+}
+
+.payment-status h3 {
+    margin: 0 0 10px 0;
+    font-size: 1.3em;
+}
+
+.payment-details {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+    border: 1px solid rgba(0,0,0,0.1);
+}
+
+.payment-details h4 {
+    margin: 0 0 10px 0;
+    font-size: 1.1em;
+}
+
+.payment-details pre {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 5px;
+    overflow-x: auto;
+    font-size: 12px;
+    line-height: 1.4;
+    margin: 0;
+    border: 1px solid #e1e5e9;
+}
+
+.sandbox-notes {
+    padding: 20px;
+    background: #e3f2fd;
+    border-radius: 10px;
+    border-left: 4px solid #2196f3;
+}
+
+.sandbox-notes h3 {
+    margin: 0 0 15px 0;
+    color: #1976d2;
+    font-size: 1.3em;
+}
+
+.sandbox-notes ul {
+    margin: 0;
+    padding-left: 20px;
+}
+
+.sandbox-notes li {
+    margin-bottom: 8px;
+    color: #1565c0;
+    line-height: 1.5;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .paypal-test-container {
+        padding: 15px;
+    }
+    
+    .paypal-test-header {
+        padding: 20px;
+    }
+    
+    .paypal-test-header h1 {
+        font-size: 2em;
+    }
+    
+    .paypal-test-content {
+        padding: 20px;
+    }
+    
+    .info-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .amount-input {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .paypal-test-header h1 {
+        font-size: 1.8em;
+    }
+    
+    .paypal-test-content {
+        padding: 15px;
+    }
+    
+    .payment-details pre {
+        font-size: 10px;
+        padding: 10px;
+    }
+} 

@@ -15,6 +15,7 @@ export default function Promotions() {
   const [editingPromotion, setEditingPromotion] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [deactivating, setDeactivating] = useState(false);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -121,25 +122,60 @@ export default function Promotions() {
   };
 
   const handleDelete = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this promotion?')) return;
-    
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/promotions/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` }
-      });
-
-      if (response.ok) {
-        fetchPromotions();
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Error deleting promotion');
+    if (window.confirm('Are you sure you want to delete this promotion?')) {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`/api/promotions/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          fetchPromotions();
+        }
+      } catch (error) {
+        console.error('Error deleting promotion:', error);
       }
-    } catch (error) {
-      console.error('Error deleting promotion:', error);
-      alert('Error deleting promotion');
     }
+  };
+
+  const handleDeactivateExpired = async () => {
+    if (window.confirm('Are you sure you want to deactivate all expired promotions?')) {
+      setDeactivating(true);
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch('/api/promotions/deactivate-expired', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (response.ok) {
+          const result = await response.json();
+          alert(result.message);
+          fetchPromotions();
+        }
+      } catch (error) {
+        console.error('Error deactivating expired promotions:', error);
+        alert('Error deactivating expired promotions');
+      } finally {
+        setDeactivating(false);
+      }
+    }
+  };
+
+  const isExpired = (endDate) => {
+    return new Date(endDate) < new Date();
+  };
+
+  const getPromotionStatus = (promotion) => {
+    if (!promotion.is_active) {
+      return { status: 'inactive', label: 'Inactive', className: 'inactive' };
+    }
+    if (isExpired(promotion.end_date)) {
+      return { status: 'expired', label: 'Expired', className: 'expired' };
+    }
+    if (new Date(promotion.start_date) > new Date()) {
+      return { status: 'pending', label: 'Pending', className: 'pending' };
+    }
+    return { status: 'active', label: 'Active', className: 'active' };
   };
 
   const handleEdit = (promotion) => {
@@ -151,8 +187,8 @@ export default function Promotions() {
       value: promotion.value,
       minQuantity: promotion.min_quantity || 1,
       maxQuantity: promotion.max_quantity || null,
-      startDate: promotion.start_date ? promotion.start_date.split('T')[0] : '',
-      endDate: promotion.end_date ? promotion.end_date.split('T')[0] : '',
+      startDate: promotion.start_date,
+      endDate: promotion.end_date,
       isActive: promotion.is_active,
       applicableProducts: promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [],
       applicableCategories: promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [],
@@ -224,69 +260,84 @@ export default function Promotions() {
     <div className="promotions-container">
       <div className="promotions-header">
         <h1>Promotions & Discounts</h1>
-        <button 
-          className="add-promotion-btn"
-          onClick={() => {
-            setEditingPromotion(null);
-            resetForm();
-            setShowModal(true);
-          }}
-        >
-          <FaPlus /> Add Promotion
-        </button>
+        <div className="promotions-actions">
+          <button 
+            className="deactivate-expired-btn"
+            onClick={handleDeactivateExpired}
+            disabled={deactivating}
+          >
+            {deactivating ? 'Deactivating...' : 'Deactivate Expired'}
+          </button>
+          <button 
+            className="add-promotion-btn"
+            onClick={() => {
+              setEditingPromotion(null);
+              resetForm();
+              setShowModal(true);
+            }}
+          >
+            <FaPlus /> Add Promotion
+          </button>
+        </div>
       </div>
 
       {loading ? (
         <div className="loading">Loading promotions...</div>
       ) : (
         <div className="promotions-grid">
-          {promotions.map((promotion) => (
-            <div key={promotion.promotion_id} className="promotion-card">
-              <div className="promotion-header">
-                <div className="promotion-type-icon">
-                  {getPromotionTypeIcon(promotion.type)}
-                </div>
-                <div className="promotion-info">
-                  <h3>{promotion.name}</h3>
-                  <p className="promotion-type">{getPromotionTypeLabel(promotion.type)}</p>
-                  <p className="promotion-value">{formatValue(promotion.type, promotion.value)}</p>
-                </div>
-                <div className="promotion-status">
-                  <span className={`status-badge ${promotion.is_active ? 'active' : 'inactive'}`}>
-                    {promotion.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </div>
-              </div>
-              
-              <div className="promotion-details">
-                <p className="promotion-description">{promotion.description}</p>
-                <div className="promotion-dates">
-                  <span><FaCalendarAlt /> {new Date(promotion.start_date).toLocaleDateString()}</span>
-                  <span>to {new Date(promotion.end_date).toLocaleDateString()}</span>
-                </div>
-                {promotion.code && (
-                  <div className="promotion-code">
-                    <strong>Code:</strong> {promotion.code}
+          {promotions.map((promotion) => {
+            const status = getPromotionStatus(promotion);
+            return (
+              <div key={promotion.promotion_id} className={`promotion-card ${status.className}`}>
+                <div className="promotion-header">
+                  <div className="promotion-type-icon">
+                    {getPromotionTypeIcon(promotion.type)}
                   </div>
-                )}
-              </div>
+                  <div className="promotion-info">
+                    <h3>{promotion.name}</h3>
+                    <p className="promotion-type">{getPromotionTypeLabel(promotion.type)}</p>
+                    <p className="promotion-value">{formatValue(promotion.type, promotion.value)}</p>
+                  </div>
+                  <div className="promotion-status">
+                    <span className={`status-badge ${status.className}`}>
+                      {status.label}
+                    </span>
+                  </div>
+                </div>
+                
+                <div className="promotion-details">
+                  <p className="promotion-description">{promotion.description}</p>
+                  <div className="promotion-dates">
+                    <span><FaCalendarAlt /> {new Date(promotion.start_date).toLocaleDateString()}</span>
+                    <span>to {new Date(promotion.end_date).toLocaleDateString()}</span>
+                    {isExpired(promotion.end_date) && (
+                      <span className="expired-indicator">(Expired)</span>
+                    )}
+                  </div>
+                  {promotion.code && (
+                    <div className="promotion-code">
+                      <strong>Code:</strong> {promotion.code}
+                    </div>
+                  )}
+                </div>
 
-              <div className="promotion-actions">
-                <button 
-                  className="edit-btn"
-                  onClick={() => handleEdit(promotion)}
-                >
-                  <FaEdit /> Edit
-                </button>
-                <button 
-                  className="delete-btn"
-                  onClick={() => handleDelete(promotion.promotion_id)}
-                >
-                  <FaTrash /> Delete
-                </button>
+                <div className="promotion-actions">
+                  <button 
+                    className="edit-btn"
+                    onClick={() => handleEdit(promotion)}
+                  >
+                    <FaEdit /> Edit
+                  </button>
+                  <button 
+                    className="delete-btn"
+                    onClick={() => handleDelete(promotion.promotion_id)}
+                  >
+                    <FaTrash /> Delete
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -308,25 +359,25 @@ export default function Promotions() {
             </div>
 
             <form onSubmit={handleSubmit} className="promotion-form">
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Promotion Name *</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) => setFormData({...formData, name: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Promotion Code</label>
-                  <input
-                    type="text"
-                    value={formData.code}
-                    onChange={(e) => setFormData({...formData, code: e.target.value})}
-                    placeholder="Optional"
-                  />
-                </div>
+              <div className="form-group">
+                <label>Promotion Name *</label>
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) => setFormData({...formData, name: e.target.value})}
+                  placeholder="e.g., Summer Sale 20% Off"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Promotion Code</label>
+                <input
+                  type="text"
+                  value={formData.code}
+                  onChange={(e) => setFormData({...formData, code: e.target.value})}
+                  placeholder="e.g., SUMMER20"
+                />
               </div>
 
               <div className="form-group">
@@ -334,164 +385,168 @@ export default function Promotions() {
                 <textarea
                   value={formData.description}
                   onChange={(e) => setFormData({...formData, description: e.target.value})}
-                  rows="3"
+                  placeholder="Describe your promotion..."
+                  rows="2"
                 />
               </div>
 
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Promotion Type *</label>
-                  <select
-                    value={formData.type}
-                    onChange={(e) => setFormData({...formData, type: e.target.value})}
-                    required
-                  >
-                    <option value="percentage">Percentage Discount</option>
-                    <option value="fixed">Fixed Amount Discount</option>
-                    <option value="buy_x_get_y">Buy X Get Y Free</option>
-                  </select>
+              <div className="form-group">
+                <label>Discount Type *</label>
+                <div className="promotion-type-selector">
+                  <label className={`type-option ${formData.type === 'percentage' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="type"
+                      value="percentage"
+                      checked={formData.type === 'percentage'}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    />
+                    <span className="type-option-icon">💯</span>
+                    <span className="type-option-label">%</span>
+                  </label>
+                  
+                  <label className={`type-option ${formData.type === 'fixed' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="type"
+                      value="fixed"
+                      checked={formData.type === 'fixed'}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    />
+                    <span className="type-option-icon">💰</span>
+                    <span className="type-option-label">$</span>
+                  </label>
+                  
+                  <label className={`type-option ${formData.type === 'buy_x_get_y' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="type"
+                      value="buy_x_get_y"
+                      checked={formData.type === 'buy_x_get_y'}
+                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                    />
+                    <span className="type-option-icon">🎁</span>
+                    <span className="type-option-label">BOGO</span>
+                  </label>
                 </div>
-                <div className="form-group">
-                  <label>Value *</label>
-                  {formData.type === 'buy_x_get_y' ? (
-                    <div className="buy-x-get-y-inputs">
-                      <input
-                        type="number"
-                        placeholder="Buy X"
-                        value={formData.value.split(':')[0] || ''}
-                        onChange={(e) => {
-                          const y = formData.value.split(':')[1] || '1';
-                          setFormData({...formData, value: `${e.target.value}:${y}`});
-                        }}
-                        min="1"
-                        required
-                      />
-                      <span>Get</span>
-                      <input
-                        type="number"
-                        placeholder="Y Free"
-                        value={formData.value.split(':')[1] || ''}
-                        onChange={(e) => {
-                          const x = formData.value.split(':')[0] || '1';
-                          setFormData({...formData, value: `${x}:${e.target.value}`});
-                        }}
-                        min="1"
-                        required
-                      />
-                      <span>Free</span>
-                    </div>
-                  ) : (
+              </div>
+
+              <div className="form-group">
+                <label>Discount Value *</label>
+                {formData.type === 'buy_x_get_y' ? (
+                  <div className="buy-x-get-y-inputs">
+                    <input
+                      type="number"
+                      placeholder="Buy"
+                      value={formData.value.split(':')[0] || ''}
+                      onChange={(e) => {
+                        const y = formData.value.split(':')[1] || '1';
+                        setFormData({...formData, value: `${e.target.value}:${y}`});
+                      }}
+                      min="1"
+                      required
+                    />
+                    <span>Get</span>
+                    <input
+                      type="number"
+                      placeholder="Free"
+                      value={formData.value.split(':')[1] || ''}
+                      onChange={(e) => {
+                        const x = formData.value.split(':')[0] || '1';
+                        setFormData({...formData, value: `${x}:${e.target.value}`});
+                      }}
+                      min="1"
+                      required
+                    />
+                  </div>
+                ) : (
+                  <div className="value-input-container">
                     <input
                       type="number"
                       value={formData.value}
                       onChange={(e) => setFormData({...formData, value: e.target.value})}
                       min="0"
-                      step={formData.type === 'percentage' ? '0.01' : '0.01'}
+                      step="0.01"
+                      placeholder={formData.type === 'percentage' ? '20' : '10'}
                       required
                     />
-                  )}
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Start Date *</label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                    required
-                  />
-                </div>
-                <div className="form-group">
-                  <label>End Date *</label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="form-row">
-                <div className="form-group">
-                  <label>Minimum Quantity</label>
-                  <input
-                    type="number"
-                    value={formData.minQuantity}
-                    onChange={(e) => setFormData({...formData, minQuantity: e.target.value})}
-                    min="1"
-                  />
-                </div>
-                <div className="form-group">
-                  <label>Maximum Quantity</label>
-                  <input
-                    type="number"
-                    value={formData.maxQuantity || ''}
-                    onChange={(e) => setFormData({...formData, maxQuantity: e.target.value || null})}
-                    min="1"
-                  />
-                </div>
+                    <span className="value-suffix">
+                      {formData.type === 'percentage' ? '%' : currency}
+                    </span>
+                  </div>
+                )}
               </div>
 
               <div className="form-group">
-                <label>Applicable Categories</label>
-                <select
-                  multiple
-                  value={formData.applicableCategories}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, option => option.value);
-                    setFormData({...formData, applicableCategories: selected});
-                  }}
-                >
-                  {categories.map(category => (
-                    <option key={category.category_id} value={category.category_id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
+                <label>Start Date *</label>
+                <input
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({...formData, startDate: e.target.value})}
+                  min={new Date().toISOString().split('T')[0]}
+                  required
+                />
               </div>
 
               <div className="form-group">
-                <label>Applicable Products</label>
-                <select
-                  multiple
-                  value={formData.applicableProducts}
-                  onChange={(e) => {
-                    const selected = Array.from(e.target.selectedOptions, option => option.value);
-                    setFormData({...formData, applicableProducts: selected});
-                  }}
-                >
-                  {products.map(product => (
-                    <option key={product.product_id} value={product.product_id}>
-                      {product.name}
-                    </option>
-                  ))}
-                </select>
+                <label>End Date *</label>
+                <input
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({...formData, endDate: e.target.value})}
+                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  required
+                />
               </div>
 
               <div className="form-group">
-                <label>
+                <label>Min Quantity</label>
+                <input
+                  type="number"
+                  value={formData.minQuantity}
+                  onChange={(e) => setFormData({...formData, minQuantity: e.target.value})}
+                  min="1"
+                  placeholder="1"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Max Quantity</label>
+                <input
+                  type="number"
+                  value={formData.maxQuantity || ''}
+                  onChange={(e) => setFormData({...formData, maxQuantity: e.target.value || null})}
+                  min="1"
+                  placeholder="No limit"
+                />
+              </div>
+
+              <div className="form-group">
+                <label>Active Promotion</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                   <input
                     type="checkbox"
-                    checked={formData.isActive}
-                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
+                    checked={formData.is_active}
+                    onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
                   />
-                  Active Promotion
-                </label>
+                  <span style={{ fontSize: '14px', color: '#333' }}>Enable this promotion</span>
+                </div>
               </div>
 
               <div className="form-actions">
-                <button type="button" onClick={() => {
-                  setShowModal(false);
-                  setEditingPromotion(null);
-                  resetForm();
-                }}>
+                <button 
+                  type="button" 
+                  className="cancel-btn"
+                  onClick={() => {
+                    setShowModal(false);
+                    setEditingPromotion(null);
+                    resetForm();
+                  }}
+                >
                   Cancel
                 </button>
                 <button type="submit" className="save-btn">
-                  {editingPromotion ? 'Update Promotion' : 'Create Promotion'}
+                  {editingPromotion ? 'Update' : 'Create'}
                 </button>
               </div>
             </form>

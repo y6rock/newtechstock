@@ -314,10 +314,27 @@ function ProductManager() {
 
   // Add a formatPrice function
   const formatPrice = (price) => {
+    // Handle invalid or null price values
+    if (!price || isNaN(price) || price === null || price === undefined) {
+      return '$0.00';
+    }
+    
     const currency = currencies[settings.currency];
-    if (!currency) return `₪${parseFloat(price).toFixed(2)}`;
+    if (!currency) {
+      const amount = parseFloat(price).toFixed(2);
+      const parts = amount.split('.');
+      const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+      const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
+      return `₪${formattedAmount}`;
+    }
+    
     const convertedPrice = price * currency.rate;
-    return `${currency.symbol}${convertedPrice.toFixed(2)}`;
+    const amount = convertedPrice.toFixed(2);
+    const parts = amount.split('.');
+    const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+    const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
+    
+    return `${currency.symbol}${formattedAmount}`;
   };
 
   const handleOpenModalForAdd = () => {
@@ -445,7 +462,7 @@ function ProductManager() {
                   {p.featured && <span style={{ marginLeft: '5px', color: 'gold' }}>★ Featured</span>}
                 </td>
                 <td style={{ padding: '15px' }}>{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
-                <td style={{ padding: '15px' }}>{formatPrice(parseFloat(p.price))}</td>
+                <td style={{ padding: '15px' }}>{formatPrice(p.price)}</td>
                 <td style={{ 
                   padding: '15px', 
                   color: p.stock < 0 ? 'red' : p.stock < 10 ? 'orange' : 'green',

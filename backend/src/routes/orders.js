@@ -79,6 +79,29 @@ router.post('/', authenticateToken, async (req, res) => {
             WHERE oi.order_id = ?
         `, [orderId]);
 
+        // Get promotion details if applied
+        let promotionDetails = null;
+        if (promotion_id) {
+            const [promotionResult] = await connection.query(
+                'SELECT name, type, value FROM promotions WHERE promotion_id = ?',
+                [promotion_id]
+            );
+            if (promotionResult.length > 0) {
+                promotionDetails = promotionResult[0];
+            }
+        }
+
+        // Calculate discount amount (if promotion was applied)
+        let discountAmount = 0;
+        if (promotionDetails) {
+            const subtotal = itemsResult.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            if (promotionDetails.type === 'percentage') {
+                discountAmount = subtotal * (promotionDetails.value / 100);
+            } else if (promotionDetails.type === 'fixed') {
+                discountAmount = parseFloat(promotionDetails.value);
+            }
+        }
+
         // Prepare order data for invoice
         const orderData = {
             order_id: orderId,
@@ -86,7 +109,9 @@ router.post('/', authenticateToken, async (req, res) => {
             total_amount: total_amount,
             shipping_address: shipping_address,
             payment_method: payment_method,
-            items: itemsResult
+            items: itemsResult,
+            promotion: promotionDetails,
+            discount_amount: discountAmount
         };
 
         const userData = {
@@ -99,19 +124,12 @@ router.post('/', authenticateToken, async (req, res) => {
             const invoiceGenerator = new InvoiceGenerator();
             const invoicePath = await invoiceGenerator.generateInvoice(orderData, userData);
 
-            // Send invoice email
+            // Send only invoice email (removed confirmation email to avoid duplicates)
             await emailService.sendInvoiceEmail(user.email, user.name, orderId, invoicePath);
 
-            // Send order confirmation email
-            await emailService.sendOrderConfirmationEmail(user.email, user.name, orderId, {
-                total_amount: total_amount,
-                payment_method: payment_method,
-                shipping_address: shipping_address
-            });
-
-            console.log(`Invoice and confirmation emails sent for order ${orderId}`);
+            console.log(`Invoice email sent for order ${orderId}`);
         } catch (emailError) {
-            console.error('Error sending emails:', emailError);
+            console.error('Error sending invoice email:', emailError);
             // Don't fail the order if email fails
         }
 

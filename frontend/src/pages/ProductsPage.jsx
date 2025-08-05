@@ -3,7 +3,8 @@ import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
-import { BsCart } from 'react-icons/bs';
+import { BsCart, BsSearch } from 'react-icons/bs';
+import { formatNumberWithCommas } from '../utils/currency';
 import './ProductsPage.css'; // Import the new CSS file
 
 // Helper to get currency symbol
@@ -16,6 +17,20 @@ const getCurrencySymbol = (currencyCode) => {
   return symbols[currencyCode] || '$';
 };
 
+// Helper to format price with commas
+const formatPriceWithCommas = (price, currency) => {
+  if (!price || isNaN(parseFloat(price))) {
+    return `${getCurrencySymbol(currency)}0.00`;
+  }
+  
+  const amount = parseFloat(price).toFixed(2);
+  const parts = amount.split('.');
+  const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
+  
+  return `${getCurrencySymbol(currency)}${formattedAmount}`;
+};
+
 const ProductsPage = () => {
   const { currency } = useSettings();
   const [products, setProducts] = useState([]);
@@ -23,6 +38,7 @@ const ProductsPage = () => {
     { category_id: 'All Products', name: 'All Products' }
   ]);
   const [manufacturers, setManufacturers] = useState([]);
+  const [searchTerm, setSearchTerm] = useState(''); // Add search state
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -108,14 +124,30 @@ const ProductsPage = () => {
     );
   };
 
+  const handleSearchChange = (e) => {
+    setSearchTerm(e.target.value);
+  };
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    // Search is handled by the filteredProducts logic
+  };
+
   const filteredProducts = products.filter(product => {
     const categoryObject = categories.find(c => c.category_id === product.category_id);
     const categoryName = categoryObject ? categoryObject.name : '';
     const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
     const matchesPrice = parseFloat(product.price) <= parseFloat(priceRange);
     const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.manufacturer_id);
-    // Assuming product has a manufacturer_id. For now, this will just filter by the dummy manufacturers.
-    return matchesCategory && matchesPrice && matchesManufacturer;
+    
+    // Add search functionality
+    const matchesSearch = searchTerm === '' || 
+      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.short_description && product.short_description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesCategory && matchesPrice && matchesManufacturer && matchesSearch;
   });
 
   const FilterSidebar = () => (
@@ -126,7 +158,7 @@ const ProductsPage = () => {
         <input type="range" min="0" max="100000" value={priceRange} onChange={handlePriceChange} />
         <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
           <span>{getCurrencySymbol(currency)}0</span>
-          <span>{getCurrencySymbol(currency)}{priceRange}</span>
+          <span>{formatNumberWithCommas(priceRange)}</span>
         </div>
       </div>
       <div className="filter-group">
@@ -151,6 +183,39 @@ const ProductsPage = () => {
         <button className="shop-now-button">Shop Now</button>
       </div>
 
+      {/* Add Search Bar */}
+      <div className="search-section">
+        <form onSubmit={handleSearchSubmit} className="search-form">
+          <div className="search-input-container">
+            <BsSearch className="search-icon" />
+            <input
+              type="text"
+              placeholder="Search products, categories, or descriptions..."
+              value={searchTerm}
+              onChange={handleSearchChange}
+              className="search-input"
+            />
+            {searchTerm && (
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="clear-search-button"
+              >
+                ×
+              </button>
+            )}
+          </div>
+          <button type="submit" className="search-submit-button">
+            Search
+          </button>
+        </form>
+        {searchTerm && (
+          <div className="search-results-info">
+            Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} for "{searchTerm}"
+          </div>
+        )}
+      </div>
+
       <div className="categories-filter">
         <h3>Categories</h3>
         <div className="categories-filter-buttons">
@@ -172,7 +237,11 @@ const ProductsPage = () => {
           <button className="mobile-filter-button" onClick={() => setFiltersOpen(true)}>Show Filters</button>
           <div className="product-grid">
             {filteredProducts.map(product => {
-              const isOutOfStock = product.stock <= 0;
+              // Enhanced inventory validation
+              const hasValidStock = product.stock && product.stock >= 0;
+              const isOutOfStock = !hasValidStock || product.stock === 0;
+              const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : `Stock: ${product.stock}`;
+              
               return (
                 <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
                   <div className="product-image-container">
@@ -182,20 +251,30 @@ const ProductsPage = () => {
                       <div className="product-placeholder-image">Product Image</div>
                     )}
                     {isOutOfStock && (
-                      <div className="out-of-stock-badge">Out of Stock</div>
+                      <div className="out-of-stock-badge">
+                        {!hasValidStock ? 'Invalid Stock' : 'Out of Stock'}
+                      </div>
                     )}
                   </div>
                   <div>
                     <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
                     <h4 className="product-name">{product.name}</h4>
                     <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
-                    <p className="product-price">{getCurrencySymbol(currency)}{parseFloat(product.price).toFixed(2)}</p>
+                    <p className="product-price">
+                      {formatPriceWithCommas(product.price, currency)}
+                    </p>
+                    {hasValidStock && product.stock > 0 && (
+                      <p className="stock-info" style={{ fontSize: '0.8em', color: '#666', marginBottom: '10px' }}>
+                        {stockStatus}
+                      </p>
+                    )}
                     <div className="product-card-actions">
                       <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
                       <button 
                         className={`add-to-cart-button ${isOutOfStock ? 'disabled' : ''}`} 
                         onClick={() => !isOutOfStock && addToCart(product)}
                         disabled={isOutOfStock}
+                        title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : 'Add to cart'}
                       >
                         <BsCart />
                       </button>

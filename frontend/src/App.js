@@ -18,6 +18,7 @@ import NotFound from './pages/NotFound';
 import ProductDetails from './pages/ProductDetails';
 import OrderHistory from './pages/OrderHistory';
 import OrderConfirmation from './pages/OrderConfirmation';
+import PayPalTest from './pages/PayPalTest';
 
 import Dashboard from './pages/manager/Dashboard';
 import Products from './pages/manager/Products';
@@ -68,6 +69,7 @@ function App({ isManagerRoute }) {
         <Route path="/profile" element={<Profile />} />
         <Route path="/order-history" element={<OrderHistory />} />
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
+        <Route path="/paypal-test" element={<PayPalTest />} />
 
         {/* Manager Routes */}
         <Route path="/manager/dashboard" element={<Dashboard />} />
