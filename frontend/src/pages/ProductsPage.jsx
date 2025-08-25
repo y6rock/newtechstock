@@ -58,12 +58,7 @@ const ProductsPage = () => {
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
   const [filtersOpen, setFiltersOpen] = useState(false); // State for mobile filters
 
-  // Update selectedCategory if URL changes
-  useEffect(() => {
-    const params = new URLSearchParams(location.search);
-    const categoryName = params.get('category');
-    setSelectedCategory(categoryName || 'All Products');
-  }, [location.search]);
+  // No URL synchronization needed since we removed URL navigation
 
   useEffect(() => {
     // Fetch products
@@ -102,15 +97,7 @@ const ProductsPage = () => {
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
-    // Also update URL to reflect the selected category
-    const params = new URLSearchParams(location.search);
-    if (category === 'All Products') {
-      params.delete('category');
-    } else {
-      params.set('category', category);
-    }
-    // Use navigate to update URL without full page reload
-    navigate(`${location.pathname}?${params.toString()}`);
+    // No URL navigation to avoid page reloads
   };
 
   const handlePriceChange = (e) => {
@@ -177,12 +164,6 @@ const ProductsPage = () => {
 
   return (
     <div className="products-page-container">
-      <div className="products-hero-section">
-        <h1>Premium Computers for Work and Play</h1>
-        <p>Discover our extensive range of high-quality products and cutting-edge technology solutions</p>
-        <button className="shop-now-button">Shop Now</button>
-      </div>
-
       {/* Add Search Bar */}
       <div className="search-section">
         <form onSubmit={handleSearchSubmit} className="search-form">
@@ -236,53 +217,92 @@ const ProductsPage = () => {
         <div className="product-grid-container">
           <button className="mobile-filter-button" onClick={() => setFiltersOpen(true)}>Show Filters</button>
           <div className="product-grid">
-            {filteredProducts.map(product => {
-              // Enhanced inventory validation
-              const hasValidStock = product.stock && product.stock >= 0;
-              const isOutOfStock = !hasValidStock || product.stock === 0;
-              const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : `Stock: ${product.stock}`;
-              
-              return (
-                <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
-                  <div className="product-image-container">
-                    {product.image ? (
-                      <img src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/150'} alt={product.name} className="product-image" />
-                    ) : (
-                      <div className="product-placeholder-image">Product Image</div>
+            {filteredProducts.length === 0 ? (
+              <div className="no-products-message">
+                <div className="no-products-icon">🔍</div>
+                <h3>No Products Found</h3>
+                <p>
+                  {searchTerm 
+                    ? `No products found matching "${searchTerm}"`
+                    : selectedCategory !== 'All Products'
+                    ? `No products found in the "${selectedCategory}" category`
+                    : selectedManufacturers.length > 0
+                    ? `No products found with the selected manufacturer filters`
+                    : `No products available with the current filters`
+                  }
+                </p>
+                <div className="no-products-suggestions">
+                  <p>Try:</p>
+                  <ul>
+                    <li>Clearing your search term</li>
+                    <li>Selecting a different category</li>
+                    <li>Adjusting your price range</li>
+                    <li>Removing manufacturer filters</li>
+                  </ul>
+                </div>
+                <button 
+                  className="clear-filters-button"
+                  onClick={() => {
+                    setSearchTerm('');
+                    setSelectedCategory('All Products');
+                    setPriceRange(100000);
+                    setSelectedManufacturers([]);
+                  }}
+                >
+                  Clear All Filters
+                </button>
+              </div>
+            ) : (
+              filteredProducts.map(product => {
+                // Enhanced inventory validation
+                const hasValidStock = product.stock && product.stock >= 0;
+                const isOutOfStock = !hasValidStock || product.stock === 0;
+                const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : `Stock: ${product.stock}`;
+                
+                return (
+                  <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
+                    <div className="product-image-container">
+                      {product.image ? (
+                        <img src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/150'} alt={product.name} className="product-image" />
+                      ) : (
+                        <div className="product-placeholder-image">Product Image</div>
+                      )}
+                      {isOutOfStock && (
+                        <div className="out-of-stock-badge">
+                          {!hasValidStock ? 'Invalid Stock' : 'Out of Stock'}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
+                      <h4 className="product-name">{product.name}</h4>
+                      {product.short_description && (
+                      <p className="product-info">{product.short_description}</p>
                     )}
-                    {isOutOfStock && (
-                      <div className="out-of-stock-badge">
-                        {!hasValidStock ? 'Invalid Stock' : 'Out of Stock'}
-                      </div>
-                    )}
-                  </div>
-                  <div>
-                    <p className="category-name">{categories.find(c => c.category_id === product.category_id)?.name || 'N/A'}</p>
-                    <h4 className="product-name">{product.name}</h4>
-                    <p className="product-info">{product.short_description || 'Little Info (One Line)'}</p>
-                    <p className="product-price">
-                      {formatPriceWithCommas(product.price, currency)}
-                    </p>
-                    {hasValidStock && product.stock > 0 && (
-                      <p className="stock-info" style={{ fontSize: '0.8em', color: '#666', marginBottom: '10px' }}>
-                        {stockStatus}
+                      <p className="product-price">
+                        {formatPriceWithCommas(product.price, currency)}
                       </p>
-                    )}
-                    <div className="product-card-actions">
-                      <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
-                      <button 
-                        className={`add-to-cart-button ${isOutOfStock ? 'disabled' : ''}`} 
-                        onClick={() => !isOutOfStock && addToCart(product)}
-                        disabled={isOutOfStock}
-                        title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : 'Add to cart'}
-                      >
-                        <BsCart />
-                      </button>
+                      {hasValidStock && product.stock > 0 && (
+                        <p className="stock-info" style={{ fontSize: '0.8em', color: '#666', marginBottom: '10px' }}>
+                          {stockStatus}
+                        </p>
+                      )}
+                      <div className="product-card-actions">
+                        <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
+                        <button 
+                          className={`add-to-cart-button ${isOutOfStock ? 'disabled' : ''}`} 
+                          onClick={() => !isOutOfStock && addToCart(product)}
+                          disabled={isOutOfStock}
+                          title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : 'Add to cart'}
+                        >
+                          <BsCart />
+                        </button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
       </div>

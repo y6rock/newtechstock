@@ -134,4 +134,7 @@ temp/
 ehthumbs.db
 
 # Directory for uploaded files
-backend/uploads/ 
+backend/uploads/
+
+# Preset instructions file
+preset-for-cussor.md 

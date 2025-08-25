@@ -89,6 +89,13 @@ export default function Promotions() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Validate quantity constraints
+    if (formData.maxQuantity && parseInt(formData.maxQuantity) <= parseInt(formData.minQuantity)) {
+      alert('Maximum quantity must be greater than minimum quantity.');
+      return;
+    }
+    
     try {
       const token = localStorage.getItem('token');
       const url = editingPromotion 
@@ -319,6 +326,12 @@ export default function Promotions() {
                       <strong>Code:</strong> {promotion.code}
                     </div>
                   )}
+                  <div className="promotion-quantity-requirements">
+                    <strong>Quantity:</strong> 
+                    {promotion.min_quantity > 1 && ` Min: ${promotion.min_quantity}`}
+                    {promotion.max_quantity && ` Max: ${promotion.max_quantity}`}
+                    {(!promotion.min_quantity || promotion.min_quantity <= 1) && !promotion.max_quantity && ' No restrictions'}
+                  </div>
                 </div>
 
                 <div className="promotion-actions">
@@ -500,14 +513,18 @@ export default function Promotions() {
               </div>
 
               <div className="form-group">
-                <label>Min Quantity</label>
+                <label>Min Quantity *</label>
                 <input
                   type="number"
                   value={formData.minQuantity}
                   onChange={(e) => setFormData({...formData, minQuantity: e.target.value})}
                   min="1"
                   placeholder="1"
+                  required
                 />
+                <small style={{ color: '#666', fontSize: '12px' }}>
+                  Minimum quantity required per item to apply this promotion
+                </small>
               </div>
 
               <div className="form-group">
@@ -519,6 +536,9 @@ export default function Promotions() {
                   min="1"
                   placeholder="No limit"
                 />
+                <small style={{ color: '#666', fontSize: '12px' }}>
+                  Maximum quantity allowed per item (leave empty for no limit)
+                </small>
               </div>
 
               <div className="form-group">

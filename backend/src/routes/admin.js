@@ -106,7 +106,8 @@ router.get('/customers', authenticateToken, requireAdmin, async (req, res) => {
                 u.email,
                 u.phone,
                 COUNT(o.order_id) AS order_count,
-                COALESCE(SUM(o.total_amount), 0) AS total_spent
+                COALESCE(SUM(o.total_amount), 0) AS total_spent,
+                CASE WHEN u.isActive = TRUE THEN "Active" ELSE "Inactive" END as status
             FROM users u
             LEFT JOIN orders o ON u.user_id = o.user_id
             WHERE u.role != 'admin'
@@ -149,18 +150,52 @@ router.delete('/customers/:userId', authenticateToken, requireAdmin, async (req,
             });
         }
         
-        // Delete the user
+        // Soft delete the user (set isActive to false)
         const [result] = await db.query(`
-            DELETE FROM users WHERE user_id = ?
+            UPDATE users SET isActive = FALSE WHERE user_id = ?
         `, [userId]);
         
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: "User not found" });
         }
         
-        res.json({ message: "Customer deleted successfully" });
+        res.json({ message: "Customer deactivated successfully" });
     } catch (err) {
-        console.error("Error deleting customer:", err);
+        console.error("Error deactivating customer:", err);
+        res.status(500).json({ message: "Database error" });
+    }
+});
+
+// Restore a deactivated customer (set isActive to true)
+router.patch('/customers/:userId/restore', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        const { userId } = req.params;
+        
+        // Check if user exists
+        const [userCheck] = await db.query(`
+            SELECT user_id, role FROM users WHERE user_id = ?
+        `, [userId]);
+        
+        if (userCheck.length === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        if (userCheck[0].role === 'admin') {
+            return res.status(403).json({ message: "Cannot restore admin users" });
+        }
+        
+        // Restore the user
+        const [result] = await db.query(`
+            UPDATE users SET isActive = TRUE WHERE user_id = ?
+        `, [userId]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: "User not found" });
+        }
+        
+        res.json({ message: "Customer restored successfully" });
+    } catch (err) {
+        console.error("Error restoring customer:", err);
         res.status(500).json({ message: "Database error" });
     }
 });

@@ -75,6 +75,7 @@ const ResetPassword = () => {
                 placeholder="New Password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                autoComplete="off"
                 required
                 className="auth-input"
               />
@@ -98,6 +99,7 @@ const ResetPassword = () => {
                 placeholder="Confirm New Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
+                autoComplete="off"
                 required
                 className="auth-input"
               />

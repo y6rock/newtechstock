@@ -281,8 +281,9 @@
   flex: 1;
   min-width: 0; /* Prevents overflow */
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(280px, 280px));
   gap: 20px;
+  justify-content: start; /* Align items to the start instead of stretching */
 }
 
 .mobile-filter-button {
@@ -291,6 +292,93 @@
 
 .filter-close-button {
   display: none; /* Hidden by default, shown on mobile */
+}
+
+/* No Products Found Message */
+.no-products-message {
+  grid-column: 1 / -1; /* Span full width of grid */
+  text-align: center;
+  padding: 60px 20px;
+  background: #f8f9fa;
+  border-radius: 12px;
+  border: 2px dashed #dee2e6;
+  margin: 20px 0;
+}
+
+.no-products-icon {
+  font-size: 4em;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.no-products-message h3 {
+  color: #495057;
+  margin-bottom: 15px;
+  font-size: 1.8em;
+}
+
+.no-products-message p {
+  color: #6c757d;
+  font-size: 1.1em;
+  margin-bottom: 25px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.no-products-suggestions {
+  background: white;
+  padding: 20px;
+  border-radius: 8px;
+  margin: 20px auto;
+  max-width: 400px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.no-products-suggestions p {
+  color: #495057;
+  font-weight: bold;
+  margin-bottom: 10px;
+  font-size: 1em;
+}
+
+.no-products-suggestions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  text-align: left;
+}
+
+.no-products-suggestions li {
+  color: #6c757d;
+  padding: 5px 0;
+  font-size: 0.95em;
+  position: relative;
+  padding-left: 20px;
+}
+
+.no-products-suggestions li:before {
+  content: "•";
+  color: #007bff;
+  font-weight: bold;
+  position: absolute;
+  left: 0;
+}
+
+.clear-filters-button {
+  background: #007bff;
+  color: white;
+  border: none;
+  padding: 12px 24px;
+  border-radius: 6px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+  margin-top: 20px;
+}
+
+.clear-filters-button:hover {
+  background: #0056b3;
 }
 
 /* --- Responsive Styles for Mobile --- */

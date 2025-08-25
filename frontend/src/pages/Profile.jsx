@@ -21,6 +21,52 @@ const Profile = () => {
   const [imagePreview, setImagePreview] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
 
+  // Function to generate initials from user's name
+  const generateInitials = (name) => {
+    if (!name || typeof name !== 'string') return 'U';
+    
+    const nameParts = name.trim().split(' ');
+    if (nameParts.length === 1) {
+      return nameParts[0].charAt(0).toUpperCase();
+    } else if (nameParts.length >= 2) {
+      return (nameParts[0].charAt(0) + nameParts[nameParts.length - 1].charAt(0)).toUpperCase();
+    }
+    return 'U';
+  };
+
+  // Function to render profile image or initials
+  const renderProfileImage = () => {
+    const hasImage = imagePreview || (profileData.profilePic && profileData.profilePic !== 'https://via.placeholder.com/150');
+    
+    if (hasImage) {
+      return (
+        <img 
+          src={getProfilePicUrl(imagePreview || profileData.profilePic)} 
+          alt="Profile" 
+          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+        />
+      );
+    } else {
+      const initials = generateInitials(profileData.name);
+      return (
+        <div style={{
+          width: '100%',
+          height: '100%',
+          backgroundColor: '#007bff',
+          color: 'white',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: '3em',
+          fontWeight: 'bold',
+          fontFamily: 'Arial, sans-serif'
+        }}>
+          {initials}
+        </div>
+      );
+    }
+  };
+
   useEffect(() => {
     if (loadingSettings) {
       return; // Wait for settings to load
@@ -179,7 +225,7 @@ const Profile = () => {
           <div style={{ flex: '1 1 380px', maxWidth: '420px', backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', margin: '0 4px', boxSizing: 'border-box', minWidth: '200px' }}>
             <h2 style={{ fontSize: '1.5em', marginBottom: '20px', color: '#333' }}><FaCamera style={{ marginRight: '10px' }} />Profile Picture</h2>
             <div style={{ width: '150px', height: '150px', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 20px auto', border: '3px solid #007bff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={getProfilePicUrl(imagePreview || profileData.profilePic)} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              {renderProfileImage()}
             </div>
             <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ margin: '10px 0' }} />
             <h3 style={{ margin: '10px 0 5px 0', fontSize: '1.2em', color: '#333' }}>{profileData.name}</h3>

@@ -6,7 +6,7 @@ const authenticateToken = (req, res, next) => {
   if (!token) return res.status(401).json({ message: 'Missing token' });
 
   new Promise((resolve, reject) => {
-    jwt.verify(token, 'secretKey', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
       if (err) {
         return reject({ status: 403, message: 'Invalid token' });
       }

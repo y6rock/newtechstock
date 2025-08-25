@@ -89,7 +89,7 @@ const Categories = () => {
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    if (window.confirm('Are you sure you want to delete this category?')) {
+    if (window.confirm('Are you sure you want to deactivate this category? It will no longer be visible to customers but can be restored later.')) {
       try {
         const token = localStorage.getItem('token');
         await axios.delete(`/api/categories/${categoryId}`, {
@@ -97,9 +97,22 @@ const Categories = () => {
         });
         fetchCategories();
       } catch (err) {
-        console.error('Error deleting category:', err);
-        setError(err.response?.data?.message || 'Failed to delete category.');
+        console.error('Error deactivating category:', err);
+        setError(err.response?.data?.message || 'Failed to deactivate category.');
       }
+    }
+  };
+
+  const handleRestoreCategory = async (categoryId) => {
+    try {
+      const token = localStorage.getItem('token');
+      await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      fetchCategories();
+    } catch (err) {
+      console.error('Error restoring category:', err);
+      setError(err.response?.data?.message || 'Failed to restore category.');
     }
   };
 
@@ -148,13 +161,14 @@ const Categories = () => {
             <tr style={{ borderBottom: '1px solid #eee' }}>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>ID</th>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
+              <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Status</th>
               <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {categories.length === 0 ? (
               <tr>
-                <td colSpan="3" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No categories found.</td>
+                <td colSpan="4" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No categories found.</td>
               </tr>
             ) : (
               categories.map((category) => (
@@ -162,8 +176,23 @@ const Categories = () => {
                   <td style={{ padding: '15px' }}>{category.category_id}</td>
                   <td style={{ padding: '15px' }}>{category.name}</td>
                   <td style={{ padding: '15px', textAlign: 'center' }}>
+                    <span style={{ 
+                      padding: '4px 8px', 
+                      borderRadius: '4px', 
+                      fontSize: '0.85em',
+                      backgroundColor: category.status === 'Active' ? '#d4edda' : '#f8d7da',
+                      color: category.status === 'Active' ? '#155724' : '#721c24'
+                    }}>
+                      {category.status}
+                    </span>
+                  </td>
+                  <td style={{ padding: '15px', textAlign: 'center' }}>
                     <button onClick={() => handleEditCategory(category)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Edit</button>
-                    <button onClick={() => handleDeleteCategory(category.category_id)} style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Delete</button>
+                    {category.status === 'Active' ? (
+                      <button onClick={() => handleDeleteCategory(category.category_id)} style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Deactivate</button>
+                    ) : (
+                      <button onClick={() => handleRestoreCategory(category.category_id)} style={{ padding: '8px 12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Restore</button>
+                    )}
                   </td>
                 </tr>
               ))

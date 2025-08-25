@@ -1,6 +1,10 @@
 import React from 'react';
 
 const Footer = () => {
+  const handleSocialClick = (url) => {
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <footer style={{
       backgroundColor: '#212529',
@@ -33,12 +37,101 @@ const Footer = () => {
         </div>
 
         {/* Follow Us */}
-        <div style={{ flex: '1 1 150px' }}>
+        <div style={{ flex: '1 1 200px' }}>
           <h3 style={{ color: 'white', marginBottom: '15px' }}>Follow Us</h3>
           <div style={{ display: 'flex', gap: '15px' }}>
-            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}>f</button> {/* Placeholder for Facebook icon */}
-            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}></button> {/* Placeholder for Twitter icon */}
-            <button style={{ color: '#adb5bd', textDecoration: 'none', fontSize: '1.5em', background: 'none', border: 'none', cursor: 'pointer' }}></button> {/* Placeholder for Instagram icon */}
+            <button 
+              onClick={() => handleSocialClick('https://www.facebook.com/GadgetShop.co.il')}
+              style={{ 
+                color: '#adb5bd', 
+                textDecoration: 'none', 
+                fontSize: '1.5em', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '50%',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#1877f2';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+                e.target.style.color = '#adb5bd';
+              }}
+              title="Follow us on Facebook"
+            >
+              f
+            </button>
+            
+            <button 
+              onClick={() => handleSocialClick('https://www.instagram.com/gadgetshop.co.il/?hl=en')}
+              style={{ 
+                color: '#adb5bd', 
+                textDecoration: 'none', 
+                fontSize: '1.5em', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '50%',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#e4405f';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+                e.target.style.color = '#adb5bd';
+              }}
+              title="Follow us on Instagram"
+            >
+              📷
+            </button>
+            
+            <button 
+              onClick={() => handleSocialClick('https://x.com/thegadgetshopsa?lang=en')}
+              style={{ 
+                color: '#adb5bd', 
+                textDecoration: 'none', 
+                fontSize: '1.5em', 
+                background: 'none', 
+                border: 'none', 
+                cursor: 'pointer',
+                padding: '8px',
+                borderRadius: '50%',
+                transition: 'all 0.3s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '40px',
+                height: '40px'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.backgroundColor = '#000000';
+                e.target.style.color = 'white';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+                e.target.style.color = '#adb5bd';
+              }}
+              title="Follow us on X (Twitter)"
+            >
+              𝕏
+            </button>
           </div>
         </div>
       </div>
@@ -51,7 +144,7 @@ const Footer = () => {
         fontSize: '0.9em',
         color: '#6c757d',
       }}>
-        © 2024 TechStock. All rights reserved.
+        © {new Date().getFullYear()} TechStock. All rights reserved.
       </div>
     </footer>
   );

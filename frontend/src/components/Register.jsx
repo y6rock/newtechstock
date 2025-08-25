@@ -236,6 +236,7 @@ function Register() {
                         placeholder="Create a password"
                         value={form.password}
                         onChange={handleChange}
+                        autoComplete="off"
                         style={{
                             width: 'calc(100% - 30px)',
                             padding: '12px 15px 12px 45px',
@@ -278,6 +279,7 @@ function Register() {
                         placeholder="Confirm your password"
                         value={form.confirmPassword}
                         onChange={handleChange}
+                        autoComplete="off"
                         style={{
                             width: 'calc(100% - 30px)',
                             padding: '12px 15px 12px 45px',

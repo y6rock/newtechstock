@@ -181,43 +181,67 @@ router.post('/apply', async (req, res) => {
             return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
         }
 
-        // Check which items are applicable
+        // Check which items are applicable and meet quantity requirements
+        let applicableItems = [];
         cartItems.forEach(item => {
             const isApplicable = isItemApplicable(item, promotion);
+            if (isApplicable) {
+                // Check min quantity requirement
+                if (promotion.min_quantity && item.quantity < promotion.min_quantity) {
+                    console.log(`Item ${item.product_id} quantity ${item.quantity} below minimum ${promotion.min_quantity}`);
+                    return;
+                }
+                // Check max quantity limit
+                if (promotion.max_quantity && item.quantity > promotion.max_quantity) {
+                    console.log(`Item ${item.product_id} quantity ${item.quantity} above maximum ${promotion.max_quantity}`);
+                    return;
+                }
+                applicableItems.push(item);
+            }
             console.log(`Item ${item.product_id} (category ${item.category_id}) applicable:`, isApplicable);
         });
 
+        if (applicableItems.length === 0) {
+            let errorMessage = 'No items meet the quantity requirements.';
+            if (promotion.min_quantity && promotion.max_quantity) {
+                errorMessage += ` Quantity must be between ${promotion.min_quantity} and ${promotion.max_quantity}.`;
+            } else if (promotion.min_quantity) {
+                errorMessage += ` Minimum quantity required: ${promotion.min_quantity}.`;
+            } else if (promotion.max_quantity) {
+                errorMessage += ` Maximum quantity allowed: ${promotion.max_quantity}.`;
+            }
+            return res.status(400).json({ message: errorMessage });
+        }
+
         if (promotion.type === 'percentage') {
-            cartItems.forEach(item => {
-                if (isItemApplicable(item, promotion)) {
-                    totalDiscount += (item.price * item.quantity) * (promotion.value / 100);
-                    discountedItems.push(item.product_id);
-                }
+            applicableItems.forEach(item => {
+                totalDiscount += (item.price * item.quantity) * (promotion.value / 100);
+                discountedItems.push(item.product_id);
             });
         } else if (promotion.type === 'fixed') {
             // Distribute fixed discount proportionally among applicable items
-            const applicableTotal = cartItems.reduce((total, item) => {
-                return isItemApplicable(item, promotion) ? total + (item.price * item.quantity) : total;
+            const applicableTotal = applicableItems.reduce((total, item) => {
+                return total + (item.price * item.quantity);
             }, 0);
 
             console.log('Applicable total for fixed discount:', applicableTotal);
 
             if (applicableTotal > 0) {
-                cartItems.forEach(item => {
-                    if (isItemApplicable(item, promotion)) {
-                        const itemTotal = item.price * item.quantity;
-                        const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
-                        totalDiscount += itemDiscount;
-                        discountedItems.push(item.product_id);
-                    }
+                applicableItems.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
+                    totalDiscount += itemDiscount;
+                    discountedItems.push(item.product_id);
                 });
             }
-        } else if (promotion.type === 'bogo') {
-            // Buy One Get One Free logic
-            cartItems.forEach(item => {
-                if (isItemApplicable(item, promotion) && item.quantity >= 2) {
-                    const pairs = Math.floor(item.quantity / 2);
-                    totalDiscount += pairs * item.price;
+        } else if (promotion.type === 'buy_x_get_y') {
+            // Buy X Get Y Free logic
+            applicableItems.forEach(item => {
+                const [buyX, getY] = promotion.value.split(':').map(Number);
+                if (item.quantity >= buyX) {
+                    const freeItems = Math.floor(item.quantity / buyX) * getY;
+                    const discountPerItem = item.price;
+                    totalDiscount += freeItems * discountPerItem;
                     discountedItems.push(item.product_id);
                 }
             });
@@ -270,35 +294,62 @@ router.post('/apply-promotion', async (req, res) => {
             return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
         }
 
-        if (promotion.type === 'percentage') {
-            cart.forEach(item => {
-                if (isItemApplicable(item, promotion)) {
-                    discount += (item.price * item.quantity) * (promotion.value / 100);
-                    discounted_items.push(item.product_id);
+        // Check which items are applicable and meet quantity requirements
+        let applicableItems = [];
+        cart.forEach(item => {
+            const isApplicable = isItemApplicable(item, promotion);
+            if (isApplicable) {
+                // Check min quantity requirement
+                if (promotion.min_quantity && item.quantity < promotion.min_quantity) {
+                    return;
                 }
+                // Check max quantity limit
+                if (promotion.max_quantity && item.quantity > promotion.max_quantity) {
+                    return;
+                }
+                applicableItems.push(item);
+            }
+        });
+
+        if (applicableItems.length === 0) {
+            let errorMessage = 'No items meet the quantity requirements.';
+            if (promotion.min_quantity && promotion.max_quantity) {
+                errorMessage += ` Quantity must be between ${promotion.min_quantity} and ${promotion.max_quantity}.`;
+            } else if (promotion.min_quantity) {
+                errorMessage += ` Minimum quantity required: ${promotion.min_quantity}.`;
+            } else if (promotion.max_quantity) {
+                errorMessage += ` Maximum quantity allowed: ${promotion.max_quantity}.`;
+            }
+            return res.status(400).json({ message: errorMessage });
+        }
+
+        if (promotion.type === 'percentage') {
+            applicableItems.forEach(item => {
+                discount += (item.price * item.quantity) * (promotion.value / 100);
+                discounted_items.push(item.product_id);
             });
         } else if (promotion.type === 'fixed') {
             // Distribute fixed discount proportionally among applicable items
-            const applicableTotal = cart.reduce((total, item) => {
-                return isItemApplicable(item, promotion) ? total + (item.price * item.quantity) : total;
+            const applicableTotal = applicableItems.reduce((total, item) => {
+                return total + (item.price * item.quantity);
             }, 0);
 
             if (applicableTotal > 0) {
-                cart.forEach(item => {
-                    if (isItemApplicable(item, promotion)) {
-                        const itemTotal = item.price * item.quantity;
-                        const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
-                        discount += itemDiscount;
-                        discounted_items.push(item.product_id);
-                    }
+                applicableItems.forEach(item => {
+                    const itemTotal = item.price * item.quantity;
+                    const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
+                    discount += itemDiscount;
+                    discounted_items.push(item.product_id);
                 });
             }
-        } else if (promotion.type === 'bogo') {
-            // Buy One Get One Free logic
-            cart.forEach(item => {
-                if (isItemApplicable(item, promotion) && item.quantity >= 2) {
-                    const pairs = Math.floor(item.quantity / 2);
-                    discount += pairs * item.price;
+        } else if (promotion.type === 'buy_x_get_y') {
+            // Buy X Get Y Free logic
+            applicableItems.forEach(item => {
+                const [buyX, getY] = promotion.value.split(':').map(Number);
+                if (item.quantity >= buyX) {
+                    const freeItems = Math.floor(item.quantity / buyX) * getY;
+                    const discountPerItem = item.price;
+                    discount += freeItems * discountPerItem;
                     discounted_items.push(item.product_id);
                 }
             });

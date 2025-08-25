@@ -8,7 +8,7 @@ const db = dbSingleton.getConnection();
 // Get all categories (public)
 router.get('/public', async (req, res) => {
     try {
-        const [categories] = await db.query('SELECT * FROM categories ORDER BY name');
+        const [categories] = await db.query('SELECT * FROM categories WHERE isActive = TRUE ORDER BY name');
         res.json(categories);
     } catch (err) {
         console.error('Database error in GET /categories/public:', err);
@@ -16,10 +16,10 @@ router.get('/public', async (req, res) => {
     }
 });
 
-// Get all categories (admin only)
+// Get all categories (admin only) - shows both active and inactive
 router.get('/', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const [categories] = await db.query('SELECT * FROM categories ORDER BY name');
+        const [categories] = await db.query('SELECT *, CASE WHEN isActive = TRUE THEN "Active" ELSE "Inactive" END as status FROM categories ORDER BY name');
         res.json(categories);
     } catch (err) {
         console.error('Database error in GET /categories:', err);
@@ -67,22 +67,33 @@ router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
     }
 });
 
-// Delete a category
+// Soft delete a category (set isActive to false)
 router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
     const { id } = req.params;
     try {
-        const [result] = await db.query('DELETE FROM categories WHERE category_id = ?', [id]);
+        const [result] = await db.query('UPDATE categories SET isActive = FALSE WHERE category_id = ?', [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Category not found.' });
         }
-        res.json({ message: 'Category deleted successfully' });
+        res.json({ message: 'Category deactivated successfully' });
     } catch (err) {
-        // Check for foreign key constraint error
-        if (err.code === 'ER_ROW_IS_REFERENCED_2') {
-            return res.status(400).json({ message: 'Cannot delete category as it is currently in use by products.' });
+        console.error(`Error deactivating category ${id}:`, err);
+        res.status(500).json({ message: 'Failed to deactivate category due to a server error.' });
+    }
+});
+
+// Restore a deactivated category (set isActive to true)
+router.patch('/:id/restore', authenticateToken, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [result] = await db.query('UPDATE categories SET isActive = TRUE WHERE category_id = ?', [id]);
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Category not found.' });
         }
-        console.error(`Error deleting category ${id}:`, err);
-        res.status(500).json({ message: 'Failed to delete category due to a server error.' });
+        res.json({ message: 'Category restored successfully' });
+    } catch (err) {
+        console.error(`Error restoring category ${id}:`, err);
+        res.status(500).json({ message: 'Failed to restore category due to a server error.' });
     }
 });
 
