@@ -249,12 +249,17 @@ function ProductManager() {
     }
 
     try {
-      const res = await axios.put(`/api/products/${editingProduct.product_id}`, {
+      // Ensure price is a valid number before sending
+      const updateData = {
         ...form,
+        price: parseFloat(form.price), // Ensure price is a number
+        stock: parseInt(form.stock),   // Ensure stock is a number
         image: imageUrl,
         supplier_id: form.supplier_id || null,
         category_id: form.category_id || null
-      }, {
+      };
+      
+      const res = await axios.put(`/api/products/${editingProduct.product_id}`, updateData, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage(res.data.message);
@@ -263,8 +268,12 @@ function ProductManager() {
       setImageFile(null);
       setImagePreview('');
       setShowAddForm(false);
+      
       // Reload products after updating
-      const updated = await axios.get('/api/products');
+      const updated = await axios.get('/api/products/admin/all', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
       setProducts(updated.data);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Error updating product');
@@ -316,19 +325,26 @@ function ProductManager() {
   const formatPrice = (price) => {
     // Handle invalid or null price values
     if (!price || isNaN(price) || price === null || price === undefined) {
-      return '$0.00';
+      return '₪0.00';
+    }
+    
+    // Ensure price is a valid number
+    const numericPrice = parseFloat(price);
+    if (isNaN(numericPrice) || numericPrice < 0) {
+      return '₪0.00';
     }
     
     const currency = currencies[settings.currency];
-    if (!currency) {
-      const amount = parseFloat(price).toFixed(2);
+    if (!currency || !currency.rate) {
+      // Fallback to default formatting if currency data is missing
+      const amount = numericPrice.toFixed(2);
       const parts = amount.split('.');
       const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
       const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
       return `₪${formattedAmount}`;
     }
     
-    const convertedPrice = price * currency.rate;
+    const convertedPrice = numericPrice * currency.rate;
     const amount = convertedPrice.toFixed(2);
     const parts = amount.split('.');
     const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');

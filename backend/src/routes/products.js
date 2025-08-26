@@ -118,6 +118,7 @@ router.put('/:id', authenticateToken, requireAdmin, upload.single('image'), asyn
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Product not found.' });
         }
+        
         res.json({ message: 'Product updated successfully' });
     } catch (err) {
         console.error('Error updating product:', err);
@@ -144,7 +145,16 @@ router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
 // Get all products including inactive (admin only)
 router.get('/admin/all', authenticateToken, requireAdmin, async (req, res) => {
     try {
-        const [products] = await db.query('SELECT * FROM products ORDER BY name');
+        const [products] = await db.query(`
+            SELECT 
+                p.*,
+                c.name as category_name,
+                s.name as supplier_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ORDER BY p.name
+        `);
         res.json(products);
     } catch (err) {
         console.error('Error fetching all products:', err);

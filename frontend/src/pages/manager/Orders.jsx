@@ -6,11 +6,13 @@ import './Orders.css';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
+  const [filteredOrders, setFilteredOrders] = useState([]);
   const [stats, setStats] = useState({ total_orders: 0, pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all');
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
@@ -29,6 +31,15 @@ const Orders = () => {
     newStats.total_orders = total;
     return newStats;
   };
+
+  // Filter orders based on status
+  const filterOrders = useCallback(() => {
+    if (statusFilter === 'all') {
+      setFilteredOrders(orders);
+    } else {
+      setFilteredOrders(orders.filter(order => order.status === statusFilter));
+    }
+  }, [orders, statusFilter]);
 
   const fetchOrdersAndStats = useCallback(async () => {
     setLoading(true);
@@ -72,6 +83,11 @@ const Orders = () => {
       }
     }
   }, [isUserAdmin, loadingSettings, navigate, fetchOrdersAndStats]);
+
+  // Apply filtering when orders or statusFilter changes
+  useEffect(() => {
+    filterOrders();
+  }, [filterOrders]);
 
   const handleStatusChange = async (orderId, newStatus) => {
     setError(null);
@@ -146,6 +162,36 @@ const Orders = () => {
         </div>
       </div>
 
+      <div className="orders-filters">
+        <div className="filter-group">
+          <label htmlFor="status-filter">Filter by Status:</label>
+          <select
+            id="status-filter"
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="status-filter-dropdown"
+          >
+            <option value="all">All Orders ({orders.length})</option>
+            <option value="Pending">Pending ({stats.pending_orders})</option>
+            <option value="Processing">Processing ({stats.processing_orders})</option>
+            <option value="Shipped">Shipped ({stats.shipped_orders})</option>
+            <option value="Delivered">Delivered ({stats.delivered_orders})</option>
+            <option value="Cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div className="filter-info">
+          <span>Showing {filteredOrders.length} of {orders.length} orders</span>
+          {statusFilter !== 'all' && (
+            <button 
+              onClick={() => setStatusFilter('all')}
+              className="clear-filter-btn"
+            >
+              Clear Filter
+            </button>
+          )}
+        </div>
+      </div>
+
       <div className="orders-table-container">
         <table className="orders-table">
           <thead>
@@ -159,7 +205,7 @@ const Orders = () => {
             </tr>
           </thead>
           <tbody>
-            {orders.map(order => (
+            {filteredOrders.map(order => (
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
                 <td>{new Date(order.order_date).toLocaleDateString()}</td>

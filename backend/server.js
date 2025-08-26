@@ -1,7 +1,24 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
+const fs = require('fs');
+
+// Load env.config file
+const envPath = path.join(__dirname, 'env.config');
+if (fs.existsSync(envPath)) {
+    const envContent = fs.readFileSync(envPath, 'utf8');
+    const envVars = envContent.split('\n')
+        .filter(line => line.trim() && !line.startsWith('#'))
+        .forEach(line => {
+            const [key, value] = line.split('=');
+            if (key && value) {
+                process.env[key.trim()] = value.trim();
+            }
+        });
+    console.log('Environment variables loaded from env.config');
+    console.log('Email configured:', !!process.env.EMAIL_USER);
+    console.log('Database configured:', !!process.env.DB_HOST);
+}
 
 // Singleton DB connection
 const dbSingleton = require('./dbSingleton.js'); 

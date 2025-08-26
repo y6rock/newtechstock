@@ -7,11 +7,11 @@ const dbSingleton = {
   getConnection: () => {
     if (!pool) {
       pool = mysql.createPool({
-        host: 'localhost',
-        user: 'root',
-        port: 3306,
-        password: '',
-        database: 'techstock',
+        host: process.env.DB_HOST || 'localhost',
+        user: process.env.DB_USER || 'root',
+        port: process.env.DB_PORT || 3306,
+        password: process.env.DB_PASSWORD || '',
+        database: process.env.DB_NAME || 'techstock',
         waitForConnections: true,
         connectionLimit: 10,
         queueLimit: 0

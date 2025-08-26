@@ -181,35 +181,60 @@ router.post('/forgot-password', async (req, res) => {
 
         // Send the email
         const transporter = nodemailer.createTransport({
-            host: 'smtp.gmail.com',
-            port: 587,
-            secure: false, // true for 465, false for other ports
+            service: 'gmail',
             auth: {
                 user: process.env.EMAIL_USER,
                 pass: process.env.EMAIL_PASS
+            },
+            tls: {
+                rejectUnauthorized: false
             }
         });
 
         const mailOptions = {
             to: user.email,
-            from: 'passwordreset@techstock.com',
+            from: process.env.EMAIL_USER, // Use the actual Gmail address
             subject: 'TechStock Password Reset',
-            text: `You are receiving this because you (or someone else) have requested the reset of the password for your account.\n\n
-                   Please click on the following link, or paste this into your browser to complete the process:\n\n
-                   http://localhost:3000/reset-password/${resetToken}\n\n
-                   If you did not request this, please ignore this email and your password will remain unchanged.\n`
+            html: `
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                    <h2 style="color: #333;">TechStock Password Reset</h2>
+                    <p>You are receiving this because you (or someone else) have requested the reset of the password for your account.</p>
+                    <p>Please click on the following link to complete the process:</p>
+                    <p style="text-align: center;">
+                        <a href="http://localhost:3000/reset-password/${resetToken}" 
+                           style="background-color: #007bff; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">
+                            Reset Password
+                        </a>
+                    </p>
+                    <p>Or copy and paste this URL into your browser:</p>
+                    <p style="background-color: #f8f9fa; padding: 10px; border-radius: 3px; word-break: break-all;">
+                        http://localhost:3000/reset-password/${resetToken}
+                    </p>
+                    <p>If you did not request this, please ignore this email and your password will remain unchanged.</p>
+                    <p>This link will expire in 1 hour.</p>
+                </div>
+            `
         };
 
         try {
             await transporter.sendMail(mailOptions);
             console.log(`Password reset email sent to ${user.email}`);
-            res.status(200).json({ message: 'Password reset email sent' });
+            res.status(200).json({ message: 'Password reset email sent successfully' });
         } catch (emailError) {
             console.error('Error sending password reset email:', emailError);
+            console.error('Email error details:', {
+                code: emailError.code,
+                command: emailError.command,
+                response: emailError.response,
+                responseCode: emailError.responseCode
+            });
+            
+            // Return the reset token and URL so user can still reset password
             res.status(200).json({ 
-                message: 'Password reset token generated but email failed to send.',
+                message: 'Password reset token generated but email failed to send. You can use the reset link below.',
                 resetToken: resetToken,
-                resetUrl: `http://localhost:3000/reset-password/${resetToken}`
+                resetUrl: `http://localhost:3000/reset-password/${resetToken}`,
+                emailError: emailError.message
             });
         }
 

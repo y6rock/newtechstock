@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import OrderHistory from './OrderHistory'; // Import OrderHistory component
 import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
 import axios from 'axios';
+import NotificationModal from '../components/NotificationModal';
 
 const Profile = () => {
   const { user_id, username, loadingSettings } = useSettings();
@@ -20,6 +21,31 @@ const Profile = () => {
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
   const [activeTab, setActiveTab] = useState('profile');
+  
+  // Notification modal state
+  const [notification, setNotification] = useState({
+    isOpen: false,
+    message: '',
+    type: 'success'
+  });
+
+  // Function to show notification
+  const showNotification = (message, type = 'success') => {
+    setNotification({
+      isOpen: true,
+      message,
+      type
+    });
+  };
+
+  // Function to close notification
+  const closeNotification = () => {
+    setNotification({
+      isOpen: false,
+      message: '',
+      type: 'success'
+    });
+  };
 
   // Function to generate initials from user's name
   const generateInitials = (name) => {
@@ -154,10 +180,10 @@ const Profile = () => {
       }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
-      alert('Profile updated successfully!');
+      showNotification('Profile updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
-      alert(`Error updating profile: ${error.response?.data?.message || error.message}`);
+      showNotification(`Error updating profile: ${error.response?.data?.message || error.message}`, 'error');
     }
   };
 
@@ -327,6 +353,14 @@ const Profile = () => {
           {user_id && <OrderHistory userId={user_id} />}
         </div>
       )}
+      
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notification.isOpen}
+        message={notification.message}
+        type={notification.type}
+        onClose={closeNotification}
+      />
     </div>
   );
 };

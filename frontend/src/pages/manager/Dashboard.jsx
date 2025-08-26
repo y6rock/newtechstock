@@ -29,56 +29,76 @@ export default function Dashboard() {
   const [orderStatus, setOrderStatus] = useState([]);
   const [settings, setSettings] = useState({ currency: 'ILS' });
   const [currencies, setCurrencies] = useState({});
+  
+  // Date range state
+  const [dateRange, setDateRange] = useState({
+    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
+    endDate: new Date().toISOString().split('T')[0] // Today
+  });
+
+  // Function to fetch dashboard data with date range
+  const fetchDashboardData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      
+      const params = {
+        startDate: dateRange.startDate,
+        endDate: dateRange.endDate
+      };
+      
+      const [
+        statsRes,
+        salesRes,
+        topProductsRes,
+        orderStatusRes,
+        settingsRes,
+        currenciesRes
+      ] = await Promise.all([
+        axios.get('/api/admin/dashboard-stats', { headers, params }),
+        axios.get('/api/admin/sales-over-time', { headers, params }),
+        axios.get('/api/admin/top-products', { headers, params }),
+        axios.get('/api/admin/order-status-distribution', { headers, params }),
+        axios.get('/api/settings'),
+        axios.get('/api/settings/currencies')
+      ]);
+
+      console.log('Dashboard Data:', {
+        stats: statsRes.data,
+        sales: salesRes.data,
+        topProducts: topProductsRes.data,
+        orderStatus: orderStatusRes.data,
+        settings: settingsRes.data,
+        currencies: currenciesRes.data
+      });
+      
+      setStats(statsRes.data);
+      setSalesData(salesRes.data);
+      setTopProducts(topProductsRes.data);
+      setOrderStatus(orderStatusRes.data);
+      setSettings(settingsRes.data);
+      setCurrencies(currenciesRes.data);
+    } catch (err) {
+      console.error('Error fetching dashboard data:', err);
+    }
+  };
 
   useEffect(() => {
     if (!loadingSettings) {
       if (!isUserAdmin) {
         navigate('/');
       } else {
-        const fetchAllDashboardData = async () => {
-          try {
-            const token = localStorage.getItem('token');
-            const headers = { 'Authorization': `Bearer ${token}` };
-            
-            const [
-              statsRes,
-              salesRes,
-              topProductsRes,
-              orderStatusRes,
-              settingsRes,
-              currenciesRes
-            ] = await Promise.all([
-              axios.get('/api/admin/dashboard-stats', { headers }),
-              axios.get('/api/admin/sales-over-time', { headers }),
-              axios.get('/api/admin/top-products', { headers }),
-              axios.get('/api/admin/order-status-distribution', { headers }),
-              axios.get('/api/settings'),
-              axios.get('/api/settings/currencies')
-            ]);
-
-            console.log('Dashboard Data:', {
-              stats: statsRes.data,
-              sales: salesRes.data,
-              topProducts: topProductsRes.data,
-              orderStatus: orderStatusRes.data,
-              settings: settingsRes.data,
-              currencies: currenciesRes.data
-            });
-            
-            setStats(statsRes.data);
-            setSalesData(salesRes.data);
-            setTopProducts(topProductsRes.data);
-            setOrderStatus(orderStatusRes.data);
-            setSettings(settingsRes.data);
-            setCurrencies(currenciesRes.data);
-          } catch (err) {
-            console.error('Error fetching dashboard data:', err);
-          }
-        };
-        fetchAllDashboardData();
+        fetchDashboardData();
       }
     }
   }, [isUserAdmin, loadingSettings, navigate]);
+
+  // Effect to refresh data when date range changes
+  useEffect(() => {
+    if (!loadingSettings && isUserAdmin) {
+      fetchDashboardData();
+    }
+  }, [dateRange, isUserAdmin, loadingSettings]);
 
   if (loadingSettings) {
     return (
@@ -183,6 +203,126 @@ export default function Dashboard() {
     <div className="dashboard-container">
       <h2>Dashboard</h2>
       <p className="subtitle">Overview of your store's performance</p>
+
+      {/* Date Range Picker */}
+      <div style={{
+        backgroundColor: '#fff',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '20px',
+        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '15px',
+        flexWrap: 'wrap'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <label style={{ fontWeight: 'bold', color: '#333' }}>Date Range:</label>
+          <input
+            type="date"
+            value={dateRange.startDate}
+            onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+          <span style={{ color: '#666' }}>to</span>
+          <input
+            type="date"
+            value={dateRange.endDate}
+            onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+            style={{
+              padding: '8px 12px',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              fontSize: '14px'
+            }}
+          />
+        </div>
+        
+        <button
+          onClick={() => {
+            const today = new Date();
+            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+            setDateRange({
+              startDate: thirtyDaysAgo.toISOString().split('T')[0],
+              endDate: today.toISOString().split('T')[0]
+            });
+          }}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#6c757d',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Last 30 Days
+        </button>
+        
+        <button
+          onClick={() => {
+            const today = new Date();
+            const sevenDaysAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
+            setDateRange({
+              startDate: sevenDaysAgo.toISOString().split('T')[0],
+              endDate: today.toISOString().split('T')[0]
+            });
+          }}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#17a2b8',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          Last 7 Days
+        </button>
+        
+        <button
+          onClick={() => {
+            const today = new Date();
+            const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            setDateRange({
+              startDate: thisMonth.toISOString().split('T')[0],
+              endDate: today.toISOString().split('T')[0]
+            });
+          }}
+          style={{
+            padding: '8px 16px',
+            backgroundColor: '#28a745',
+            color: 'white',
+            border: 'none',
+            borderRadius: '4px',
+            cursor: 'pointer',
+            fontSize: '14px'
+          }}
+        >
+          This Month
+        </button>
+      </div>
+
+      {/* Date Range Summary */}
+      <div style={{
+        textAlign: 'center',
+        marginBottom: '20px',
+        padding: '15px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef'
+      }}>
+        <p style={{ margin: '0', color: '#495057', fontSize: '16px' }}>
+          <strong>Statistics for:</strong> {new Date(dateRange.startDate).toLocaleDateString()} to {new Date(dateRange.endDate).toLocaleDateString()}
+        </p>
+      </div>
 
       <div className="stats-container">
         <div className="stat-card">
