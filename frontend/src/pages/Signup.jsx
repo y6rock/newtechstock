@@ -1,24 +1,7 @@
-// src/pages/Signup.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
-import { 
-  FaUser, 
-  FaEnvelope, 
-  FaPhone, 
-  FaCity, 
-  FaLock, 
-  FaEye, 
-  FaEyeSlash,
-  FaShieldAlt,
-  FaRocket,
-  FaStar,
-  FaGift,
-  FaCheckCircle,
-  FaHandshake,
-  FaCreditCard
-} from 'react-icons/fa';
-import './AuthForm.css'; // Import the new shared CSS
+import { FaUser, FaEnvelope, FaPhone, FaCity, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 
 function Signup() {
   const [form, setForm] = useState({
@@ -87,130 +70,43 @@ function Signup() {
 
   return (
     <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
       display: 'flex',
-      alignItems: 'center',
       justifyContent: 'center',
-      padding: '20px'
+      alignItems: 'center',
+      minHeight: '100vh',
+      background: '#f0f2f5',
+      padding: '20px',
+      boxSizing: 'border-box'
     }}>
       <div style={{
-        background: 'rgba(255, 255, 255, 0.95)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: '20px',
+        background: '#fff',
         padding: '40px',
-        boxShadow: '0 20px 40px rgba(0, 0, 0, 0.1)',
-        maxWidth: '500px',
+        borderRadius: '8px',
+        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
         width: '100%',
-        position: 'relative',
-        overflow: 'hidden'
+        maxWidth: '500px',
+        textAlign: 'center'
       }}>
-        {/* Decorative Elements */}
-        <div style={{
-          position: 'absolute',
-          top: '-20px',
-          right: '-20px',
-          width: '100px',
-          height: '100px',
-          background: 'linear-gradient(45deg, #ff6b6b, #ffa500)',
-          borderRadius: '50%',
-          opacity: '0.1'
-        }}></div>
-        
-        <div style={{
-          position: 'absolute',
-          bottom: '-30px',
-          left: '-30px',
-          width: '120px',
-          height: '120px',
-          background: 'linear-gradient(45deg, #4ecdc4, #44a08d)',
-          borderRadius: '50%',
-          opacity: '0.1'
-        }}></div>
-
-        {/* Header Section */}
-        <div style={{ textAlign: 'center', marginBottom: '30px' }}>
-          <div style={{
-            width: '80px',
-            height: '80px',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            borderRadius: '50%',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            margin: '0 auto 20px',
-            boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)'
-          }}>
-            <FaHandshake style={{ fontSize: '35px', color: 'white' }} />
-          </div>
-          
-          <h2 style={{
-            fontSize: '2.5em',
-            fontWeight: '700',
-            color: '#2c3e50',
-            margin: '0 0 10px',
-            background: 'linear-gradient(135deg, #667eea, #764ba2)',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent'
-          }}>
-            Join TechStock!
-          </h2>
-          
-          <p style={{
-            color: '#7f8c8d',
-            fontSize: '16px',
-            margin: '0',
-            lineHeight: '1.6'
-          }}>
-            Create your account and unlock exclusive benefits
-          </p>
-        </div>
-
-        {/* Benefits Preview */}
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(3, 1fr)',
-          gap: '15px',
+        <h2 style={{
+          fontSize: '1.8em',
+          marginBottom: '10px',
+          color: '#333'
+        }}>Create Account</h2>
+        <p style={{
+          color: '#666',
           marginBottom: '30px',
-          padding: '20px',
-          background: 'rgba(102, 126, 234, 0.05)',
-          borderRadius: '15px',
-          border: '1px solid rgba(102, 126, 234, 0.1)'
-        }}>
-          <div style={{ textAlign: 'center' }}>
-            <FaStar style={{ color: '#f39c12', fontSize: '20px', marginBottom: '5px' }} />
-            <div style={{ fontSize: '12px', color: '#7f8c8d' }}>Premium</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <FaGift style={{ color: '#e74c3c', fontSize: '20px', marginBottom: '5px' }} />
-            <div style={{ fontSize: '12px', color: '#7f8c8d' }}>Rewards</div>
-          </div>
-          <div style={{ textAlign: 'center' }}>
-            <FaCreditCard style={{ color: '#3498db', fontSize: '20px', marginBottom: '5px' }} />
-            <div style={{ fontSize: '12px', color: '#7f8c8d' }}>Secure</div>
-          </div>
-        </div>
+          fontSize: '0.95em'
+        }}>Fill in your details to get started</p>
 
-        <form onSubmit={handleSubmit} className="auth-form" noValidate>
+        <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
           {message && (
-            <div style={{
-              background: message.includes('failed') || message.includes('match') 
-                ? 'linear-gradient(135deg, #ff6b6b, #ee5a52)' 
-                : 'linear-gradient(135deg, #27ae60, #2ecc71)',
-              color: 'white',
-              padding: '15px',
-              borderRadius: '10px',
-              marginBottom: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              boxShadow: message.includes('failed') || message.includes('match')
-                ? '0 5px 15px rgba(255, 107, 107, 0.3)'
-                : '0 5px 15px rgba(39, 174, 96, 0.3)'
+            <p style={{ 
+              color: message.includes('failed') || message.includes('match') ? 'red' : 'green', 
+              marginBottom: '15px', 
+              textAlign: 'center' 
             }}>
-              <FaCheckCircle />
               {message}
-            </div>
+            </p>
           )}
 
           <div style={{
@@ -225,8 +121,7 @@ function Signup() {
                 left: '15px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#667eea',
-                fontSize: '18px'
+                color: '#aaa'
               }} />
               <input
                 type="text"
@@ -236,22 +131,16 @@ function Signup() {
                 onChange={handleChange}
                 required
                 style={{
-                  width: '100%',
-                  padding: '18px 20px 18px 50px',
-                  border: '2px solid #e1e8ed',
-                  borderRadius: '15px',
-                  fontSize: '16px',
-                  transition: 'all 0.3s ease',
-                  background: 'white'
+                  width: 'calc(100% - 30px)',
+                  padding: '12px 15px 12px 45px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.3s'
                 }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e1e8ed';
-                  e.target.style.boxShadow = 'none';
-                }}
+                onFocus={(e) => e.target.style.borderColor = '#007bff'}
+                onBlur={(e) => e.target.style.borderColor = '#ddd'}
               />
             </div>
             <div style={{ position: 'relative' }}>
@@ -260,8 +149,7 @@ function Signup() {
                 left: '15px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#667eea',
-                fontSize: '18px'
+                color: '#aaa'
               }} />
               <input
                 type="text"
@@ -271,22 +159,16 @@ function Signup() {
                 onChange={handleChange}
                 required
                 style={{
-                  width: '100%',
-                  padding: '18px 20px 18px 50px',
-                  border: '2px solid #e1e8ed',
-                  borderRadius: '15px',
-                  fontSize: '16px',
-                  transition: 'all 0.3s ease',
-                  background: 'white'
+                  width: 'calc(100% - 30px)',
+                  padding: '12px 15px 12px 45px',
+                  border: '1px solid #ddd',
+                  borderRadius: '5px',
+                  fontSize: '1em',
+                  boxSizing: 'border-box',
+                  transition: 'border-color 0.3s'
                 }}
-                onFocus={(e) => {
-                  e.target.style.borderColor = '#667eea';
-                  e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-                }}
-                onBlur={(e) => {
-                  e.target.style.borderColor = '#e1e8ed';
-                  e.target.style.boxShadow = 'none';
-                }}
+                onFocus={(e) => e.target.style.borderColor = '#007bff'}
+                onBlur={(e) => e.target.style.borderColor = '#ddd'}
               />
             </div>
           </div>
@@ -297,33 +179,26 @@ function Signup() {
               left: '15px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#667eea',
-              fontSize: '18px'
+              color: '#aaa'
             }} />
             <input
               type="email"
               name="email"
-              placeholder="Enter your email address"
+              placeholder="Enter your email"
               value={form.email}
               onChange={handleChange}
               required
               style={{
-                width: '100%',
-                padding: '18px 20px 18px 50px',
-                border: '2px solid #e1e8ed',
-                borderRadius: '15px',
-                fontSize: '16px',
-                transition: 'all 0.3s ease',
-                background: 'white'
+                width: 'calc(100% - 30px)',
+                padding: '12px 15px 12px 45px',
+                border: '1px solid #ddd',
+                borderRadius: '5px',
+                fontSize: '1em',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.3s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e1e8ed';
-                e.target.style.boxShadow = 'none';
-              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
           </div>
 
@@ -333,8 +208,7 @@ function Signup() {
               left: '15px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#667eea',
-              fontSize: '18px'
+              color: '#aaa'
             }} />
             <input
               type="text"
@@ -344,22 +218,16 @@ function Signup() {
               onChange={handleChange}
               required
               style={{
-                width: '100%',
-                padding: '18px 20px 18px 50px',
-                border: '2px solid #e1e8ed',
-                borderRadius: '15px',
-                fontSize: '16px',
-                transition: 'all 0.3s ease',
-                background: 'white'
+                width: 'calc(100% - 30px)',
+                padding: '12px 15px 12px 45px',
+                border: '1px solid #ddd',
+                borderRadius: '5px',
+                fontSize: '1em',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.3s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e1e8ed';
-                e.target.style.boxShadow = 'none';
-              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
           </div>
 
@@ -369,8 +237,7 @@ function Signup() {
               left: '15px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#667eea',
-              fontSize: '18px'
+              color: '#aaa'
             }} />
             <input
               type="text"
@@ -380,22 +247,16 @@ function Signup() {
               onChange={handleChange}
               required
               style={{
-                width: '100%',
-                padding: '18px 20px 18px 50px',
-                border: '2px solid #e1e8ed',
-                borderRadius: '15px',
-                fontSize: '16px',
-                transition: 'all 0.3s ease',
-                background: 'white'
+                width: 'calc(100% - 30px)',
+                padding: '12px 15px 12px 45px',
+                border: '1px solid #ddd',
+                borderRadius: '5px',
+                fontSize: '1em',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.3s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e1e8ed';
-                e.target.style.boxShadow = 'none';
-              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
           </div>
 
@@ -405,34 +266,27 @@ function Signup() {
               left: '15px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#667eea',
-              fontSize: '18px'
+              color: '#aaa'
             }} />
             <input
               type={showPassword ? 'text' : 'password'}
               name="password"
-              placeholder="Create a strong password"
+              placeholder="Create a password"
               value={form.password}
               onChange={handleChange}
               autoComplete="off"
               required
               style={{
                 width: '100%',
-                padding: '18px 20px 18px 50px',
-                border: '2px solid #e1e8ed',
-                borderRadius: '15px',
-                fontSize: '16px',
-                transition: 'all 0.3s ease',
-                background: 'white'
+                padding: '12px 45px 12px 45px',
+                border: '1px solid #ddd',
+                borderRadius: '5px',
+                fontSize: '1em',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.3s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e1e8ed';
-                e.target.style.boxShadow = 'none';
-              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
             <span 
               onClick={() => setShowPassword(!showPassword)} 
@@ -442,8 +296,7 @@ function Signup() {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 cursor: 'pointer',
-                color: '#667eea',
-                fontSize: '18px',
+                color: '#aaa',
                 padding: '5px'
               }}
             >
@@ -451,40 +304,33 @@ function Signup() {
             </span>
           </div>
 
-          <div style={{ position: 'relative', marginBottom: '25px' }}>
+          <div style={{ position: 'relative', marginBottom: '20px' }}>
             <FaLock style={{
               position: 'absolute',
               left: '15px',
               top: '50%',
               transform: 'translateY(-50%)',
-              color: '#667eea',
-              fontSize: '18px'
+              color: '#aaa'
             }} />
             <input
               type={showConfirmPassword ? 'text' : 'password'}
               name="confirmPassword"
-              placeholder="Confirm your password"
+              placeholder="Confirm password"
               value={form.confirmPassword}
               onChange={handleChange}
               autoComplete="off"
               required
               style={{
                 width: '100%',
-                padding: '18px 20px 18px 50px',
-                border: '2px solid #e1e8ed',
-                borderRadius: '15px',
-                fontSize: '16px',
-                transition: 'all 0.3s ease',
-                background: 'white'
+                padding: '12px 45px 12px 45px',
+                border: '1px solid #ddd',
+                borderRadius: '5px',
+                fontSize: '1em',
+                boxSizing: 'border-box',
+                transition: 'border-color 0.3s'
               }}
-              onFocus={(e) => {
-                e.target.style.borderColor = '#667eea';
-                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
-              }}
-              onBlur={(e) => {
-                e.target.style.borderColor = '#e1e8ed';
-                e.target.style.boxShadow = 'none';
-              }}
+              onFocus={(e) => e.target.style.borderColor = '#007bff'}
+              onBlur={(e) => e.target.style.borderColor = '#ddd'}
             />
             <span 
               onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
@@ -494,8 +340,7 @@ function Signup() {
                 top: '50%',
                 transform: 'translateY(-50%)',
                 cursor: 'pointer',
-                color: '#667eea',
-                fontSize: '18px',
+                color: '#aaa',
                 padding: '5px'
               }}
             >
@@ -503,96 +348,39 @@ function Signup() {
             </span>
           </div>
 
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             style={{
               width: '100%',
-              padding: '18px',
-              background: 'linear-gradient(135deg, #667eea, #764ba2)',
-              color: 'white',
+              padding: '12px',
+              background: '#007bff',
+              color: '#fff',
               border: 'none',
-              borderRadius: '15px',
-              fontSize: '18px',
-              fontWeight: '600',
+              borderRadius: '5px',
+              fontSize: '1.1em',
               cursor: 'pointer',
-              transition: 'all 0.3s ease',
-              boxShadow: '0 10px 30px rgba(102, 126, 234, 0.3)',
-              position: 'relative',
-              overflow: 'hidden'
+              transition: 'background-color 0.3s',
+              boxSizing: 'border-box'
             }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 15px 40px rgba(102, 126, 234, 0.4)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '0 10px 30px rgba(102, 126, 234, 0.3)';
-            }}
+            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
+            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
           >
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-              <FaRocket />
-              Create Account
-            </div>
+            Create Account
           </button>
         </form>
 
-        <div style={{
-          textAlign: 'center',
-          marginTop: '30px',
-          padding: '20px',
-          background: 'rgba(102, 126, 234, 0.05)',
-          borderRadius: '15px',
-          border: '1px solid rgba(102, 126, 234, 0.1)'
-        }}>
-          <p style={{ margin: '0 0 10px', color: '#7f8c8d' }}>
-            Already have an account?
-          </p>
+        <div style={{ marginTop: '25px' }}>
           <Link to="/login" style={{
-            color: '#667eea',
+            color: '#007bff',
             textDecoration: 'none',
-            fontSize: '16px',
-            fontWeight: '600',
-            transition: 'color 0.3s ease'
+            fontSize: '0.95em',
+            transition: 'color 0.3s'
           }}
-          onMouseEnter={(e) => e.target.style.color = '#764ba2'}
-          onMouseLeave={(e) => e.target.style.color = '#667eea'}
+          onMouseOver={(e) => e.target.style.color = '#0056b3'}
+          onMouseOut={(e) => e.target.style.color = '#007bff'}
           >
-            Sign in to your account →
+            Already have an account? Sign in →
           </Link>
-        </div>
-
-        {/* Security & Benefits Note */}
-        <div style={{
-          marginTop: '20px',
-          display: 'grid',
-          gridTemplateColumns: '1fr 1fr',
-          gap: '15px'
-        }}>
-          <div style={{
-            textAlign: 'center',
-            padding: '15px',
-            background: 'rgba(46, 204, 113, 0.1)',
-            borderRadius: '10px',
-            border: '1px solid rgba(46, 204, 113, 0.2)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#27ae60', fontSize: '14px' }}>
-              <FaShieldAlt />
-              Bank-level security
-            </div>
-          </div>
-          
-          <div style={{
-            textAlign: 'center',
-            padding: '15px',
-            background: 'rgba(155, 89, 182, 0.1)',
-            borderRadius: '10px',
-            border: '1px solid rgba(155, 89, 182, 0.2)'
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', color: '#8e44ad', fontSize: '14px' }}>
-              <FaGift />
-              Free rewards
-            </div>
-          </div>
         </div>
       </div>
     </div>
