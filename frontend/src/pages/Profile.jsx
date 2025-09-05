@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaUser, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
 import axios from 'axios';
 import NotificationModal from '../components/NotificationModal';
+import './Profile.css';
 
 const Profile = () => {
   const { user_id, username, loadingSettings, updateUsername } = useSettings();
@@ -67,24 +68,13 @@ const Profile = () => {
         <img 
           src={getProfilePicUrl(imagePreview || profileData.profilePic)} 
           alt="Profile" 
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }} 
+          className="profile-image"
         />
       );
     } else {
       const initials = generateInitials(profileData.name);
       return (
-        <div style={{
-          width: '100%',
-          height: '100%',
-          backgroundColor: '#007bff',
-          color: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '3em',
-          fontWeight: 'bold',
-          fontFamily: 'Arial, sans-serif'
-        }}>
+        <div className="profile-initials">
           {initials}
         </div>
       );
@@ -197,139 +187,95 @@ const Profile = () => {
   };
 
   if (loadingProfile || loadingSettings) {
-    return <div style={{ textAlign: 'center', padding: '50px' }}>Loading profile...</div>;
+    return <div className="profile-loading">Loading profile...</div>;
   }
 
   if (profileError) {
-    return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>{profileError}</div>;
+    return <div className="profile-error">{profileError}</div>;
   }
 
   return (
-    <div style={{ maxWidth: '1100px', margin: '32px auto 0 auto', padding: '8px 0', backgroundColor: '#f5f5f5', borderRadius: '8px', boxShadow: '0 4px 15px rgba(0,0,0,0.1)' }}>
+    <div className="profile-container">
       {/* Tab Navigation */}
-      <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '2px solid #eee', marginBottom: '16px' }}>
-        <div style={{ display: 'flex', gap: '0', background: '#f8f8f8', borderRadius: '8px 8px 0 0', boxShadow: '0 1px 4px rgba(0,0,0,0.03)', maxWidth: '900px', margin: '0 auto' }}>
-          <button
-            style={{
-              padding: '16px 36px',
-              background: '#fff',
-              border: 'none',
-              borderBottom: '3px solid #007bff',
-              color: '#007bff',
-              fontWeight: 'bold',
-              fontSize: '1.1em',
-              cursor: 'default',
-              outline: 'none',
-              borderRadius: '8px 8px 0 0',
-              marginRight: '2px',
-              minWidth: '120px',
-            }}
-          >Profile</button>
+      <div className="tab-navigation">
+        <div className="tab-container">
+          <button className="tab-button active">
+            Profile
+          </button>
           <button
             onClick={() => navigate('/order-history')}
-            style={{
-              padding: '16px 36px',
-              background: 'transparent',
-              border: 'none',
-              borderBottom: '3px solid transparent',
-              color: '#333',
-              fontWeight: 'bold',
-              fontSize: '1.1em',
-              cursor: 'pointer',
-              outline: 'none',
-              transition: 'all 0.2s',
-              borderRadius: '8px 8px 0 0',
-              minWidth: '120px',
-            }}
-          >Order History</button>
+            className="tab-button inactive"
+          >
+            Order History
+          </button>
         </div>
       </div>
       {/* Profile Content */}
-      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', minWidth: 0, justifyContent: 'center', maxWidth: '900px', width: '100%', margin: '0 auto' }}>
+      <div className="profile-content">
           {/* Profile Picture Section */}
-          <div style={{ flex: '1 1 380px', maxWidth: '420px', backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', margin: '0 4px', boxSizing: 'border-box', minWidth: '200px' }}>
-            <h2 style={{ fontSize: '1.5em', marginBottom: '20px', color: '#333' }}><FaCamera style={{ marginRight: '10px' }} />Profile Picture</h2>
-            <div style={{ width: '150px', height: '150px', borderRadius: '50%', overflow: 'hidden', margin: '0 auto 20px auto', border: '3px solid #007bff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="profile-picture-section">
+            <h2 className="profile-picture-title">
+              <FaCamera style={{ marginRight: '10px' }} />
+              Profile Picture
+            </h2>
+            <div className="profile-picture-container">
               {renderProfileImage()}
             </div>
-            <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ margin: '10px 0' }} />
-            <h3 style={{ margin: '10px 0 5px 0', fontSize: '1.2em', color: '#333' }}>{profileData.name}</h3>
+            <input 
+              type="file" 
+              accept="image/*" 
+              onChange={handleImageFileChange} 
+              className="profile-image-input"
+            />
+            <h3 className="profile-name">{profileData.name}</h3>
           </div>
           {/* Personal Information Section */}
-          <div style={{
-            flex: '1 1 380px',
-            maxWidth: '420px',
-            minWidth: '200px',
-            width: '100%',
-            backgroundColor: '#fff',
-            padding: '24px',
-            borderRadius: '10px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.07)',
-            margin: '0 4px 16px 4px',
-            border: '1px solid #f0f0f0',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '20px',
-            boxSizing: 'border-box',
-            minWidth: 0,
-            overflow: 'hidden',
-          }}>
-            <h2 style={{ fontSize: '1.5em', marginBottom: '10px', color: '#333' }}><FaUser style={{ marginRight: '10px' }} />Personal Information</h2>
-            <div style={{
-              display: 'grid',
-              gridTemplateColumns: '1fr',
-              gap: '22px',
-            }}>
-              <div style={{ position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '7px', color: '#555', fontWeight: 'bold', fontSize: '1.05em' }}>Full Name</label>
-                <FaUser style={{ position: 'absolute', left: '10px', top: '44px', color: '#aaa' }} />
+          <div className="personal-info-section">
+            <h2 className="personal-info-title">
+              <FaUser style={{ marginRight: '10px' }} />
+              Personal Information
+            </h2>
+            <div className="personal-info-form">
+              <div className="form-field">
+                <label className="form-label">Full Name</label>
+                <FaUser className="form-icon" />
                 <input
                   type="text"
                   name="name"
                   value={profileData.name}
                   onChange={handleChange}
-                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
+                  className="form-input"
                 />
               </div>
-              <div style={{ position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '7px', color: '#555', fontWeight: 'bold', fontSize: '1.05em' }}>Phone Number</label>
-                <FaPhone style={{ position: 'absolute', left: '10px', top: '44px', color: '#aaa' }} />
+              <div className="form-field">
+                <label className="form-label">Phone Number</label>
+                <FaPhone className="form-icon" />
                 <input
                   type="text"
                   name="phone"
                   value={profileData.phone}
                   onChange={handleChange}
-                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
+                  className="form-input"
                 />
               </div>
-              <div style={{ position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '7px', color: '#555', fontWeight: 'bold', fontSize: '1.05em' }}>Address</label>
-                <FaMapMarkerAlt style={{ position: 'absolute', left: '10px', top: '44px', color: '#aaa' }} />
+              <div className="form-field">
+                <label className="form-label">Address</label>
+                <FaMapMarkerAlt className="form-icon" />
                 <input
                   type="text"
                   name="address"
                   value={profileData.address}
                   onChange={handleChange}
-                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
+                  className="form-input"
                 />
               </div>
             </div>
             <button
               onClick={handleUpdateProfile}
-              style={{
-                padding: '14px 0',
-                backgroundColor: '#333',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '1.13em',
-                marginTop: '10px',
-                fontWeight: 'bold',
-                letterSpacing: '0.5px',
-                boxShadow: '0 1px 4px rgba(0,0,0,0.04)'
-              }}
-            >Update Profile</button>
+              className="update-button"
+            >
+              Update Profile
+            </button>
           </div>
         </div>
       

@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ProductModal from './ProductModal';
 import { useSettings } from '../context/SettingsContext';
+import { formatPrice } from '../utils/currency';
+import './ProductManager.css';
 
 function ProductManager() {
   const [products, setProducts] = useState([]);
@@ -16,14 +18,32 @@ function ProductManager() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
-  const [settings, setSettings] = useState({ currency: 'ILS' });
-  const [currencies, setCurrencies] = useState({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
+  const [sortField, setSortField] = useState('stock');
+  const [sortDirection, setSortDirection] = useState('asc');
   
-  const { isUserAdmin, loadingSettings } = useSettings();
+  const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
+
+  // Stock level indicator function
+  const getStockLevel = (stock) => {
+    if (stock <= 0) return { level: 'out', class: 'stock-out-of-stock', text: 'OUT OF STOCK' };
+    if (stock <= 10) return { level: 'low', class: 'stock-low-stock', text: 'LOW STOCK' };
+    if (stock <= 20) return { level: 'medium', class: 'stock-medium-stock', text: 'MEDIUM STOCK' };
+    return { level: 'high', class: 'stock-high-stock', text: 'HIGH STOCK' };
+  };
+
+  // Sorting function
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
 
   const fetchProductData = useCallback(async () => {
     if (loadingSettings || !isUserAdmin) {
@@ -317,49 +337,47 @@ function ProductManager() {
     }
   };
 
-  // Filter products based on search term and status
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()));
-    
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && product.is_active === 1) ||
-      (statusFilter === 'inactive' && product.is_active === 0);
-    
-    return matchesSearch && matchesStatus;
-  });
+  // Filter and sort products based on search term, status, and sort criteria
+  const filteredProducts = products
+    .filter(product => {
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'active' && product.is_active === 1) ||
+        (statusFilter === 'inactive' && product.is_active === 0);
+      
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortField) {
+        case 'stock':
+          aValue = a.stock || 0;
+          bValue = b.stock || 0;
+          break;
+        case 'name':
+          aValue = a.name?.toLowerCase() || '';
+          bValue = b.name?.toLowerCase() || '';
+          break;
+        case 'price':
+          aValue = parseFloat(a.price) || 0;
+          bValue = parseFloat(b.price) || 0;
+          break;
+        case 'category':
+          aValue = a.category_name?.toLowerCase() || '';
+          bValue = b.category_name?.toLowerCase() || '';
+          break;
+        default:
+          return 0;
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
 
-  // Add a formatPrice function
-  const formatPrice = (price) => {
-    // Handle invalid or null price values
-    if (!price || isNaN(price) || price === null || price === undefined) {
-      return '₪0.00';
-    }
-    
-    // Ensure price is a valid number
-    const numericPrice = parseFloat(price);
-    if (isNaN(numericPrice) || numericPrice < 0) {
-      return '₪0.00';
-    }
-    
-    const currency = currencies[settings.currency];
-    if (!currency || !currency.rate) {
-      // Fallback to default formatting if currency data is missing
-      const amount = numericPrice.toFixed(2);
-      const parts = amount.split('.');
-      const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-      const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
-      return `₪${formattedAmount}`;
-    }
-    
-    const convertedPrice = numericPrice * currency.rate;
-    const amount = convertedPrice.toFixed(2);
-    const parts = amount.split('.');
-    const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-    const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
-    
-    return `${currency.symbol}${formattedAmount}`;
-  };
 
   const handleOpenModalForAdd = () => {
     setEditingProduct(null);
@@ -380,18 +398,14 @@ function ProductManager() {
     handleCloseModal();
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const [productsRes, suppliersRes, categoriesRes, settingsRes, currenciesRes] = await Promise.all([
+      const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
         axios.get('/api/products/admin/all', { headers }),
         axios.get('/api/suppliers', { headers }),
-        axios.get('/api/categories', { headers }),
-        axios.get('/api/settings'),
-        axios.get('/api/settings/currencies'),
+        axios.get('/api/categories', { headers })
       ]);
       setProducts(productsRes.data);
       setSuppliers(suppliersRes.data);
       setCategories(categoriesRes.data);
-      setSettings(settingsRes.data);
-      setCurrencies(currenciesRes.data);
     } catch (err) {
       console.error('Error fetching product data after success:', err);
       setMessage('Product was added, but failed to refresh the list.');
@@ -399,72 +413,32 @@ function ProductManager() {
   };
 
   return (
-    <div>
-      <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Products</h1>
-      <p style={{ color: '#666', marginBottom: '20px' }}>Manage your product catalog</p>
+    <div className="product-manager-main-container">
+      <h1 className="product-manager-title">Products</h1>
+      <p className="product-manager-subtitle">Manage your product catalog</p>
 
       {/* Search and Filter Controls - Enhanced Layout */}
-      <div style={{ 
-        marginBottom: '20px', 
-        display: 'flex', 
-        gap: '40px', 
-        flexWrap: 'wrap', 
-        alignItems: 'center',
-        padding: '20px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        border: '1px solid #e9ecef',
-        justifyContent: 'flex-start'
-      }}>
+      <div className="search-filter-controls">
         {/* Search Input */}
-        <div style={{ 
-          position: 'relative', 
-          minWidth: '200px', 
-          maxWidth: '250px', 
-          flexShrink: 0, 
-          marginRight: '30px',
-          flex: '0 0 auto'
-        }}>
+        <div className="search-input-container">
           <input
             type="text"
             placeholder="Search products..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '10px 15px 10px 40px',
-              border: '1px solid #ddd',
-              borderRadius: '5px',
-              fontSize: '1em',
-              backgroundColor: '#fff'
-            }}
+            className="search-input-field"
           />
-          <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }}>
+          <span className="search-icon">
             🔍
           </span>
         </div>
         
         {/* Status Filter */}
-        <div style={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px', 
-          minWidth: '160px',
-          flexShrink: 0,
-          marginRight: '30px',
-          flex: '0 0 auto'
-        }}>
+        <div className="status-filter-container">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{
-              padding: '10px 15px',
-              border: '1px solid #ddd',
-              borderRadius: '5px',
-              fontSize: '1em',
-              minWidth: '160px',
-              backgroundColor: '#fff'
-            }}
+            className="status-filter-select"
           >
             <option value="all">All Products ({products.length})</option>
             <option value="active">Active ({products.filter(p => p.is_active === 1).length})</option>
@@ -473,16 +447,7 @@ function ProductManager() {
         </div>
         
         {/* Filter Info */}
-        <div style={{ 
-          color: '#666', 
-          fontSize: '0.9em', 
-          fontStyle: 'italic', 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '10px', 
-          minWidth: '220px',
-          flexShrink: 0
-        }}>
+        <div className="filter-info-container">
           <span>Showing {filteredProducts.length} of {products.length} products</span>
           {(statusFilter !== 'all' || searchTerm) && (
             <button 
@@ -490,24 +455,7 @@ function ProductManager() {
                 setStatusFilter('all');
                 setSearchTerm('');
               }}
-              style={{
-                padding: '4px 12px',
-                border: '1px solid #dc3545',
-                borderRadius: '4px',
-                backgroundColor: 'transparent',
-                color: '#dc3545',
-                fontSize: '0.8em',
-                cursor: 'pointer',
-                transition: 'all 0.2s'
-              }}
-              onMouseOver={(e) => {
-                e.target.style.backgroundColor = '#dc3545';
-                e.target.style.color = 'white';
-              }}
-              onMouseOut={(e) => {
-                e.target.style.backgroundColor = 'transparent';
-                e.target.style.color = '#dc3545';
-              }}
+              className="clear-filters-button"
             >
               Clear Filters
             </button>
@@ -516,53 +464,30 @@ function ProductManager() {
       </div>
 
       {/* Product Statistics */}
-      <div style={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
-        gap: '15px', 
-        marginBottom: '20px' 
-      }}>
-        <div style={{ 
-          backgroundColor: '#fff', 
-          padding: '15px', 
-          borderRadius: '8px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#007bff' }}>
+      <div className="stats-container">
+        <div className="stat-card">
+          <div className="stat-value stat-value-total">
             {products.length}
           </div>
-          <div style={{ fontSize: '14px', color: '#666' }}>Total Products</div>
+          <div className="stat-label">Total Products</div>
         </div>
-        <div style={{ 
-          backgroundColor: '#fff', 
-          padding: '15px', 
-          borderRadius: '8px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
+        <div className="stat-card">
+          <div className="stat-value stat-value-active">
             {products.filter(p => p.is_active === 1).length}
           </div>
-          <div style={{ fontSize: '14px', color: '#666' }}>Active Products</div>
+          <div className="stat-label">Active Products</div>
         </div>
-        <div style={{ 
-          backgroundColor: '#fff', 
-          padding: '15px', 
-          borderRadius: '8px', 
-          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-          textAlign: 'center'
-        }}>
-          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc3545' }}>
+        <div className="stat-card">
+          <div className="stat-value stat-value-inactive">
             {products.filter(p => p.is_active === 0).length}
           </div>
-          <div style={{ fontSize: '14px', color: '#666' }}>Inactive Products</div>
+          <div className="stat-label">Inactive Products</div>
         </div>
       </div>
 
-      <div style={{ textAlign: 'right', marginBottom: '20px' }}>
+      <div className="add-product-container">
         <button
-          style={{ padding: '10px 20px', backgroundColor: '#007bff', color: '#fff', borderRadius: '5px', border: 'none', cursor: 'pointer' }}
+          className="add-product-button"
           onClick={handleOpenModalForAdd}
         >
           Add New Product
@@ -572,28 +497,52 @@ function ProductManager() {
       {message && <p>{message}</p>}
 
       <h3>Products List</h3>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+      <div className="products-table-wrapper">
+        <table className="products-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid #eee' }}>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Image</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Category</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Price</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Inventory</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Status</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Actions</th>
+            <tr className="table-header-row">
+              <th className="table-header-cell">Image</th>
+              <th 
+                className={`sortable-header ${sortField === 'name' ? sortDirection : ''}`}
+                onClick={() => handleSort('name')}
+                className="table-header-cell"
+              >
+                Name
+              </th>
+              <th 
+                className={`sortable-header ${sortField === 'category' ? sortDirection : ''}`}
+                onClick={() => handleSort('category')}
+                className="table-header-cell"
+              >
+                Category
+              </th>
+              <th 
+                className={`sortable-header ${sortField === 'price' ? sortDirection : ''}`}
+                onClick={() => handleSort('price')}
+                className="table-header-cell"
+              >
+                Price
+              </th>
+              <th 
+                className={`sortable-header ${sortField === 'stock' ? sortDirection : ''}`}
+                onClick={() => handleSort('stock')}
+                className="table-header-cell"
+              >
+                Stock
+              </th>
+              <th className="table-header-cell">Status</th>
+              <th className="table-header-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredProducts.map(p => (
-              <tr key={p.product_id} style={{ borderBottom: '1px solid #eee' }}>
-                <td style={{ padding: '15px' }}>
+              <tr key={p.product_id} className="table-body-row">
+                <td className="table-body-cell">
                   {p.image ? (
                     <img 
-                                             src={p.image && p.image.startsWith('/uploads') ? `http://localhost:3001${p.image}` : p.image || 'https://via.placeholder.com/50'} 
+                      src={p.image && p.image.startsWith('/uploads') ? `http://localhost:3001${p.image}` : p.image || 'https://via.placeholder.com/50'} 
                       alt={p.name} 
-                      style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '5px' }}
+                      className="table-product-image"
                       onError={(e) => {
                         e.target.style.display = 'none';
                         e.target.nextSibling.style.display = 'block';
@@ -601,66 +550,50 @@ function ProductManager() {
                     />
                   ) : null}
                   <div 
-                    style={{ 
-                      width: '50px', 
-                      height: '50px', 
-                      backgroundColor: '#f0f0f0', 
-                      borderRadius: '5px', 
-                      display: p.image ? 'none' : 'flex',
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      fontSize: '12px',
-                      color: '#666',
-                      textAlign: 'center',
-                      padding: '2px'
-                    }}
                     className="image-placeholder"
+                    style={{ 
+                      display: p.image ? 'none' : 'flex',
+                    }}
                   >
                     {p.name ? p.name.substring(0, 8) : 'No Image'}
                   </div>
                 </td>
-                <td style={{ padding: '15px' }}>
-                  {p.name}
-                  {p.featured && <span style={{ marginLeft: '5px', color: 'gold' }}>★ Featured</span>}
+                <td className="table-body-cell">
+                  <div className="table-product-info">
+                    <div className="table-product-name">{p.name}</div>
+                    {p.featured && <span className="featured-badge">★ Featured</span>}
+                  </div>
                 </td>
-                <td style={{ padding: '15px' }}>{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
-                <td style={{ padding: '15px' }}>{formatPrice(p.price)}</td>
-                <td style={{ 
-                  padding: '15px', 
-                  color: p.stock < 0 ? 'red' : p.stock < 10 ? 'orange' : 'green',
-                  fontWeight: p.stock < 0 ? 'bold' : 'normal'
-                }}>
-                  {p.stock < 0 ? `${p.stock} (OUT OF STOCK)` : p.stock}
+                <td className="table-body-cell">{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
+                <td className="table-body-cell">{formatPrice(p.price, currency)}</td>
+                <td className="table-body-cell">
+                  <div className="table-stock-info">
+                    <div className="table-stock-quantity">{p.stock || 0}</div>
+                    <div className={`table-stock-indicator ${getStockLevel(p.stock || 0).class}`}>
+                      {getStockLevel(p.stock || 0).text}
+                    </div>
+                  </div>
                 </td>
-                                 <td style={{ padding: '15px' }}>
-                   <span style={{ 
-                     padding: '6px 12px', 
-                     borderRadius: '6px', 
-                     fontSize: '12px',
-                     fontWeight: 'bold',
-                     backgroundColor: p.is_active ? '#d4edda' : '#f8d7da',
-                     color: p.is_active ? '#155724' : '#721c24',
-                     border: `1px solid ${p.is_active ? '#c3e6cb' : '#f5c6cb'}`,
-                     display: 'inline-block',
-                     minWidth: '80px',
-                     textAlign: 'center'
-                   }}>
-                     {p.is_active ? '✅ Active' : '❌ Inactive'}
-                   </span>
-                 </td>
-                <td style={{ padding: '15px' }}>
-                  <button onClick={() => handleOpenModalForEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
-                  {p.is_active ? (
-                    <button onClick={() => handleDeleteProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} title="Deactivate">🗑️</button>
-                  ) : (
-                    <button onClick={() => handleRestoreProduct(p.product_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }} title="Restore">🔄</button>
-                  )}
+                <td className="table-body-cell">
+                  <span className={`table-status-badge ${p.is_active ? 'table-status-active' : 'table-status-inactive'}`}>
+                    {p.is_active ? '✅ Active' : '❌ Inactive'}
+                  </span>
+                </td>
+                <td className="table-body-cell">
+                  <div className="table-actions">
+                    <button onClick={() => handleOpenModalForEdit(p)} className="table-action-btn table-edit-btn">✏️</button>
+                    {p.is_active ? (
+                      <button onClick={() => handleDeleteProduct(p.product_id)} className="table-action-btn table-delete-btn" title="Deactivate">🗑️</button>
+                    ) : (
+                      <button onClick={() => handleRestoreProduct(p.product_id)} className="table-action-btn table-view-btn" title="Restore">🔄</button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}
             {filteredProducts.length === 0 && (
               <tr>
-                <td colSpan="7" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No products found.</td>
+                <td colSpan="7" className="table-body-cell" style={{ textAlign: 'center', color: '#888' }}>No products found.</td>
               </tr>
             )}
           </tbody>

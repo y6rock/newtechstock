@@ -108,7 +108,7 @@ const ProductsPage = () => {
     axios.get('/api/suppliers/public')
       .then(res => {
         const manufacturerList = res.data.map(supplier => ({
-          id: supplier.supplier_id,
+          id: supplier.name,  // Store name as ID for text searching
           name: supplier.name
         }));
         setManufacturers(manufacturerList);
@@ -162,7 +162,12 @@ const ProductsPage = () => {
       const productPrice = parseFloat(product.price);
       const matchesPrice = productPrice <= selectedMaxPrice;
       
-      const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.supplier_id);
+      const matchesManufacturer = selectedManufacturers.length === 0 || 
+        selectedManufacturers.some(manufacturerText => 
+          product.name.toLowerCase().includes(manufacturerText.toLowerCase()) ||
+          (product.description && product.description.toLowerCase().includes(manufacturerText.toLowerCase())) ||
+          (product.short_description && product.short_description.toLowerCase().includes(manufacturerText.toLowerCase()))
+        );
       
       const matchesSearch = searchTerm === '' || 
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -200,13 +205,13 @@ const ProductsPage = () => {
         <h3>Manufacturer</h3>
         <div className="manufacturer-checkboxes">
           {manufacturers.map(manufacturer => {
-            const isChecked = selectedManufacturers.includes(manufacturer.id.toString());
+            const isChecked = selectedManufacturers.includes(manufacturer.name);
             return (
               <div key={manufacturer.id} className="manufacturer-checkbox">
                 <label>
                   <input
                     type="checkbox"
-                    value={manufacturer.id}
+                    value={manufacturer.name}
                     checked={isChecked}
                     onChange={handleManufacturerChange}
                     style={{

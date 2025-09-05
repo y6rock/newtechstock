@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/currency';
 import { formatDate } from '../../utils/dateFormat';
+import './Customers.css';
 
 const Customers = () => {
     const { isUserAdmin, loadingSettings, currency } = useSettings();
@@ -102,7 +103,7 @@ const Customers = () => {
     };
 
     if (loadingSettings) {
-        return <div>Loading Admin Panel...</div>;
+        return <div className="customers-loading">Loading Admin Panel...</div>;
     }
 
     if (!isUserAdmin) {
@@ -115,83 +116,64 @@ const Customers = () => {
     );
 
     return (
-        <div style={{ flex: 1, padding: '20px' }}>
-            <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Customers</h1>
-            <p style={{ color: '#666', marginBottom: '20px' }}>Manage your customer database</p>
+        <div className="customers-container">
+            <h1 className="customers-title">Customers</h1>
+            <p className="customers-subtitle">Manage your customer database</p>
 
-            <div style={{ marginBottom: '20px', position: 'relative' }}>
+            <div className="search-section">
                 <input
                     type="text"
                     placeholder="Search customers..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    style={{
-                        width: '100%',
-                        padding: '10px 15px 10px 40px',
-                        border: '1px solid #ddd',
-                        borderRadius: '5px',
-                        fontSize: '1em',
-                    }}
+                    className="search-input"
                 />
-                <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }}>
+                <span className="search-icon">
                     🔍
                 </span>
             </div>
 
-            <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+            <div className="table-container">
+                <table className="customers-table">
                     <thead>
-                        <tr style={{ borderBottom: '1px solid #eee' }}>
-                            <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
-                            <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Email</th>
-                            <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Phone</th>
-                            <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Orders</th>
-                            <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Total Spent</th>
-                            <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Actions</th>
+                        <tr className="table-header-row">
+                            <th className="table-header-cell">Name</th>
+                            <th className="table-header-cell">Email</th>
+                            <th className="table-header-cell">Phone</th>
+                            <th className="table-header-cell">Orders</th>
+                            <th className="table-header-cell">Total Spent</th>
+                            <th className="table-header-cell center">Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {filteredCustomers.map((customer) => (
-                            <tr key={customer.user_id} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '15px' }}>{customer.username || 'N/A'}</td>
-                                <td style={{ padding: '15px' }}>{customer.email || 'N/A'}</td>
-                                <td style={{ padding: '15px' }}>{customer.phone || 'N/A'}</td>
-                                <td style={{ padding: '15px' }}>{customer.order_count || 0}</td>
-                                <td style={{ padding: '15px' }}>{formatPrice(customer.total_spent || 0, currency)}</td>
-                                <td style={{ padding: '15px', textAlign: 'center' }}>
-                                    <button
-                                        onClick={() => handleViewOrders(customer)}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: '#007bff',
-                                            color: '#fff',
-                                            border: 'none',
-                                            borderRadius: '5px',
-                                            cursor: 'pointer'
-                                        }}
-                                    >
-                                        View Orders
-                                    </button>
-                                    <button
-                                        onClick={() => handleDeleteCustomer(customer)}
-                                        style={{
-                                            padding: '8px 12px',
-                                            backgroundColor: '#dc3545',
-                                            color: '#fff',
-                                            border: 'none',
-                                            borderRadius: '5px',
-                                            cursor: 'pointer',
-                                            marginLeft: '10px'
-                                        }}
-                                    >
-                                        Delete
-                                    </button>
+                            <tr key={customer.user_id} className="table-body-row">
+                                <td className="table-body-cell">{customer.username || 'N/A'}</td>
+                                <td className="table-body-cell">{customer.email || 'N/A'}</td>
+                                <td className="table-body-cell">{customer.phone || 'N/A'}</td>
+                                <td className="table-body-cell">{customer.order_count || 0}</td>
+                                <td className="table-body-cell">{formatPrice(customer.total_spent || 0, currency)}</td>
+                                <td className="table-body-cell center">
+                                    <div className="action-buttons">
+                                        <button
+                                            onClick={() => handleViewOrders(customer)}
+                                            className="action-btn view-orders-btn"
+                                        >
+                                            View Orders
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteCustomer(customer)}
+                                            className="action-btn delete-btn"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
                         {filteredCustomers.length === 0 && (
                             <tr>
-                                <td colSpan="6" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No customers found.</td>
+                                <td colSpan="6" className="no-customers">No customers found.</td>
                             </tr>
                         )}
                     </tbody>
@@ -200,60 +182,29 @@ const Customers = () => {
 
             {/* Orders Modal */}
             {showOrdersModal && selectedCustomer && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundColor: 'rgba(0,0,0,0.5)',
-                    display: 'flex',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    zIndex: 1000
-                }}>
-                    <div style={{
-                        backgroundColor: '#fff',
-                        padding: '20px',
-                        borderRadius: '8px',
-                        width: '80%',
-                        maxWidth: '800px',
-                        maxHeight: '80vh',
-                        overflowY: 'auto'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                            <h2 style={{ margin: 0 }}>Orders for {selectedCustomer.username}</h2>
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">
+                            <h2 className="modal-title">Orders for {selectedCustomer.username}</h2>
                             <button
                                 onClick={() => setShowOrdersModal(false)}
-                                style={{
-                                    padding: '8px 12px',
-                                    backgroundColor: '#dc3545',
-                                    color: '#fff',
-                                    border: 'none',
-                                    borderRadius: '5px',
-                                    cursor: 'pointer'
-                                }}
+                                className="close-btn"
                             >
                                 Close
                             </button>
                         </div>
                         
                         {customerOrders.length === 0 ? (
-                            <p style={{ textAlign: 'center', color: '#666' }}>No orders found for this customer.</p>
+                            <p className="no-orders">No orders found for this customer.</p>
                         ) : (
-                            <div>
+                            <div className="orders-list">
                                 {customerOrders.map(order => (
-                                    <div key={order.order_id} style={{
-                                        border: '1px solid #eee',
-                                        borderRadius: '5px',
-                                        padding: '15px',
-                                        marginBottom: '10px',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
-                                        <span>Order #{order.order_id} - {formatDate(order.order_date)}</span>
-                                        <span style={{ fontWeight: 'bold' }}>{formatPrice(order.total_price, currency)}</span>
+                                    <div key={order.order_id} className="order-item">
+                                        <div className="order-info">
+                                            <span className="order-id">Order #{order.order_id}</span>
+                                            <span className="order-date">{formatDate(order.order_date)}</span>
+                                        </div>
+                                        <span className="order-total">{formatPrice(order.total_price, currency)}</span>
                                     </div>
                                 ))}
                             </div>

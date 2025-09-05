@@ -141,10 +141,8 @@ router.get('/order-status-distribution', authenticateToken, requireAdmin, async 
         if (startDate && endDate) {
             dateFilter = 'WHERE DATE(order_date) BETWEEN ? AND ?';
             params = [startDate, endDate];
-        } else {
-            // Default to last 30 days if no dates provided
-            dateFilter = 'WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
         }
+        // Remove the default 30-day filter to show all orders
         
         const [statuses] = await db.query(`
             SELECT status, COUNT(order_id) as count

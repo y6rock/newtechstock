@@ -32,6 +32,7 @@ export default function Promotions() {
     applicableCategories: [],
     code: ''
   });
+  const [applyType, setApplyType] = useState('products'); // 'products' or 'categories'
 
   useEffect(() => {
     if (!loadingSettings && !isUserAdmin) {
@@ -66,10 +67,16 @@ export default function Promotions() {
 
   const fetchCategories = async () => {
     try {
-      const response = await fetch('/api/categories');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/categories', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (response.ok) {
         const data = await response.json();
+        console.log('Categories fetched:', data);
         setCategories(data);
+      } else {
+        console.error('Failed to fetch categories:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -78,10 +85,16 @@ export default function Promotions() {
 
   const fetchProducts = async () => {
     try {
-      const response = await fetch('/api/products');
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/products', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
       if (response.ok) {
         const data = await response.json();
+        console.log('Products fetched:', data);
         setProducts(data);
+      } else {
+        console.error('Failed to fetch products:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error fetching products:', error);
@@ -186,41 +199,16 @@ export default function Promotions() {
     return { status: 'active', label: 'Active', className: 'active' };
   };
 
-  // Convert DD/MM/YYYY to YYYY-MM-DD for HTML5 date inputs
-  const convertToDateInput = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toISOString().split('T')[0];
-  };
-
-  // Convert YYYY-MM-DD to DD/MM/YYYY for display
-  const convertToDisplayDate = (dateString) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    const day = date.getDate().toString().padStart(2, '0');
-    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    const year = date.getFullYear();
-    return `${day}/${month}/${year}`;
-  };
-
-  // Convert DD/MM/YYYY to YYYY-MM-DD for storage
-  const convertToStorageDate = (dateString) => {
-    if (!dateString) return '';
-    // Check if it's already in YYYY-MM-DD format
-    if (dateString.includes('-') && dateString.length === 10) {
-      return dateString;
-    }
-    // Convert from DD/MM/YYYY to YYYY-MM-DD
-    const parts = dateString.split('/');
-    if (parts.length === 3) {
-      const [day, month, year] = parts;
-      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
-    }
-    return dateString;
-  };
 
   const handleEdit = (promotion) => {
     setEditingPromotion(promotion);
+    const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
+    const applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [];
+    
+    // Determine apply type based on existing data
+    const newApplyType = applicableProducts.length > 0 ? 'products' : 'categories';
+    setApplyType(newApplyType);
+    
     setFormData({
       name: promotion.name,
       description: promotion.description,
@@ -228,17 +216,18 @@ export default function Promotions() {
       value: promotion.value,
       minQuantity: promotion.min_quantity || 1,
       maxQuantity: promotion.max_quantity || null,
-      startDate: promotion.start_date,
-      endDate: promotion.end_date,
+      startDate: promotion.start_date, // Store in YYYY-MM-DD format for backend
+      endDate: promotion.end_date, // Store in YYYY-MM-DD format for backend
       isActive: promotion.is_active,
-      applicableProducts: promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [],
-      applicableCategories: promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [],
+      applicableProducts: applicableProducts,
+      applicableCategories: applicableCategories,
       code: promotion.code || ''
     });
     setShowModal(true);
   };
 
   const resetForm = () => {
+    setApplyType('products');
     setFormData({
       name: '',
       description: '',
@@ -363,6 +352,39 @@ export default function Promotions() {
                     {promotion.max_quantity && ` Max: ${promotion.max_quantity}`}
                     {(!promotion.min_quantity || promotion.min_quantity <= 1) && !promotion.max_quantity && ' No restrictions'}
                   </div>
+                  
+                  {/* Show applicable products or categories */}
+                  {promotion.applicable_products && JSON.parse(promotion.applicable_products).length > 0 && (
+                    <div className="promotion-applicable">
+                      <strong>Applies to Products:</strong>
+                      <div className="applicable-items">
+                        {JSON.parse(promotion.applicable_products).map(productId => {
+                          const product = products.find(p => p.product_id === productId);
+                          return product ? (
+                            <span key={productId} className="applicable-item">
+                              {product.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
+                  
+                  {promotion.applicable_categories && JSON.parse(promotion.applicable_categories).length > 0 && (
+                    <div className="promotion-applicable">
+                      <strong>Applies to Categories:</strong>
+                      <div className="applicable-items">
+                        {JSON.parse(promotion.applicable_categories).map(categoryId => {
+                          const category = categories.find(c => c.category_id === categoryId);
+                          return category ? (
+                            <span key={categoryId} className="applicable-item">
+                              {category.name}
+                            </span>
+                          ) : null;
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="promotion-actions">
@@ -485,30 +507,9 @@ export default function Promotions() {
               <div className="form-group">
                 <label>Start Date *</label>
                 <input
-                  type="text"
-                  placeholder="DD/MM/YYYY"
-                  value={convertToDisplayDate(formData.startDate)}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow only numbers and forward slashes, max 10 characters
-                    if (/^[\d/]*$/.test(value) && value.length <= 10) {
-                      setFormData({...formData, startDate: convertToStorageDate(value)});
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value;
-                    // Validate date format on blur
-                    if (value && !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-                      // If not in DD/MM/YYYY format, try to convert
-                      const date = new Date(value);
-                      if (!isNaN(date.getTime())) {
-                        const day = date.getDate().toString().padStart(2, '0');
-                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                        const year = date.getFullYear();
-                        setFormData({...formData, startDate: `${year}-${month}-${day}`});
-                      }
-                    }
-                  }}
+                  type="date"
+                  value={formData.startDate}
+                  onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                   required
                 />
               </div>
@@ -516,30 +517,9 @@ export default function Promotions() {
               <div className="form-group">
                 <label>End Date *</label>
                 <input
-                  type="text"
-                  placeholder="DD/MM/YYYY"
-                  value={convertToDisplayDate(formData.endDate)}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    // Allow only numbers and forward slashes, max 10 characters
-                    if (/^[\d/]*$/.test(value) && value.length <= 10) {
-                      setFormData({...formData, endDate: convertToStorageDate(value)});
-                    }
-                  }}
-                  onBlur={(e) => {
-                    const value = e.target.value;
-                    // Validate date format on blur
-                    if (value && !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
-                      // If not in DD/MM/YYYY format, try to convert
-                      const date = new Date(value);
-                      if (!isNaN(date.getTime())) {
-                        const day = date.getDate().toString().padStart(2, '0');
-                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                        const year = date.getFullYear();
-                        setFormData({...formData, endDate: `${year}-${month}-${day}`});
-                      }
-                    }
-                  }}
+                  type="date"
+                  value={formData.endDate}
+                  onChange={(e) => setFormData({...formData, endDate: e.target.value})}
                   required
                 />
               </div>
@@ -572,6 +552,124 @@ export default function Promotions() {
                   Maximum quantity allowed per item (leave empty for no limit)
                 </small>
               </div>
+
+              <div className="form-group">
+                <label>Apply To</label>
+                <div className="promotion-apply-selector">
+                  <label className={`apply-option ${applyType === 'products' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="applyType"
+                      value="products"
+                      checked={applyType === 'products'}
+                      onChange={() => {
+                        setApplyType('products');
+                        setFormData({
+                          ...formData,
+                          applicableProducts: [],
+                          applicableCategories: []
+                        });
+                      }}
+                    />
+                    <span className="apply-option-icon">📦</span>
+                    <span className="apply-option-label">Specific Products</span>
+                  </label>
+                  
+                  <label className={`apply-option ${applyType === 'categories' ? 'selected' : ''}`}>
+                    <input
+                      type="radio"
+                      name="applyType"
+                      value="categories"
+                      checked={applyType === 'categories'}
+                      onChange={() => {
+                        setApplyType('categories');
+                        setFormData({
+                          ...formData,
+                          applicableProducts: [],
+                          applicableCategories: []
+                        });
+                      }}
+                    />
+                    <span className="apply-option-icon">📂</span>
+                    <span className="apply-option-label">Categories</span>
+                  </label>
+                </div>
+                <small style={{ color: '#666', fontSize: '12px', marginTop: '8px', display: 'block' }}>
+                  Select whether this promotion applies to specific products or entire categories
+                </small>
+              </div>
+
+              {applyType === 'products' && (
+                <div className="form-group">
+                  <label>Select Products</label>
+                  <div className="multi-select-container">
+                    {products.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                        No products available. Loading...
+                      </div>
+                    ) : (
+                      products.map(product => (
+                        <label key={product.product_id} className="multi-select-item">
+                          <input
+                            type="checkbox"
+                            checked={formData.applicableProducts.includes(product.product_id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  applicableProducts: [...formData.applicableProducts, product.product_id]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  applicableProducts: formData.applicableProducts.filter(id => id !== product.product_id)
+                                });
+                              }
+                            }}
+                          />
+                          <span className="multi-select-label">{product.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {applyType === 'categories' && (
+                <div className="form-group">
+                  <label>Select Categories</label>
+                  <div className="multi-select-container">
+                    {categories.length === 0 ? (
+                      <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                        No categories available. Loading...
+                      </div>
+                    ) : (
+                      categories.map(category => (
+                        <label key={category.category_id} className="multi-select-item">
+                          <input
+                            type="checkbox"
+                            checked={formData.applicableCategories.includes(category.category_id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setFormData({
+                                  ...formData,
+                                  applicableCategories: [...formData.applicableCategories, category.category_id]
+                                });
+                              } else {
+                                setFormData({
+                                  ...formData,
+                                  applicableCategories: formData.applicableCategories.filter(id => id !== category.category_id)
+                                });
+                              }
+                            }}
+                          />
+                          <span className="multi-select-label">{category.name}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className="form-group">
                 <label>Active Promotion</label>

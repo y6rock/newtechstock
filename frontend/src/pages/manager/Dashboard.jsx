@@ -334,17 +334,6 @@ export default function Dashboard() {
         <Bar data={topProductsBarData} options={topProductsBarOptions} />
       </div>
 
-      <div className="product-list-container">
-        <h3>Top Selling Products</h3>
-        <ul className="product-list">
-          {topProducts.map((product, index) => (
-            <li key={index}>
-              <span>{product.name}</span>
-              <span className="product-sales">{formatPrice(product.total_sales, currency)}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
     </div>
   );
 }

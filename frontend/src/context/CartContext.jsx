@@ -142,15 +142,22 @@ export const CartProvider = ({ children }) => {
   };
   
   const applyPromotion = async (promotionCode) => {
+    const cartData = cartItems.map(item => ({
+      product_id: item.product_id,
+      price: parseFloat(item.price),
+      quantity: item.quantity,
+      category_id: item.category_id,
+    }));
+    
+    console.log('Frontend: Applying promotion code:', promotionCode.trim());
+    console.log('Frontend: Cart items being sent:', cartData);
+    
     const response = await axios.post('/api/promotions/apply', {
         promotionCode: promotionCode.trim(),
-        cartItems: cartItems.map(item => ({
-          product_id: item.product_id,
-          price: parseFloat(item.price),
-          quantity: item.quantity,
-          category_id: item.category_id,
-        })),
+        cartItems: cartData,
     });
+    
+    console.log('Frontend: Promotion response:', response.data);
     setAppliedPromotion(response.data.promotion);
     setDiscountAmount(response.data.totalDiscount);
   };

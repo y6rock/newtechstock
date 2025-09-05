@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import './Categories.css';
 
 const Categories = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
@@ -168,7 +169,7 @@ const Categories = () => {
   };
 
   if (loadingSettings || loadingCategories) {
-    return <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>Loading Admin Panel...</div>;
+    return <div className="categories-loading">Loading Admin Panel...</div>;
   }
 
   if (!isUserAdmin) {
@@ -176,22 +177,22 @@ const Categories = () => {
   }
 
   return (
-    <div style={{ flex: 1, padding: '20px' }}>
-      <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Manage Categories</h1>
-      <p style={{ color: '#666', marginBottom: '20px' }}>Add, edit, or delete product categories.</p>
+    <div className="categories-container">
+      <h1 className="categories-title">Manage Categories</h1>
+      <p className="categories-subtitle">Add, edit, or delete product categories.</p>
 
-      {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+      {error && <p className="categories-error">{error}</p>}
 
       {/* Filter and Add Button */}
-      <div style={{ marginBottom: '30px', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', backgroundColor: '#fff' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-            <label htmlFor="status-filter" style={{ fontWeight: '600', color: '#555' }}>Filter by Status:</label>
+      <div className="filter-section">
+        <div className="filter-controls">
+          <div className="filter-group">
+            <label htmlFor="status-filter" className="filter-label">Filter by Status:</label>
             <select
               id="status-filter"
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '5px', backgroundColor: '#fff' }}
+              className="filter-select"
             >
               <option value="all">All Categories ({categories.length})</option>
               <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
@@ -200,15 +201,7 @@ const Categories = () => {
           </div>
           <button 
             onClick={() => setShowAddModal(true)}
-            style={{ 
-              padding: '10px 20px', 
-              backgroundColor: '#007bff', 
-              color: '#fff', 
-              border: 'none', 
-              borderRadius: '5px', 
-              cursor: 'pointer',
-              fontWeight: '600'
-            }}
+            className="add-category-btn"
           >
             + Add New Category
           </button>
@@ -216,50 +209,37 @@ const Categories = () => {
       </div>
 
       {/* Categories List */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+      <div className="table-container">
+        <table className="categories-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid #eee' }}>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>ID</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
-              <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Status</th>
-              <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Actions</th>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th className="status-cell">Status</th>
+              <th className="actions-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
             {filteredCategories.length === 0 ? (
               <tr>
-                <td colSpan="4" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No categories found.</td>
+                <td colSpan="4" className="no-categories">No categories found.</td>
               </tr>
             ) : (
               filteredCategories.map((category) => (
-                <tr key={category.category_id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '15px' }}>{category.category_id}</td>
-                  <td style={{ padding: '15px' }}>{category.name}</td>
-                  <td style={{ padding: '15px', textAlign: 'center' }}>
-                    <span style={{ 
-                      padding: '4px 8px', 
-                      borderRadius: '4px', 
-                      fontSize: '0.85em',
-                      backgroundColor: category.status === 'Active' ? '#d4edda' : '#f8d7da',
-                      color: category.status === 'Active' ? '#155724' : '#721c24'
-                    }}>
+                <tr key={category.category_id}>
+                  <td>{category.category_id}</td>
+                  <td>{category.name}</td>
+                  <td className="status-cell">
+                    <span className={`status-badge ${category.status === 'Active' ? 'status-active' : 'status-inactive'}`}>
                       {category.status}
                     </span>
                   </td>
-                  <td style={{ padding: '15px', textAlign: 'center' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                      <button onClick={() => handleEditCategory(category)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Edit</button>
+                  <td className="actions-cell">
+                    <div className="action-buttons">
+                      <button onClick={() => handleEditCategory(category)} className="action-btn edit-btn">Edit</button>
                       <button 
                         onClick={() => handleToggleStatus(category.category_id, category.status)} 
-                        style={{ 
-                          padding: '8px 12px', 
-                          backgroundColor: category.status === 'Active' ? '#dc3545' : '#28a745', 
-                          color: '#fff', 
-                          border: 'none', 
-                          borderRadius: '5px', 
-                          cursor: 'pointer' 
-                        }}
+                        className={`toggle-btn ${category.status === 'Active' ? 'toggle-deactivate' : 'toggle-activate'}`}
                       >
                         {category.status === 'Active' ? 'Deactivate' : 'Activate'}
                       </button>
@@ -274,76 +254,36 @@ const Categories = () => {
 
       {/* Add Category Modal */}
       {showAddModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '30px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Add New Category</h2>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-header">Add New Category</h2>
             
-            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            {error && <p className="modal-error">{error}</p>}
             
-            <form onSubmit={handleAddCategory} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Category Name:</label>
+            <form onSubmit={handleAddCategory} className="modal-form">
+              <div className="form-group">
+                <label className="form-label">Category Name:</label>
                 <input
                   type="text"
                   placeholder="Enter category name"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="form-input"
                   required
                 />
               </div>
               
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="form-buttons">
                 <button 
                   type="button" 
                   onClick={handleCloseAddModal}
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#6c757d', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="form-btn cancel-btn"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#007bff', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="form-btn submit-btn"
                 >
                   Add Category
                 </button>
@@ -355,75 +295,35 @@ const Categories = () => {
 
       {/* Edit Category Modal */}
       {showEditModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '30px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Edit Category</h2>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-header">Edit Category</h2>
             
-            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            {error && <p className="modal-error">{error}</p>}
             
-            <form onSubmit={handleUpdateCategory} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Category Name:</label>
+            <form onSubmit={handleUpdateCategory} className="modal-form">
+              <div className="form-group">
+                <label className="form-label">Category Name:</label>
                 <input
                   type="text"
                   value={editedCategoryName}
                   onChange={(e) => setEditedCategoryName(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="form-input"
                   required
                 />
               </div>
               
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="form-buttons">
                 <button 
                   type="button" 
                   onClick={handleCloseEditModal}
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#6c757d', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="form-btn cancel-btn"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#007bff', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="form-btn submit-btn"
                 >
                   Update Category
                 </button>

@@ -336,16 +336,16 @@
   z-index: 10;
 }
 .product-image-container {
-  height: 200px;
+  height: 300px;
   display: flex;
   justify-content: center;
   align-items: center;
   margin-bottom: 15px;
 }
-.product-image {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+.product-card .product-image {
+  width: 100% !important;
+  height: 100% !important;
+  object-fit: cover !important;
 }
 .product-placeholder-image {
   width: 100%;
@@ -411,8 +411,8 @@
 
 .product-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 25px;
   margin-top: 30px;
 }
 

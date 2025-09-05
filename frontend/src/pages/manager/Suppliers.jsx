@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import './Suppliers.css';
 
 const Suppliers = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
@@ -156,7 +157,7 @@ const Suppliers = () => {
   };
 
   if (loadingSettings || loadingSuppliers) {
-    return <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>Loading Admin Panel...</div>;
+    return <div className="suppliers-loading">Loading Admin Panel...</div>;
   }
 
   if (!isUserAdmin) {
@@ -164,60 +165,51 @@ const Suppliers = () => {
   }
 
   return (
-    <div style={{ flex: 1, padding: '20px' }}>
-      <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Manage Suppliers</h1>
-      <p style={{ color: '#666', marginBottom: '20px' }}>Add, edit, or delete product suppliers.</p>
+    <div className="suppliers-container">
+      <h1 className="suppliers-title">Manage Suppliers</h1>
+      <p className="suppliers-subtitle">Add, edit, or delete product suppliers.</p>
 
-      {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+      {error && <p className="suppliers-error">{error}</p>}
 
       {/* Add Supplier Button */}
-      <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'flex-end' }}>
+      <div className="add-button-container">
         <button 
           onClick={() => setShowAddModal(true)}
-          style={{ 
-            padding: '12px 24px', 
-            backgroundColor: '#007bff', 
-            color: '#fff', 
-            border: 'none', 
-            borderRadius: '5px', 
-            cursor: 'pointer',
-            fontSize: '16px',
-            fontWeight: '600'
-          }}
+          className="add-supplier-btn"
         >
           + Add New Supplier
         </button>
       </div>
 
       {/* Suppliers List */}
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', backgroundColor: '#fff', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+      <div className="table-container">
+        <table className="suppliers-table">
           <thead>
-            <tr style={{ borderBottom: '1px solid #eee' }}>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>ID</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Email</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Phone</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Address</th>
-              <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Actions</th>
+            <tr>
+              <th>ID</th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Phone</th>
+              <th>Address</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {suppliers.length === 0 ? (
               <tr>
-                <td colSpan="6" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No suppliers found.</td>
+                <td colSpan="6" className="no-suppliers">No suppliers found.</td>
               </tr>
             ) : (
               suppliers.map((supplier) => (
-                <tr key={supplier.supplier_id} style={{ borderBottom: '1px solid #eee' }}>
-                  <td style={{ padding: '15px' }}>{supplier.supplier_id}</td>
-                  <td style={{ padding: '15px' }}>{supplier.name}</td>
-                  <td style={{ padding: '15px' }}>{supplier.email || '-'}</td>
-                  <td style={{ padding: '15px' }}>{supplier.phone || '-'}</td>
-                  <td style={{ padding: '15px', maxWidth: '200px', wordWrap: 'break-word' }}>{supplier.address || '-'}</td>
-                  <td style={{ padding: '15px', textAlign: 'center' }}>
-                    <button onClick={() => handleEditSupplier(supplier)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Edit</button>
-                    <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Delete</button>
+                <tr key={supplier.supplier_id}>
+                  <td>{supplier.supplier_id}</td>
+                  <td>{supplier.name}</td>
+                  <td>{supplier.email || '-'}</td>
+                  <td>{supplier.phone || '-'}</td>
+                  <td className="address-cell">{supplier.address || '-'}</td>
+                  <td className="actions-cell">
+                    <button onClick={() => handleEditSupplier(supplier)} className="action-btn edit-btn">Edit</button>
+                    <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} className="action-btn delete-btn">Delete</button>
                   </td>
                 </tr>
               ))
@@ -228,65 +220,33 @@ const Suppliers = () => {
 
       {/* Add Supplier Modal */}
       {showAddModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '30px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Add New Supplier</h2>
+        <div className="modal-overlay">
+          <div className="modal-content">
+            <h2 className="modal-header">Add New Supplier</h2>
             
-            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            {error && <p className="modal-error">{error}</p>}
             
-            <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Supplier Name:</label>
+            <form onSubmit={handleAddSupplier} className="modal-form">
+              <div className="form-group">
+                <label className="form-label">Supplier Name:</label>
                 <input
                   type="text"
                   placeholder="Enter supplier name"
                   value={newSupplierName}
                   onChange={(e) => setNewSupplierName(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="form-input"
                   required
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Email:</label>
+              <div className="form-group">
+                <label className="form-label">Email:</label>
                 <input
                   type="email"
                   placeholder="Enter email address"
                   value={newSupplierEmail}
                   onChange={(e) => setNewSupplierEmail(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="form-input"
                 />
               </div>
               

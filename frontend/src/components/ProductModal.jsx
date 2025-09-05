@@ -38,7 +38,26 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
 
   const handleChange = e => {
     const { name, value } = e.target;
+    
+    // Prevent negative values for price and stock
+    if (name === 'price') {
+      const numValue = parseFloat(value);
+      if (value !== '' && (isNaN(numValue) || numValue < 0)) {
+        setMessage('Price must be a non-negative number');
+        return;
+      }
+    }
+    
+    if (name === 'stock') {
+      const numValue = parseInt(value);
+      if (value !== '' && (isNaN(numValue) || numValue < 0 || !Number.isInteger(numValue))) {
+        setMessage('Stock must be a non-negative integer');
+        return;
+      }
+    }
+    
     setForm({ ...form, [name]: value });
+    setMessage(''); // Clear any previous error messages
   };
 
   const handleImageFileChange = e => {
@@ -62,6 +81,20 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
 
     if (!form.name || !form.price || !form.stock) {
       setMessage('Name, price, and stock are required.');
+      return;
+    }
+
+    // Validate price and stock values
+    const price = parseFloat(form.price);
+    const stock = parseInt(form.stock);
+    
+    if (isNaN(price) || price < 0) {
+      setMessage('Price must be a non-negative number.');
+      return;
+    }
+    
+    if (isNaN(stock) || stock < 0 || !Number.isInteger(stock)) {
+      setMessage('Stock must be a non-negative integer.');
       return;
     }
 
@@ -119,11 +152,28 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
           <div className="form-row">
             <div className="form-group">
               <label>Price</label>
-              <input type="number" name="price" value={form.price} onChange={handleChange} required step="0.01" />
+              <input 
+                type="number" 
+                name="price" 
+                value={form.price} 
+                onChange={handleChange} 
+                required 
+                step="0.01" 
+                min="0"
+                placeholder="0.00"
+              />
             </div>
             <div className="form-group">
               <label>Stock</label>
-              <input type="number" name="stock" value={form.stock} onChange={handleChange} required />
+              <input 
+                type="number" 
+                name="stock" 
+                value={form.stock} 
+                onChange={handleChange} 
+                required 
+                min="0"
+                placeholder="0"
+              />
             </div>
           </div>
           <div className="form-group">
@@ -151,7 +201,11 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
               </select>
             </div>
           </div>
-          {message && <p className="form-message">{message}</p>}
+          {message && (
+            <p className={`form-message ${message.includes('must be') || message.includes('required') ? 'error' : 'success'}`}>
+              {message}
+            </p>
+          )}
           <div className="form-actions">
             <button type="submit" className="submit-btn">{product ? 'Update Product' : 'Add Product'}</button>
             <button type="button" onClick={onClose} className="cancel-btn">Cancel</button>

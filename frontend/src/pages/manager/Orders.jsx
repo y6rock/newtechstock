@@ -62,7 +62,7 @@ const Orders = () => {
 
     // Filter by status
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status === statusFilter);
+      filtered = filtered.filter(order => order.status.toLowerCase() === statusFilter.toLowerCase());
     }
 
     // Filter by user

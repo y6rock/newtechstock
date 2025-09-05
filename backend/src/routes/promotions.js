@@ -133,16 +133,22 @@ function isItemApplicable(item, promotion) {
     const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
     const applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [];
 
-    // Convert to strings for comparison since JSON.parse returns strings
-    const itemProductId = item.product_id.toString();
-    const itemCategoryId = item.category_id ? item.category_id.toString() : null;
+    // Convert both to numbers for comparison since JSON.parse might return strings or numbers
+    const itemProductId = parseInt(item.product_id);
+    const itemCategoryId = item.category_id ? parseInt(item.category_id) : null;
+
+    console.log(`Checking item ${itemProductId} against applicable products:`, applicableProducts);
+    console.log(`Checking item ${itemProductId} against applicable categories:`, applicableCategories);
 
     if (applicableProducts.length > 0 && !applicableProducts.includes(itemProductId)) {
+        console.log(`Item ${itemProductId} not in applicable products list`);
         return false;
     }
     if (applicableCategories.length > 0 && !applicableCategories.includes(itemCategoryId)) {
+        console.log(`Item ${itemProductId} category ${itemCategoryId} not in applicable categories list`);
         return false;
     }
+    console.log(`Item ${itemProductId} is applicable!`);
     return true;
 }
 
@@ -169,6 +175,8 @@ router.post('/apply', async (req, res) => {
 
         const promotion = promotions[0];
         console.log('Found promotion:', promotion);
+        console.log('Promotion applicable_products:', promotion.applicable_products);
+        console.log('Promotion applicable_categories:', promotion.applicable_categories);
         
         let totalDiscount = 0;
         let discountedItems = [];
@@ -181,36 +189,35 @@ router.post('/apply', async (req, res) => {
             return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
         }
 
-        // Check which items are applicable and meet quantity requirements
+        // Check which items are applicable
         let applicableItems = [];
         cartItems.forEach(item => {
             const isApplicable = isItemApplicable(item, promotion);
             if (isApplicable) {
-                // Check min quantity requirement
-                if (promotion.min_quantity && item.quantity < promotion.min_quantity) {
-                    console.log(`Item ${item.product_id} quantity ${item.quantity} below minimum ${promotion.min_quantity}`);
-                    return;
-                }
-                // Check max quantity limit
-                if (promotion.max_quantity && item.quantity > promotion.max_quantity) {
-                    console.log(`Item ${item.product_id} quantity ${item.quantity} above maximum ${promotion.max_quantity}`);
-                    return;
-                }
                 applicableItems.push(item);
             }
             console.log(`Item ${item.product_id} (category ${item.category_id}) applicable:`, isApplicable);
         });
 
         if (applicableItems.length === 0) {
-            let errorMessage = 'No items meet the quantity requirements.';
-            if (promotion.min_quantity && promotion.max_quantity) {
-                errorMessage += ` Quantity must be between ${promotion.min_quantity} and ${promotion.max_quantity}.`;
-            } else if (promotion.min_quantity) {
-                errorMessage += ` Minimum quantity required: ${promotion.min_quantity}.`;
-            } else if (promotion.max_quantity) {
-                errorMessage += ` Maximum quantity allowed: ${promotion.max_quantity}.`;
-            }
-            return res.status(400).json({ message: errorMessage });
+            return res.status(400).json({ message: 'No items are eligible for this promotion.' });
+        }
+
+        // Check total quantity requirements for applicable items
+        const totalApplicableQuantity = applicableItems.reduce((total, item) => total + item.quantity, 0);
+        
+        if (promotion.min_quantity && totalApplicableQuantity < promotion.min_quantity) {
+            console.log(`Total applicable quantity ${totalApplicableQuantity} below minimum ${promotion.min_quantity}`);
+            return res.status(400).json({ 
+                message: `Minimum quantity required: ${promotion.min_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+            });
+        }
+        
+        if (promotion.max_quantity && totalApplicableQuantity > promotion.max_quantity) {
+            console.log(`Total applicable quantity ${totalApplicableQuantity} above maximum ${promotion.max_quantity}`);
+            return res.status(400).json({ 
+                message: `Maximum quantity allowed: ${promotion.max_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+            });
         }
 
         if (promotion.type === 'percentage') {
@@ -294,33 +301,32 @@ router.post('/apply-promotion', async (req, res) => {
             return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
         }
 
-        // Check which items are applicable and meet quantity requirements
+        // Check which items are applicable
         let applicableItems = [];
         cart.forEach(item => {
             const isApplicable = isItemApplicable(item, promotion);
             if (isApplicable) {
-                // Check min quantity requirement
-                if (promotion.min_quantity && item.quantity < promotion.min_quantity) {
-                    return;
-                }
-                // Check max quantity limit
-                if (promotion.max_quantity && item.quantity > promotion.max_quantity) {
-                    return;
-                }
                 applicableItems.push(item);
             }
         });
 
         if (applicableItems.length === 0) {
-            let errorMessage = 'No items meet the quantity requirements.';
-            if (promotion.min_quantity && promotion.max_quantity) {
-                errorMessage += ` Quantity must be between ${promotion.min_quantity} and ${promotion.max_quantity}.`;
-            } else if (promotion.min_quantity) {
-                errorMessage += ` Minimum quantity required: ${promotion.min_quantity}.`;
-            } else if (promotion.max_quantity) {
-                errorMessage += ` Maximum quantity allowed: ${promotion.max_quantity}.`;
-            }
-            return res.status(400).json({ message: errorMessage });
+            return res.status(400).json({ message: 'No items are eligible for this promotion.' });
+        }
+
+        // Check total quantity requirements for applicable items
+        const totalApplicableQuantity = applicableItems.reduce((total, item) => total + item.quantity, 0);
+        
+        if (promotion.min_quantity && totalApplicableQuantity < promotion.min_quantity) {
+            return res.status(400).json({ 
+                message: `Minimum quantity required: ${promotion.min_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+            });
+        }
+        
+        if (promotion.max_quantity && totalApplicableQuantity > promotion.max_quantity) {
+            return res.status(400).json({ 
+                message: `Maximum quantity allowed: ${promotion.max_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+            });
         }
 
         if (promotion.type === 'percentage') {
