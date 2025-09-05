@@ -30,6 +30,20 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Get price statistics for slider (min, max prices)
+router.get('/price-stats', async (req, res) => {
+    try {
+        const [stats] = await db.query('SELECT MIN(price) as minPrice, MAX(price) as maxPrice FROM products WHERE is_active = 1');
+        res.json({
+            minPrice: parseFloat(stats[0].minPrice) || 0,
+            maxPrice: parseFloat(stats[0].maxPrice) || 1000
+        });
+    } catch (err) {
+        console.error('Error fetching price statistics:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+});
+
 /*
 // Get all categories
 router.get('/categories', async (req, res) => {

@@ -11,10 +11,16 @@ const Suppliers = () => {
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [error, setError] = useState(null);
   const [newSupplierName, setNewSupplierName] = useState('');
-  const [newSupplierContact, setNewSupplierContact] = useState('');
+  const [newSupplierEmail, setNewSupplierEmail] = useState('');
+  const [newSupplierPhone, setNewSupplierPhone] = useState('');
+  const [newSupplierAddress, setNewSupplierAddress] = useState('');
   const [editingSupplier, setEditingSupplier] = useState(null); // supplier object being edited
   const [editedSupplierName, setEditedSupplierName] = useState('');
-  const [editedSupplierContact, setEditedSupplierContact] = useState('');
+  const [editedSupplierEmail, setEditedSupplierEmail] = useState('');
+  const [editedSupplierPhone, setEditedSupplierPhone] = useState('');
+  const [editedSupplierAddress, setEditedSupplierAddress] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   useEffect(() => {
     if (loadingSettings) {
@@ -46,17 +52,26 @@ const Suppliers = () => {
 
   const handleAddSupplier = async (e) => {
     e.preventDefault();
-    if (!newSupplierName.trim() || !newSupplierContact.trim()) {
-      setError('Supplier name and contact cannot be empty.');
+    if (!newSupplierName.trim()) {
+      setError('Supplier name cannot be empty.');
       return;
     }
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/api/suppliers', { name: newSupplierName, contact: newSupplierContact }, {
+      await axios.post('/api/suppliers', { 
+        name: newSupplierName, 
+        email: newSupplierEmail, 
+        phone: newSupplierPhone, 
+        address: newSupplierAddress 
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewSupplierName('');
-      setNewSupplierContact('');
+      setNewSupplierEmail('');
+      setNewSupplierPhone('');
+      setNewSupplierAddress('');
+      setShowAddModal(false);
+      setError(null);
       fetchSuppliers();
     } catch (err) {
       console.error('Error adding supplier:', err);
@@ -67,30 +82,61 @@ const Suppliers = () => {
   const handleEditSupplier = (supplier) => {
     setEditingSupplier(supplier);
     setEditedSupplierName(supplier.name);
-    setEditedSupplierContact(supplier.contact);
+    setEditedSupplierEmail(supplier.email || '');
+    setEditedSupplierPhone(supplier.phone || '');
+    setEditedSupplierAddress(supplier.address || '');
+    setShowEditModal(true);
   };
 
   const handleUpdateSupplier = async (e) => {
     e.preventDefault();
-    if (!editedSupplierName.trim() || !editedSupplierContact.trim()) {
-      setError('Supplier name and contact cannot be empty.');
+    if (!editedSupplierName.trim()) {
+      setError('Supplier name cannot be empty.');
       return;
     }
     if (!editingSupplier) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/suppliers/${editingSupplier.supplier_id}`, { name: editedSupplierName, contact: editedSupplierContact }, {
+      await axios.put(`/api/suppliers/${editingSupplier.supplier_id}`, { 
+        name: editedSupplierName, 
+        email: editedSupplierEmail, 
+        phone: editedSupplierPhone, 
+        address: editedSupplierAddress 
+      }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setEditingSupplier(null);
       setEditedSupplierName('');
-      setEditedSupplierContact('');
+      setEditedSupplierEmail('');
+      setEditedSupplierPhone('');
+      setEditedSupplierAddress('');
+      setShowEditModal(false);
+      setError(null);
       fetchSuppliers();
     } catch (err) {
       console.error('Error updating supplier:', err);
       setError(err.response?.data?.message || 'Failed to update supplier.');
     }
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingSupplier(null);
+    setEditedSupplierName('');
+    setEditedSupplierEmail('');
+    setEditedSupplierPhone('');
+    setEditedSupplierAddress('');
+    setShowEditModal(false);
+    setError(null);
+  };
+
+  const handleCloseAddModal = () => {
+    setNewSupplierName('');
+    setNewSupplierEmail('');
+    setNewSupplierPhone('');
+    setNewSupplierAddress('');
+    setShowAddModal(false);
+    setError(null);
   };
 
   const handleDeleteSupplier = async (supplierId) => {
@@ -124,35 +170,23 @@ const Suppliers = () => {
 
       {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
 
-      {/* Add New Supplier Form */}
-      <div style={{ marginBottom: '30px', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', backgroundColor: '#fff' }}>
-        <h3 style={{ marginTop: '0', marginBottom: '15px' }}>{editingSupplier ? 'Edit Supplier' : 'Add New Supplier'}</h3>
-        <form onSubmit={editingSupplier ? handleUpdateSupplier : handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <input
-            type="text"
-            placeholder="Supplier Name"
-            value={editingSupplier ? editedSupplierName : newSupplierName}
-            onChange={(e) => editingSupplier ? setEditedSupplierName(e.target.value) : setNewSupplierName(e.target.value)}
-            style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}
-            required
-          />
-          <input
-            type="text"
-            placeholder="Contact Info (e.g., email or phone)"
-            value={editingSupplier ? editedSupplierContact : newSupplierContact}
-            onChange={(e) => editingSupplier ? setEditedSupplierContact(e.target.value) : setNewSupplierContact(e.target.value)}
-            style={{ padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}
-            required
-          />
-          <button type="submit" style={{ padding: '10px 15px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            {editingSupplier ? 'Update Supplier' : 'Add Supplier'}
-          </button>
-          {editingSupplier && (
-            <button type="button" onClick={() => { setEditingSupplier(null); setNewSupplierName(''); setNewSupplierContact(''); setError(null); }} style={{ padding: '10px 15px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-              Cancel Edit
-            </button>
-          )}
-        </form>
+      {/* Add Supplier Button */}
+      <div style={{ marginBottom: '30px', display: 'flex', justifyContent: 'flex-end' }}>
+        <button 
+          onClick={() => setShowAddModal(true)}
+          style={{ 
+            padding: '12px 24px', 
+            backgroundColor: '#007bff', 
+            color: '#fff', 
+            border: 'none', 
+            borderRadius: '5px', 
+            cursor: 'pointer',
+            fontSize: '16px',
+            fontWeight: '600'
+          }}
+        >
+          + Add New Supplier
+        </button>
       </div>
 
       {/* Suppliers List */}
@@ -162,21 +196,25 @@ const Suppliers = () => {
             <tr style={{ borderBottom: '1px solid #eee' }}>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>ID</th>
               <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Name</th>
-              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Contact</th>
+              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Email</th>
+              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Phone</th>
+              <th style={{ padding: '15px', textAlign: 'left', color: '#555' }}>Address</th>
               <th style={{ padding: '15px', textAlign: 'center', color: '#555' }}>Actions</th>
             </tr>
           </thead>
           <tbody>
             {suppliers.length === 0 ? (
               <tr>
-                <td colSpan="4" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No suppliers found.</td>
+                <td colSpan="6" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No suppliers found.</td>
               </tr>
             ) : (
               suppliers.map((supplier) => (
                 <tr key={supplier.supplier_id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ padding: '15px' }}>{supplier.supplier_id}</td>
                   <td style={{ padding: '15px' }}>{supplier.name}</td>
-                  <td style={{ padding: '15px' }}>{supplier.contact}</td>
+                  <td style={{ padding: '15px' }}>{supplier.email || '-'}</td>
+                  <td style={{ padding: '15px' }}>{supplier.phone || '-'}</td>
+                  <td style={{ padding: '15px', maxWidth: '200px', wordWrap: 'break-word' }}>{supplier.address || '-'}</td>
                   <td style={{ padding: '15px', textAlign: 'center' }}>
                     <button onClick={() => handleEditSupplier(supplier)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Edit</button>
                     <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Delete</button>
@@ -187,6 +225,268 @@ const Suppliers = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Add Supplier Modal */}
+      {showAddModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '30px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Add New Supplier</h2>
+            
+            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            
+            <form onSubmit={handleAddSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Supplier Name:</label>
+                <input
+                  type="text"
+                  placeholder="Enter supplier name"
+                  value={newSupplierName}
+                  onChange={(e) => setNewSupplierName(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Email:</label>
+                <input
+                  type="email"
+                  placeholder="Enter email address"
+                  value={newSupplierEmail}
+                  onChange={(e) => setNewSupplierEmail(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Phone:</label>
+                <input
+                  type="tel"
+                  placeholder="Enter phone number"
+                  value={newSupplierPhone}
+                  onChange={(e) => setNewSupplierPhone(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Address:</label>
+                <textarea
+                  placeholder="Enter address"
+                  value={newSupplierAddress}
+                  onChange={(e) => setNewSupplierAddress(e.target.value)}
+                  rows="3"
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  onClick={handleCloseAddModal}
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#6c757d', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#007bff', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Add Supplier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Supplier Modal */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '30px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Edit Supplier</h2>
+            
+            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            
+            <form onSubmit={handleUpdateSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Supplier Name:</label>
+                <input
+                  type="text"
+                  value={editedSupplierName}
+                  onChange={(e) => setEditedSupplierName(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Email:</label>
+                <input
+                  type="email"
+                  value={editedSupplierEmail}
+                  onChange={(e) => setEditedSupplierEmail(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Phone:</label>
+                <input
+                  type="tel"
+                  value={editedSupplierPhone}
+                  onChange={(e) => setEditedSupplierPhone(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+              
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Address:</label>
+                <textarea
+                  value={editedSupplierAddress}
+                  onChange={(e) => setEditedSupplierAddress(e.target.value)}
+                  rows="3"
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
+                  }}
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  onClick={handleCloseEditModal}
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#6c757d', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#007bff', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Update Supplier
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

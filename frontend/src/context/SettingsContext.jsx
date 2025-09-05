@@ -5,7 +5,6 @@ const SettingsContext = createContext();
 
 export const SettingsProvider = ({ children }) => {
   const [siteSettings, setSiteSettings] = useState({
-    site_name: 'TechStock',
     currency: 'ILS',
     vat_rate: 18,
   });
@@ -77,6 +76,10 @@ export const SettingsProvider = ({ children }) => {
     setLoadingSettings(false);
   };
 
+  const updateUsername = (newUsername) => {
+    setUsername(newUsername);
+  };
+
   const contextValue = {
     ...siteSettings,
     isUserAdmin,
@@ -85,6 +88,7 @@ export const SettingsProvider = ({ children }) => {
     loadingSettings,
     reEvaluateToken,
     refreshSiteSettings,
+    updateUsername,
   };
 
   return (

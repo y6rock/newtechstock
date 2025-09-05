@@ -35,8 +35,8 @@ const Settings = () => {
     setLoading(true);
     try {
       const token = localStorage.getItem('token');
-      const { currency, vat_rate, site_name, contact_email, contact_phone, facebook_url, instagram_url, twitter_url } = settings;
-      await axios.put('/api/settings', { currency, vat_rate, site_name, contact_email, contact_phone, facebook_url, instagram_url, twitter_url }, {
+      const { currency, vat_rate, contact_email, contact_phone, facebook_url, instagram_url, twitter_url } = settings;
+      await axios.put('/api/settings', { currency, vat_rate, contact_email, contact_phone, facebook_url, instagram_url, twitter_url }, {
         headers: { Authorization: `Bearer ${token}` }
       });
       setMessage('Settings updated successfully');
@@ -82,10 +82,6 @@ const Settings = () => {
       <form onSubmit={handleSubmit}>
         {activeTab === 'general' && (
           <div className="settings-form-section">
-            <div className="form-group">
-              <label>Site Name</label>
-              <input type="text" name="site_name" value={settings.site_name || ''} onChange={handleChange} />
-            </div>
             <div className="form-group">
               <label>VAT Rate (%)</label>
               <input type="number" name="vat_rate" value={settings.vat_rate || ''} onChange={handleChange} />

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { formatPrice } from '../utils/currency';
+import { formatDateTimeFull } from '../utils/dateFormat';
+import './OrderHistory.css';
 
 const OrderHistory = ({ userId }) => {
   const { user_id: contextUserId, loadingSettings, currency } = useSettings();
@@ -44,8 +46,13 @@ const OrderHistory = ({ userId }) => {
           throw new Error(errorData.message || 'Failed to fetch orders.');
         }
         const data = await response.json();
-        setOrders(Array.isArray(data) ? data : []);
-        console.log('Fetched orders:', data);
+        const ordersArray = Array.isArray(data) ? data : [];
+        
+        // Sort orders by date (newest first)
+        const sortedOrders = ordersArray.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+        
+        setOrders(sortedOrders);
+        console.log('Fetched orders:', sortedOrders);
       } catch (err) {
         console.error('Error fetching orders:', err);
         setError(`Failed to load orders: ${err.message}`);
@@ -59,55 +66,71 @@ const OrderHistory = ({ userId }) => {
   }, [currentUserId, loadingSettings, navigate, userId]);
 
   if (loadingOrders) {
-    return <div style={{ textAlign: 'center', padding: '50px' }}>Loading order history...</div>;
+    return <div className="loading">Loading order history...</div>;
   }
 
   if (error) {
-    return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>{error}</div>;
+    return <div className="error">{error}</div>;
   }
 
   // Defensive: only map if orders is an array
   if (!Array.isArray(orders)) {
-    return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>Failed to load orders: Unexpected response format.</div>;
+    return <div className="error">Failed to load orders: Unexpected response format.</div>;
   }
 
+  // Check if this is being used as a standalone page (no userId prop)
+  const isStandalonePage = !userId;
+
   return (
-    <div style={{
-      maxWidth: '100%', // Adjust max-width to fit parent container
-      margin: '0', // Remove auto margin for embedding
-      padding: '0', // Remove padding for embedding
-      backgroundColor: 'transparent', // Transparent background when embedded
-      boxShadow: 'none' // No shadow when embedded
-    }}>
-      <h1 style={{ fontSize: '2em', marginBottom: '20px', textAlign: 'center', color: '#333' }}>Your Order History</h1>
+    <div className={isStandalonePage ? "order-history-page" : ""}>
+      {isStandalonePage ? (
+        <div className="order-history-header">
+          <h1 className="order-history-title">Your Order History</h1>
+          <p className="order-history-subtitle">Track all your past orders and their status</p>
+        </div>
+      ) : (
+        <h2 style={{ fontSize: '1.5em', marginBottom: '20px', textAlign: 'center', color: '#333' }}>Your Order History</h2>
+      )}
 
       {orders.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '50px', color: '#666' }}>
-          <p style={{ fontSize: '1.2em', marginBottom: '20px' }}>You haven't placed any orders yet.</p>
+        <div className="no-orders">
+          <div className="no-orders-icon">📦</div>
+          <h2 className="no-orders-title">No Orders Yet</h2>
+          <p className="no-orders-text">You haven't placed any orders yet. Start shopping to see your order history here!</p>
+          <Link to="/products" className="shop-now-btn">Start Shopping</Link>
         </div>
       ) : (
         <div>
           {orders.map(order => (
-            <div key={order.order_id} style={{ marginBottom: '30px', border: '1px solid #eee', borderRadius: '8px', padding: '20px', boxShadow: '0 1px 5px rgba(0,0,0,0.03)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', paddingBottom: '15px', borderBottom: '1px solid #ddd' }}>
-                <h2 style={{ margin: '0', fontSize: '1.4em', color: '#007bff' }}>Order #{order.order_id}</h2>
-                <span style={{ fontSize: '1.1em', fontWeight: 'bold' }}>Total: {formatPrice(order.total_amount, currency)}</span>
+            <div key={order.order_id} className="order-card">
+              <div className="order-header">
+                <h2 className="order-number">Order #{order.order_id}</h2>
+                <span className="order-total">Total: {formatPrice(order.total_amount, currency)}</span>
               </div>
-              <p style={{ margin: '0 0 10px 0', color: '#777' }}>Date: {new Date(order.order_date).toLocaleDateString()} {new Date(order.order_date).toLocaleTimeString()}</p>
-              <p style={{ margin: '0 0 15px 0', color: '#777' }}>Status: <span style={{ color: order.status === 'pending' ? '#ffc107' : '#28a745', fontWeight: 'bold', textTransform: 'capitalize' }}>{order.status}</span></p>
+              <div className="order-details">
+                <p className="order-detail">Date: {formatDateTimeFull(order.order_date)}</p>
+                <p className="order-detail">Status: <span className={`order-status ${order.status}`}>{order.status}</span></p>
+              </div>
 
-              <h3 style={{ fontSize: '1.2em', marginBottom: '10px', color: '#555' }}>Items:</h3>
-              <ul style={{ listStyle: 'none', padding: '0' }}>
-                {(Array.isArray(order.items) ? order.items : []).map(item => (
-                  <li key={item.product_id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '8px 0', borderBottom: '1px dashed #f0f0f0' }}>
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                      <img src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} alt={item.product_name} style={{ width: '50px', height: '50px', objectFit: 'cover', marginRight: '15px', borderRadius: '4px' }}/>
-                      <span>{item.product_name} (x{item.quantity})</span>
+              <div className="items-section">
+                <h3 className="items-title">Items:</h3>
+                <div className="items-list">
+                  {(Array.isArray(order.items) ? order.items : []).map(item => (
+                    <div key={item.product_id} className="item-card">
+                      <img 
+                        src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} 
+                        alt={item.product_name} 
+                        className="item-image"
+                      />
+                      <div className="item-details">
+                        <p className="item-name">{item.product_name}</p>
+                        <p className="item-quantity">Quantity: {item.quantity}</p>
+                        <p className="item-price">{formatPrice(item.price * item.quantity, currency)}</p>
+                      </div>
                     </div>
-                    <span>{formatPrice(item.price * item.quantity, currency)}</span>
-                  </li>
-                ))}
-              </ul>
+                  ))}
+                </div>
+              </div>
             </div>
           ))}
         </div>

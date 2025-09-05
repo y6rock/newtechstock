@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { formatPrice } from '../../utils/currency';
+import { formatDate, formatDateTime } from '../../utils/dateFormat';
 import './Orders.css';
 
 const Orders = () => {
@@ -13,6 +14,8 @@ const Orders = () => {
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all');
+  const [userFilter, setUserFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState('');
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
@@ -32,14 +35,53 @@ const Orders = () => {
     return newStats;
   };
 
-  // Filter orders based on status
+  // Get unique users from orders
+  const getUniqueUsers = () => {
+    const userMap = new Map();
+    orders.forEach(order => {
+      if (order.user_id && (order.user_name || order.user_email)) {
+        userMap.set(order.user_id, {
+          id: order.user_id,
+          name: order.user_name || 'Unknown User',
+          email: order.user_email || 'No email'
+        });
+      }
+    });
+    return Array.from(userMap.values());
+  };
+
+  // Filter orders based on status and user
   const filterOrders = useCallback(() => {
-    if (statusFilter === 'all') {
-      setFilteredOrders(orders);
-    } else {
-      setFilteredOrders(orders.filter(order => order.status === statusFilter));
+    // Don't filter if orders array is empty
+    if (orders.length === 0) {
+      setFilteredOrders([]);
+      return;
     }
-  }, [orders, statusFilter]);
+    
+    let filtered = orders;
+
+    // Filter by status
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(order => order.status === statusFilter);
+    }
+
+    // Filter by user
+    if (userFilter !== 'all') {
+      filtered = filtered.filter(order => order.user_id == userFilter);
+    }
+
+    // Filter by search term (name or email)
+    if (searchTerm) {
+      filtered = filtered.filter(order => {
+        const userName = order.user_name || '';
+        const userEmail = order.user_email || '';
+        return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+               userEmail.toLowerCase().includes(searchTerm.toLowerCase());
+      });
+    }
+
+    setFilteredOrders(filtered);
+  }, [orders, statusFilter, userFilter, searchTerm]);
 
   const fetchOrdersAndStats = useCallback(async () => {
     setLoading(true);
@@ -64,6 +106,7 @@ const Orders = () => {
       const distributionData = await distributionRes.json();
 
       setOrders(ordersData);
+      setFilteredOrders(ordersData); // Set initial filtered orders
       const processedStats = processStats(distributionData);
       setStats(processedStats);
 
@@ -163,30 +206,67 @@ const Orders = () => {
       </div>
 
       <div className="orders-filters">
-        <div className="filter-group">
-          <label htmlFor="status-filter">Filter by Status:</label>
-          <select
-            id="status-filter"
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="status-filter-dropdown"
-          >
-            <option value="all">All Orders ({orders.length})</option>
-            <option value="Pending">Pending ({stats.pending_orders})</option>
-            <option value="Processing">Processing ({stats.processing_orders})</option>
-            <option value="Shipped">Shipped ({stats.shipped_orders})</option>
-            <option value="Delivered">Delivered ({stats.delivered_orders})</option>
-            <option value="Cancelled">Cancelled</option>
-          </select>
+        <div className="filter-row">
+          <div className="filter-group">
+            <label htmlFor="status-filter">Filter by Status:</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="status-filter-dropdown"
+            >
+              <option value="all">All Orders ({orders.length})</option>
+              <option value="Pending">Pending ({stats.pending_orders})</option>
+              <option value="Processing">Processing ({stats.processing_orders})</option>
+              <option value="Shipped">Shipped ({stats.shipped_orders})</option>
+              <option value="Delivered">Delivered ({stats.delivered_orders})</option>
+            </select>
+          </div>
+          
+          <div className="filter-group">
+            <label htmlFor="user-filter">Filter by User:</label>
+            <select
+              id="user-filter"
+              value={userFilter}
+              onChange={(e) => setUserFilter(e.target.value)}
+              className="user-filter-dropdown"
+            >
+              <option value="all">All Users</option>
+              {getUniqueUsers().map(user => (
+                <option key={user.id} value={user.id}>
+                  {user.name} ({user.email})
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
+        
+        <div className="filter-row">
+          <div className="filter-group">
+            <label htmlFor="search-term">Search by Name/Email:</label>
+            <input
+              id="search-term"
+              type="text"
+              placeholder="Enter name or email..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="search-input"
+            />
+          </div>
+        </div>
+        
         <div className="filter-info">
           <span>Showing {filteredOrders.length} of {orders.length} orders</span>
-          {statusFilter !== 'all' && (
+          {(statusFilter !== 'all' || userFilter !== 'all' || searchTerm) && (
             <button 
-              onClick={() => setStatusFilter('all')}
+              onClick={() => {
+                setStatusFilter('all');
+                setUserFilter('all');
+                setSearchTerm('');
+              }}
               className="clear-filter-btn"
             >
-              Clear Filter
+              Clear All Filters
             </button>
           )}
         </div>
@@ -208,7 +288,7 @@ const Orders = () => {
             {filteredOrders.map(order => (
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
-                <td>{new Date(order.order_date).toLocaleDateString()}</td>
+                <td>{formatDate(order.order_date)}</td>
                 <td>{order.user_name || order.user_email}</td>
                 <td>{formatPrice(order.total_price, currency)}</td>
                 <td>
@@ -221,7 +301,6 @@ const Orders = () => {
                     <option value="Processing">Processing</option>
                     <option value="Shipped">Shipped</option>
                     <option value="Delivered">Delivered</option>
-                    <option value="Cancelled">Cancelled</option>
                   </select>
                 </td>
                 <td className="order-actions">
@@ -239,7 +318,7 @@ const Orders = () => {
             <button onClick={closeModal} className="modal-close-button">&times;</button>
             <h2>Order #{selectedOrder.order_id}</h2>
             <p><strong>User:</strong> {selectedOrder.user_name || selectedOrder.user_email || '-'}</p>
-            <p><strong>Date:</strong> {new Date(selectedOrder.order_date).toLocaleString()}</p>
+            <p><strong>Date:</strong> {formatDateTime(selectedOrder.order_date)}</p>
             <p><strong>Total:</strong> {formatPrice(selectedOrder.total_price, currency)}</p>
             <h3>Products</h3>
             <ul className="order-products-list">

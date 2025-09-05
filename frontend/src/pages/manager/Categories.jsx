@@ -8,11 +8,15 @@ const Categories = () => {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState([]);
+  const [filteredCategories, setFilteredCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [editingCategory, setEditingCategory] = useState(null); // category object being edited
   const [editedCategoryName, setEditedCategoryName] = useState('');
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
 
   useEffect(() => {
     if (loadingSettings) {
@@ -25,6 +29,19 @@ const Categories = () => {
 
     fetchCategories();
   }, [isUserAdmin, loadingSettings, navigate]);
+
+  // Filter categories based on status
+  useEffect(() => {
+    let filtered = categories;
+    
+    if (statusFilter === 'active') {
+      filtered = categories.filter(category => category.status === 'Active');
+    } else if (statusFilter === 'inactive') {
+      filtered = categories.filter(category => category.status === 'Inactive');
+    }
+    
+    setFilteredCategories(filtered);
+  }, [categories, statusFilter]);
 
   const fetchCategories = async () => {
     try {
@@ -54,6 +71,8 @@ const Categories = () => {
         headers: { Authorization: `Bearer ${token}` }
       });
       setNewCategoryName('');
+      setShowAddModal(false);
+      setError(null);
       fetchCategories();
     } catch (err) {
       console.error('Error adding category:', err);
@@ -64,6 +83,7 @@ const Categories = () => {
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setEditedCategoryName(category.name);
+    setShowEditModal(true);
   };
 
   const handleUpdateCategory = async (e) => {
@@ -81,11 +101,26 @@ const Categories = () => {
       });
       setEditingCategory(null);
       setEditedCategoryName('');
+      setShowEditModal(false);
+      setError(null);
       fetchCategories();
     } catch (err) {
       console.error('Error updating category:', err);
       setError(err.response?.data?.message || 'Failed to update category.');
     }
+  };
+
+  const handleCloseEditModal = () => {
+    setEditingCategory(null);
+    setEditedCategoryName('');
+    setShowEditModal(false);
+    setError(null);
+  };
+
+  const handleCloseAddModal = () => {
+    setNewCategoryName('');
+    setShowAddModal(false);
+    setError(null);
   };
 
   const handleDeleteCategory = async (categoryId) => {
@@ -116,6 +151,22 @@ const Categories = () => {
     }
   };
 
+  const handleToggleStatus = async (categoryId, currentStatus) => {
+    const action = currentStatus === 'Active' ? 'deactivate' : 'activate';
+    if (window.confirm(`Are you sure you want to ${action} this category?`)) {
+      try {
+        const token = localStorage.getItem('token');
+        await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        fetchCategories();
+      } catch (err) {
+        console.error('Error toggling category status:', err);
+        setError(err.response?.data?.message || 'Failed to toggle category status.');
+      }
+    }
+  };
+
   if (loadingSettings || loadingCategories) {
     return <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>Loading Admin Panel...</div>;
   }
@@ -131,27 +182,37 @@ const Categories = () => {
 
       {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
 
-      {/* Add New Category Form */}
+      {/* Filter and Add Button */}
       <div style={{ marginBottom: '30px', padding: '20px', border: '1px solid #eee', borderRadius: '8px', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', backgroundColor: '#fff' }}>
-        <h3 style={{ marginTop: '0', marginBottom: '15px' }}>{editingCategory ? 'Edit Category' : 'Add New Category'}</h3>
-        <form onSubmit={editingCategory ? handleUpdateCategory : handleAddCategory} style={{ display: 'flex', gap: '10px' }}>
-          <input
-            type="text"
-            placeholder="Category Name"
-            value={editingCategory ? editedCategoryName : newCategoryName}
-            onChange={(e) => editingCategory ? setEditedCategoryName(e.target.value) : setNewCategoryName(e.target.value)}
-            style={{ flex: 1, padding: '10px', border: '1px solid #ddd', borderRadius: '5px' }}
-            required
-          />
-          <button type="submit" style={{ padding: '10px 15px', backgroundColor: '#007bff', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-            {editingCategory ? 'Update Category' : 'Add Category'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <label htmlFor="status-filter" style={{ fontWeight: '600', color: '#555' }}>Filter by Status:</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              style={{ padding: '8px 12px', border: '1px solid #ddd', borderRadius: '5px', backgroundColor: '#fff' }}
+            >
+              <option value="all">All Categories ({categories.length})</option>
+              <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
+              <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
+            </select>
+          </div>
+          <button 
+            onClick={() => setShowAddModal(true)}
+            style={{ 
+              padding: '10px 20px', 
+              backgroundColor: '#007bff', 
+              color: '#fff', 
+              border: 'none', 
+              borderRadius: '5px', 
+              cursor: 'pointer',
+              fontWeight: '600'
+            }}
+          >
+            + Add New Category
           </button>
-          {editingCategory && (
-            <button type="button" onClick={() => { setEditingCategory(null); setNewCategoryName(''); setError(null); }} style={{ padding: '10px 15px', backgroundColor: '#6c757d', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>
-              Cancel Edit
-            </button>
-          )}
-        </form>
+        </div>
       </div>
 
       {/* Categories List */}
@@ -166,12 +227,12 @@ const Categories = () => {
             </tr>
           </thead>
           <tbody>
-            {categories.length === 0 ? (
+            {filteredCategories.length === 0 ? (
               <tr>
                 <td colSpan="4" style={{ padding: '15px', textAlign: 'center', color: '#888' }}>No categories found.</td>
               </tr>
             ) : (
-              categories.map((category) => (
+              filteredCategories.map((category) => (
                 <tr key={category.category_id} style={{ borderBottom: '1px solid #eee' }}>
                   <td style={{ padding: '15px' }}>{category.category_id}</td>
                   <td style={{ padding: '15px' }}>{category.name}</td>
@@ -187,12 +248,22 @@ const Categories = () => {
                     </span>
                   </td>
                   <td style={{ padding: '15px', textAlign: 'center' }}>
-                    <button onClick={() => handleEditCategory(category)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer', marginRight: '10px' }}>Edit</button>
-                    {category.status === 'Active' ? (
-                      <button onClick={() => handleDeleteCategory(category.category_id)} style={{ padding: '8px 12px', backgroundColor: '#dc3545', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Deactivate</button>
-                    ) : (
-                      <button onClick={() => handleRestoreCategory(category.category_id)} style={{ padding: '8px 12px', backgroundColor: '#28a745', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Restore</button>
-                    )}
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                      <button onClick={() => handleEditCategory(category)} style={{ padding: '8px 12px', backgroundColor: '#ffc107', color: '#fff', border: 'none', borderRadius: '5px', cursor: 'pointer' }}>Edit</button>
+                      <button 
+                        onClick={() => handleToggleStatus(category.category_id, category.status)} 
+                        style={{ 
+                          padding: '8px 12px', 
+                          backgroundColor: category.status === 'Active' ? '#dc3545' : '#28a745', 
+                          color: '#fff', 
+                          border: 'none', 
+                          borderRadius: '5px', 
+                          cursor: 'pointer' 
+                        }}
+                      >
+                        {category.status === 'Active' ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
@@ -200,6 +271,167 @@ const Categories = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Add Category Modal */}
+      {showAddModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '30px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Add New Category</h2>
+            
+            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            
+            <form onSubmit={handleAddCategory} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Category Name:</label>
+                <input
+                  type="text"
+                  placeholder="Enter category name"
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  onClick={handleCloseAddModal}
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#6c757d', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#007bff', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Add Category
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Category Modal */}
+      {showEditModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1000
+        }}>
+          <div style={{
+            backgroundColor: '#fff',
+            padding: '30px',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+            width: '90%',
+            maxWidth: '500px',
+            maxHeight: '90vh',
+            overflow: 'auto'
+          }}>
+            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Edit Category</h2>
+            
+            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            
+            <form onSubmit={handleUpdateCategory} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Category Name:</label>
+                <input
+                  type="text"
+                  value={editedCategoryName}
+                  onChange={(e) => setEditedCategoryName(e.target.value)}
+                  style={{ 
+                    width: '100%', 
+                    padding: '10px', 
+                    border: '1px solid #ddd', 
+                    borderRadius: '5px',
+                    boxSizing: 'border-box'
+                  }}
+                  required
+                />
+              </div>
+              
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button 
+                  type="button" 
+                  onClick={handleCloseEditModal}
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#6c757d', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Cancel
+                </button>
+                <button 
+                  type="submit" 
+                  style={{ 
+                    padding: '10px 20px', 
+                    backgroundColor: '#007bff', 
+                    color: '#fff', 
+                    border: 'none', 
+                    borderRadius: '5px', 
+                    cursor: 'pointer' 
+                  }}
+                >
+                  Update Category
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

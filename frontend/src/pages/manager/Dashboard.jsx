@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { Line, Bar, Pie } from 'react-chartjs-2';
+import { formatDate, formatDateShort } from '../../utils/dateFormat';
 import './Dashboard.css';
 import {
   Chart as ChartJS,
@@ -114,7 +115,7 @@ export default function Dashboard() {
 
   // Prepare chart data
   const salesLineData = {
-    labels: salesData.length > 0 ? salesData.map(d => new Date(d.day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })) : ['No Data'],
+    labels: salesData.length > 0 ? salesData.map(d => formatDateShort(d.day)) : ['No Data'],
     datasets: [
       {
         label: 'Total Sales',
@@ -286,28 +287,6 @@ export default function Dashboard() {
         >
           Last 7 Days
         </button>
-        
-        <button
-          onClick={() => {
-            const today = new Date();
-            const thisMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-            setDateRange({
-              startDate: thisMonth.toISOString().split('T')[0],
-              endDate: today.toISOString().split('T')[0]
-            });
-          }}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#28a745',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
-        >
-          This Month
-        </button>
       </div>
 
       {/* Date Range Summary */}
@@ -320,7 +299,7 @@ export default function Dashboard() {
         border: '1px solid #e9ecef'
       }}>
         <p style={{ margin: '0', color: '#495057', fontSize: '16px' }}>
-          <strong>Statistics for:</strong> {new Date(dateRange.startDate).toLocaleDateString()} to {new Date(dateRange.endDate).toLocaleDateString()}
+          <strong>Statistics for:</strong> {formatDate(dateRange.startDate)} to {formatDate(dateRange.endDate)}
         </p>
       </div>
 

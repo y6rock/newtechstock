@@ -113,6 +113,7 @@ router.get('/orders', authenticateToken, requireAdmin, async (req, res) => {
         const [orders] = await db.query(`
             SELECT 
                 o.order_id, 
+                o.user_id,
                 o.order_date, 
                 o.total_amount AS total_price, 
                 o.status,

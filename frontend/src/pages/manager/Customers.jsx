@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/currency';
+import { formatDate } from '../../utils/dateFormat';
 
 const Customers = () => {
     const { isUserAdmin, loadingSettings, currency } = useSettings();
@@ -251,7 +252,7 @@ const Customers = () => {
                                         justifyContent: 'space-between',
                                         alignItems: 'center'
                                     }}>
-                                        <span>Order #{order.order_id} - {new Date(order.order_date).toLocaleDateString()}</span>
+                                        <span>Order #{order.order_id} - {formatDate(order.order_date)}</span>
                                         <span style={{ fontWeight: 'bold' }}>{formatPrice(order.total_price, currency)}</span>
                                     </div>
                                 ))}

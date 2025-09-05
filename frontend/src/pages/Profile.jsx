@@ -1,13 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
-import OrderHistory from './OrderHistory'; // Import OrderHistory component
-import { FaUser, FaEnvelope, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
+import { FaUser, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
 import axios from 'axios';
 import NotificationModal from '../components/NotificationModal';
 
 const Profile = () => {
-  const { user_id, username, loadingSettings } = useSettings();
+  const { user_id, username, loadingSettings, updateUsername } = useSettings();
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState({
     name: username || '',
@@ -20,7 +19,6 @@ const Profile = () => {
   const [profileError, setProfileError] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
-  const [activeTab, setActiveTab] = useState('profile');
   
   // Notification modal state
   const [notification, setNotification] = useState({
@@ -180,6 +178,10 @@ const Profile = () => {
       }, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
+      
+      // Update username in context to reflect in header
+      updateUsername(profileData.name);
+      
       showNotification('Profile updated successfully!', 'success');
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -208,31 +210,29 @@ const Profile = () => {
       <div style={{ display: 'flex', justifyContent: 'center', borderBottom: '2px solid #eee', marginBottom: '16px' }}>
         <div style={{ display: 'flex', gap: '0', background: '#f8f8f8', borderRadius: '8px 8px 0 0', boxShadow: '0 1px 4px rgba(0,0,0,0.03)', maxWidth: '900px', margin: '0 auto' }}>
           <button
-            onClick={() => setActiveTab('profile')}
             style={{
               padding: '16px 36px',
-              background: activeTab === 'profile' ? '#fff' : 'transparent',
+              background: '#fff',
               border: 'none',
-              borderBottom: activeTab === 'profile' ? '3px solid #007bff' : '3px solid transparent',
-              color: activeTab === 'profile' ? '#007bff' : '#333',
+              borderBottom: '3px solid #007bff',
+              color: '#007bff',
               fontWeight: 'bold',
               fontSize: '1.1em',
-              cursor: 'pointer',
+              cursor: 'default',
               outline: 'none',
-              transition: 'all 0.2s',
               borderRadius: '8px 8px 0 0',
               marginRight: '2px',
               minWidth: '120px',
             }}
           >Profile</button>
           <button
-            onClick={() => setActiveTab('orders')}
+            onClick={() => navigate('/order-history')}
             style={{
               padding: '16px 36px',
-              background: activeTab === 'orders' ? '#fff' : 'transparent',
+              background: 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'orders' ? '3px solid #007bff' : '3px solid transparent',
-              color: activeTab === 'orders' ? '#007bff' : '#333',
+              borderBottom: '3px solid transparent',
+              color: '#333',
               fontWeight: 'bold',
               fontSize: '1.1em',
               cursor: 'pointer',
@@ -244,9 +244,8 @@ const Profile = () => {
           >Order History</button>
         </div>
       </div>
-      {/* Tab Content */}
-      {activeTab === 'profile' && (
-        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', minWidth: 0, justifyContent: 'center', maxWidth: '900px', width: '100%', margin: '0 auto' }}>
+      {/* Profile Content */}
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', minWidth: 0, justifyContent: 'center', maxWidth: '900px', width: '100%', margin: '0 auto' }}>
           {/* Profile Picture Section */}
           <div style={{ flex: '1 1 380px', maxWidth: '420px', backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 5px rgba(0,0,0,0.05)', textAlign: 'center', margin: '0 4px', boxSizing: 'border-box', minWidth: '200px' }}>
             <h2 style={{ fontSize: '1.5em', marginBottom: '20px', color: '#333' }}><FaCamera style={{ marginRight: '10px' }} />Profile Picture</h2>
@@ -255,7 +254,6 @@ const Profile = () => {
             </div>
             <input type="file" accept="image/*" onChange={handleImageFileChange} style={{ margin: '10px 0' }} />
             <h3 style={{ margin: '10px 0 5px 0', fontSize: '1.2em', color: '#333' }}>{profileData.name}</h3>
-            <p style={{ margin: '0', color: '#666', fontSize: '0.9em' }}>{profileData.email}</p>
           </div>
           {/* Personal Information Section */}
           <div style={{
@@ -291,18 +289,6 @@ const Profile = () => {
                   value={profileData.name}
                   onChange={handleChange}
                   style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ position: 'relative' }}>
-                <label style={{ display: 'block', marginBottom: '7px', color: '#555', fontWeight: 'bold', fontSize: '1.05em' }}>Email Address</label>
-                <FaEnvelope style={{ position: 'absolute', left: '10px', top: '44px', color: '#aaa' }} />
-                <input
-                  type="email"
-                  name="email"
-                  value={profileData.email}
-                  onChange={handleChange}
-                  style={{ width: '100%', maxWidth: '100%', padding: '14px 10px 14px 38px', border: '1px solid #ddd', borderRadius: '6px', fontSize: '1.08em', marginBottom: '0', boxSizing: 'border-box' }}
-                  readOnly // Email usually not editable
                 />
               </div>
               <div style={{ position: 'relative' }}>
@@ -346,13 +332,6 @@ const Profile = () => {
             >Update Profile</button>
           </div>
         </div>
-      )}
-      {activeTab === 'orders' && (
-        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.07)', padding: '32px', margin: '0 auto', maxWidth: '900px' }}>
-          <h2 style={{ fontSize: '1.5em', marginBottom: '20px', textAlign: 'center', color: '#333' }}>Your Order History</h2>
-          {user_id && <OrderHistory userId={user_id} />}
-        </div>
-      )}
       
       {/* Notification Modal */}
       <NotificationModal

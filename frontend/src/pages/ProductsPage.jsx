@@ -1,11 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
 import { formatNumberWithCommas } from '../utils/currency';
-import './ProductsPage.css'; // Import the new CSS file
+
+import './ProductsPage.css';
 
 // Helper to get currency symbol
 const getCurrencySymbol = (currencyCode) => {
@@ -37,8 +38,7 @@ const ProductsPage = () => {
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
   ]);
-  const [manufacturers, setManufacturers] = useState([]);
-  const [searchTerm, setSearchTerm] = useState(''); // Add search state
+  const [searchTerm, setSearchTerm] = useState('');
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -47,18 +47,29 @@ const ProductsPage = () => {
     const params = new URLSearchParams(location.search);
     const categoryName = params.get('category');
     if (categoryName) {
-      // Since categories are not dynamically fetched anymore, we can simplify this
       return categoryName;
     }
     return 'All Products';
   };
 
   const [selectedCategory, setSelectedCategory] = useState('All Products');
-  const [priceRange, setPriceRange] = useState(100000);
+  const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
+  const [selectedMaxPrice, setSelectedMaxPrice] = useState(1000);
+  const [tempMaxPrice, setTempMaxPrice] = useState(1000);
+  const [priceStats, setPriceStats] = useState({ minPrice: 0, maxPrice: 1000 });
+  const [manufacturers, setManufacturers] = useState([]);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
-  const [filtersOpen, setFiltersOpen] = useState(false); // State for mobile filters
-
-  // No URL synchronization needed since we removed URL navigation
+  
+  // Clean up duplicates on component mount
+  useEffect(() => {
+    setSelectedManufacturers(prev => {
+      const unique = [...new Set(prev)];
+      if (unique.length !== prev.length) {
+        return unique;
+      }
+      return prev;
+    });
+  }, []);
 
   useEffect(() => {
     // Fetch products
@@ -66,6 +77,19 @@ const ProductsPage = () => {
       .then(res => {
         console.log('ProductsPage: Products fetched from backend:', res.data);
         setProducts(res.data);
+        
+        // Calculate price range from products
+        const prices = res.data.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
+        if (prices.length > 0) {
+          const minPrice = Math.min(...prices);
+          const maxPrice = Math.max(...prices);
+          setPriceRange({ min: minPrice, max: maxPrice });
+          setSelectedMaxPrice(maxPrice);
+          setTempMaxPrice(maxPrice);
+          setPriceStats({ minPrice, maxPrice });
+        }
+
+        // Manufacturers will be fetched separately from suppliers API
       })
       .catch(err => console.error('ProductsPage: Error fetching products:', err));
 
@@ -80,36 +104,44 @@ const ProductsPage = () => {
       })
       .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
-    // Fetch manufacturers (assuming a /api/manufacturers endpoint exists or can be derived)
-    // For now, let's use a placeholder if no dedicated API exists
-    const dummyManufacturers = [
-      { id: 'gaming_desktops', name: 'Gaming Desktops' },
-      { id: 'apple', name: 'Apple' },
-      { id: 'samsung', name: 'Samsung' },
-      { id: 'dell', name: 'Dell' },
-      { id: 'lenovo', name: 'Lenovo' },
-      { id: 'asus', name: 'ASUS' },
-      { id: 'hp', name: 'HP' },
-    ];
-    setManufacturers(dummyManufacturers);
-
+    // Fetch suppliers (manufacturers)
+    axios.get('/api/suppliers/public')
+      .then(res => {
+        const manufacturerList = res.data.map(supplier => ({
+          id: supplier.supplier_id,
+          name: supplier.name
+        }));
+        setManufacturers(manufacturerList);
+      })
+      .catch(err => console.error('ProductsPage: Error fetching suppliers:', err));
   }, []);
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
-    // No URL navigation to avoid page reloads
   };
 
   const handlePriceChange = (e) => {
-    setPriceRange(e.target.value);
+    const value = parseFloat(e.target.value);
+    setSelectedMaxPrice(value);
+    setTempMaxPrice(value);
   };
 
   const handleManufacturerChange = (e) => {
     const { value, checked } = e.target;
-    setSelectedManufacturers(prev =>
-      checked ? [...prev, value] : prev.filter(m => m !== value)
-    );
+    
+    setSelectedManufacturers(prev => {
+      if (checked) {
+        if (prev.includes(value)) {
+          return prev;
+        }
+        return [...prev, value];
+      } else {
+        return prev.filter(m => m !== value);
+      }
+    });
   };
+
+
 
   const handleSearchChange = (e) => {
     setSearchTerm(e.target.value);
@@ -120,51 +152,89 @@ const ProductsPage = () => {
     // Search is handled by the filteredProducts logic
   };
 
-  const filteredProducts = products.filter(product => {
-    const categoryObject = categories.find(c => c.category_id === product.category_id);
-    const categoryName = categoryObject ? categoryObject.name : '';
-    const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
-    const matchesPrice = parseFloat(product.price) <= parseFloat(priceRange);
-    const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.manufacturer_id);
-    
-    // Add search functionality
-    const matchesSearch = searchTerm === '' || 
-      product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (product.short_description && product.short_description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      categoryName.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return matchesCategory && matchesPrice && matchesManufacturer && matchesSearch;
-  });
+  // Filter products by category, search term, price range, and manufacturer
+  const filteredProducts = useMemo(() => {
+    return products.filter(product => {
+      const categoryObject = categories.find(c => c.category_id === product.category_id);
+      const categoryName = categoryObject ? categoryObject.name : '';
+      const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
+      
+      const productPrice = parseFloat(product.price);
+      const matchesPrice = productPrice <= selectedMaxPrice;
+      
+      const matchesManufacturer = selectedManufacturers.length === 0 || selectedManufacturers.includes(product.supplier_id);
+      
+      const matchesSearch = searchTerm === '' || 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.short_description && product.short_description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        categoryName.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      return matchesCategory && matchesPrice && matchesManufacturer && matchesSearch;
+    });
+  }, [products, categories, selectedCategory, searchTerm, selectedMaxPrice, selectedManufacturers]);
 
   const FilterSidebar = () => (
-    <div className={`filters-sidebar ${filtersOpen ? 'open' : ''}`}>
-      <button className="filter-close-button" onClick={() => setFiltersOpen(false)}>&times;</button>
+    <div className="filters-sidebar">
       <div className="filter-group">
         <h3>Price Range</h3>
-        <input type="range" min="0" max="100000" value={priceRange} onChange={handlePriceChange} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '10px' }}>
-          <span>{getCurrencySymbol(currency)}0</span>
-          <span>{formatNumberWithCommas(priceRange)}</span>
+        <div className="price-range-container">
+          <input
+            type="range"
+            id="priceRange"
+            min={priceRange.min}
+            max={priceRange.max}
+            step="0.01"
+            value={tempMaxPrice}
+            onChange={handlePriceChange}
+            className="price-range-slider"
+          />
+          <div className="price-range-labels">
+            <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.min)}</span>
+            <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.max)}</span>
+          </div>
         </div>
       </div>
+
       <div className="filter-group">
         <h3>Manufacturer</h3>
-        {manufacturers.map(manufacturer => (
-          <div key={manufacturer.id}>
-            <label>
-              <input type="checkbox" value={manufacturer.id} checked={selectedManufacturers.includes(manufacturer.id)} onChange={handleManufacturerChange} />
-              {manufacturer.name}
-            </label>
-          </div>
-        ))}
+        <div className="manufacturer-checkboxes">
+          {manufacturers.map(manufacturer => {
+            const isChecked = selectedManufacturers.includes(manufacturer.id.toString());
+            return (
+              <div key={manufacturer.id} className="manufacturer-checkbox">
+                <label>
+                  <input
+                    type="checkbox"
+                    value={manufacturer.id}
+                    checked={isChecked}
+                    onChange={handleManufacturerChange}
+                    style={{
+                      width: '18px',
+                      height: '18px',
+                      accentColor: '#4a90e2',
+                      cursor: 'pointer'
+                    }}
+                  />
+                  <span className="checkbox-label">{manufacturer.name}</span>
+                </label>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 
   return (
     <div className="products-page-container">
-      {/* Add Search Bar */}
+      {/* Hero Section */}
+      <div className="products-hero-section">
+        <h1>Our Products</h1>
+        <p>Discover our wide range of high-quality products</p>
+      </div>
+
+      {/* Search Section */}
       <div className="search-section">
         <form onSubmit={handleSearchSubmit} className="search-form">
           <div className="search-input-container">
@@ -197,6 +267,7 @@ const ProductsPage = () => {
         )}
       </div>
 
+      {/* Categories Filter */}
       <div className="categories-filter">
         <h3>Categories</h3>
         <div className="categories-filter-buttons">
@@ -212,10 +283,10 @@ const ProductsPage = () => {
         </div>
       </div>
 
+      {/* Main Content Layout */}
       <div className="products-page-layout">
         <FilterSidebar />
         <div className="product-grid-container">
-          <button className="mobile-filter-button" onClick={() => setFiltersOpen(true)}>Show Filters</button>
           <div className="product-grid">
             {filteredProducts.length === 0 ? (
               <div className="no-products-message">
@@ -226,9 +297,7 @@ const ProductsPage = () => {
                     ? `No products found matching "${searchTerm}"`
                     : selectedCategory !== 'All Products'
                     ? `No products found in the "${selectedCategory}" category`
-                    : selectedManufacturers.length > 0
-                    ? `No products found with the selected manufacturer filters`
-                    : `No products available with the current filters`
+                    : `No products available`
                   }
                 </p>
                 <div className="no-products-suggestions">
@@ -236,8 +305,7 @@ const ProductsPage = () => {
                   <ul>
                     <li>Clearing your search term</li>
                     <li>Selecting a different category</li>
-                    <li>Adjusting your price range</li>
-                    <li>Removing manufacturer filters</li>
+                    <li>Browsing all products</li>
                   </ul>
                 </div>
                 <button 
@@ -245,7 +313,8 @@ const ProductsPage = () => {
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedCategory('All Products');
-                    setPriceRange(100000);
+                    setSelectedMaxPrice(priceStats.maxPrice);
+                    setTempMaxPrice(priceStats.maxPrice);
                     setSelectedManufacturers([]);
                   }}
                 >

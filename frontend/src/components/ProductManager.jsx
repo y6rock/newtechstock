@@ -13,6 +13,7 @@ function ProductManager() {
   const [suppliers, setSuppliers] = useState([]);
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [settings, setSettings] = useState({ currency: 'ILS' });
@@ -316,10 +317,17 @@ function ProductManager() {
     }
   };
 
-  const filteredProducts = products.filter(product =>
-    product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase())) // Assuming category_name exists
-  );
+  // Filter products based on search term and status
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()));
+    
+    const matchesStatus = statusFilter === 'all' || 
+      (statusFilter === 'active' && product.is_active === 1) ||
+      (statusFilter === 'inactive' && product.is_active === 0);
+    
+    return matchesSearch && matchesStatus;
+  });
 
   // Add a formatPrice function
   const formatPrice = (price) => {
@@ -395,23 +403,161 @@ function ProductManager() {
       <h1 style={{ fontSize: '2em', marginBottom: '10px' }}>Products</h1>
       <p style={{ color: '#666', marginBottom: '20px' }}>Manage your product catalog</p>
 
-      <div style={{ marginBottom: '20px', position: 'relative' }}>
-        <input
-          type="text"
-          placeholder="Search products..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={{
-            width: '100%',
-            padding: '10px 15px 10px 40px',
-            border: '1px solid #ddd',
-            borderRadius: '5px',
-            fontSize: '1em',
-          }}
-        />
-        <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }}>
-          🔍
-        </span>
+      {/* Search and Filter Controls - Enhanced Layout */}
+      <div style={{ 
+        marginBottom: '20px', 
+        display: 'flex', 
+        gap: '40px', 
+        flexWrap: 'wrap', 
+        alignItems: 'center',
+        padding: '20px',
+        backgroundColor: '#f8f9fa',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef',
+        justifyContent: 'flex-start'
+      }}>
+        {/* Search Input */}
+        <div style={{ 
+          position: 'relative', 
+          minWidth: '200px', 
+          maxWidth: '250px', 
+          flexShrink: 0, 
+          marginRight: '30px',
+          flex: '0 0 auto'
+        }}>
+          <input
+            type="text"
+            placeholder="Search products..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '10px 15px 10px 40px',
+              border: '1px solid #ddd',
+              borderRadius: '5px',
+              fontSize: '1em',
+              backgroundColor: '#fff'
+            }}
+          />
+          <span style={{ position: 'absolute', left: '15px', top: '50%', transform: 'translateY(-50%)', color: '#aaa' }}>
+            🔍
+          </span>
+        </div>
+        
+        {/* Status Filter */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '12px', 
+          minWidth: '160px',
+          flexShrink: 0,
+          marginRight: '30px',
+          flex: '0 0 auto'
+        }}>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            style={{
+              padding: '10px 15px',
+              border: '1px solid #ddd',
+              borderRadius: '5px',
+              fontSize: '1em',
+              minWidth: '160px',
+              backgroundColor: '#fff'
+            }}
+          >
+            <option value="all">All Products ({products.length})</option>
+            <option value="active">Active ({products.filter(p => p.is_active === 1).length})</option>
+            <option value="inactive">Inactive ({products.filter(p => p.is_active === 0).length})</option>
+          </select>
+        </div>
+        
+        {/* Filter Info */}
+        <div style={{ 
+          color: '#666', 
+          fontSize: '0.9em', 
+          fontStyle: 'italic', 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          minWidth: '220px',
+          flexShrink: 0
+        }}>
+          <span>Showing {filteredProducts.length} of {products.length} products</span>
+          {(statusFilter !== 'all' || searchTerm) && (
+            <button 
+              onClick={() => {
+                setStatusFilter('all');
+                setSearchTerm('');
+              }}
+              style={{
+                padding: '4px 12px',
+                border: '1px solid #dc3545',
+                borderRadius: '4px',
+                backgroundColor: 'transparent',
+                color: '#dc3545',
+                fontSize: '0.8em',
+                cursor: 'pointer',
+                transition: 'all 0.2s'
+              }}
+              onMouseOver={(e) => {
+                e.target.style.backgroundColor = '#dc3545';
+                e.target.style.color = 'white';
+              }}
+              onMouseOut={(e) => {
+                e.target.style.backgroundColor = 'transparent';
+                e.target.style.color = '#dc3545';
+              }}
+            >
+              Clear Filters
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Product Statistics */}
+      <div style={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', 
+        gap: '15px', 
+        marginBottom: '20px' 
+      }}>
+        <div style={{ 
+          backgroundColor: '#fff', 
+          padding: '15px', 
+          borderRadius: '8px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#007bff' }}>
+            {products.length}
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>Total Products</div>
+        </div>
+        <div style={{ 
+          backgroundColor: '#fff', 
+          padding: '15px', 
+          borderRadius: '8px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#28a745' }}>
+            {products.filter(p => p.is_active === 1).length}
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>Active Products</div>
+        </div>
+        <div style={{ 
+          backgroundColor: '#fff', 
+          padding: '15px', 
+          borderRadius: '8px', 
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          textAlign: 'center'
+        }}>
+          <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#dc3545' }}>
+            {products.filter(p => p.is_active === 0).length}
+          </div>
+          <div style={{ fontSize: '14px', color: '#666' }}>Inactive Products</div>
+        </div>
       </div>
 
       <div style={{ textAlign: 'right', marginBottom: '20px' }}>
@@ -486,18 +632,22 @@ function ProductManager() {
                 }}>
                   {p.stock < 0 ? `${p.stock} (OUT OF STOCK)` : p.stock}
                 </td>
-                <td style={{ padding: '15px' }}>
-                  <span style={{ 
-                    padding: '4px 8px', 
-                    borderRadius: '4px', 
-                    fontSize: '12px',
-                    fontWeight: 'bold',
-                    backgroundColor: p.is_active ? '#d4edda' : '#f8d7da',
-                    color: p.is_active ? '#155724' : '#721c24'
-                  }}>
-                    {p.is_active ? 'Active' : 'Inactive'}
-                  </span>
-                </td>
+                                 <td style={{ padding: '15px' }}>
+                   <span style={{ 
+                     padding: '6px 12px', 
+                     borderRadius: '6px', 
+                     fontSize: '12px',
+                     fontWeight: 'bold',
+                     backgroundColor: p.is_active ? '#d4edda' : '#f8d7da',
+                     color: p.is_active ? '#155724' : '#721c24',
+                     border: `1px solid ${p.is_active ? '#c3e6cb' : '#f5c6cb'}`,
+                     display: 'inline-block',
+                     minWidth: '80px',
+                     textAlign: 'center'
+                   }}>
+                     {p.is_active ? '✅ Active' : '❌ Inactive'}
+                   </span>
+                 </td>
                 <td style={{ padding: '15px' }}>
                   <button onClick={() => handleOpenModalForEdit(p)} style={{ background: 'none', border: 'none', cursor: 'pointer', marginRight: '10px' }}>✏️</button>
                   {p.is_active ? (

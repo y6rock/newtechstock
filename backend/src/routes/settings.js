@@ -9,7 +9,6 @@ const db = dbSingleton.getConnection();
 const mapDbToFrontend = (dbSettings) => {
     if (!dbSettings) return {};
     return {
-        site_name: dbSettings.storeName,
         vat_rate: dbSettings.taxRate,
         currency: dbSettings.currency,
         contact_email: dbSettings.contactEmail,
@@ -38,7 +37,6 @@ router.put('/', authenticateToken, requireAdmin, async (req, res) => {
     
     // Map frontend keys to DB columns
     const dbUpdate = {};
-    if (frontendSettings.site_name !== undefined) dbUpdate.storeName = frontendSettings.site_name;
     if (frontendSettings.vat_rate !== undefined) dbUpdate.taxRate = frontendSettings.vat_rate;
     if (frontendSettings.currency !== undefined) dbUpdate.currency = frontendSettings.currency;
     if (frontendSettings.contact_email !== undefined) dbUpdate.contactEmail = frontendSettings.contact_email;

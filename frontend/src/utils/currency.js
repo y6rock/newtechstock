@@ -7,7 +7,7 @@ export const getCurrencySymbol = (currencyCode) => {
         'EUR': '€',
         'GBP': '£',
     };
-    return symbols[currencyCode] || '$';
+    return symbols[currencyCode] || '₪';
 };
 
 // Function to add commas to numbers

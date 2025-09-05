@@ -97,4 +97,27 @@ router.patch('/:id/restore', authenticateToken, requireAdmin, async (req, res) =
     }
 });
 
+// Toggle category status (active/inactive)
+router.patch('/:id/toggle-status', authenticateToken, requireAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        // First get the current status
+        const [current] = await db.query('SELECT isActive FROM categories WHERE category_id = ?', [id]);
+        if (current.length === 0) {
+            return res.status(404).json({ message: 'Category not found.' });
+        }
+        
+        const newStatus = !current[0].isActive;
+        const [result] = await db.query('UPDATE categories SET isActive = ? WHERE category_id = ?', [newStatus, id]);
+        
+        res.json({ 
+            message: `Category ${newStatus ? 'activated' : 'deactivated'} successfully`,
+            isActive: newStatus
+        });
+    } catch (err) {
+        console.error(`Error toggling category status ${id}:`, err);
+        res.status(500).json({ message: 'Failed to toggle category status due to a server error.' });
+    }
+});
+
 module.exports = router; 

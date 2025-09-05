@@ -72,7 +72,7 @@ const PayPalTest = () => {
                                         {
                                             amount: {
                                                 value: amount,
-                                                currency_code: "USD"
+                                                currency_code: "ILS"
                                             },
                                             description: `TechStock Test Payment - ${amount} USD`
                                         }

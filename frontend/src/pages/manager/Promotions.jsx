@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
-import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign, FaGift } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
 import './Promotions.css';
 import axios from 'axios';
 import { formatPrice } from '../../utils/currency';
+import { formatDate } from '../../utils/dateFormat';
 
 export default function Promotions() {
   const { isUserAdmin, loadingSettings, currency } = useSettings();
@@ -185,6 +186,39 @@ export default function Promotions() {
     return { status: 'active', label: 'Active', className: 'active' };
   };
 
+  // Convert DD/MM/YYYY to YYYY-MM-DD for HTML5 date inputs
+  const convertToDateInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    return date.toISOString().split('T')[0];
+  };
+
+  // Convert YYYY-MM-DD to DD/MM/YYYY for display
+  const convertToDisplayDate = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    const day = date.getDate().toString().padStart(2, '0');
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const year = date.getFullYear();
+    return `${day}/${month}/${year}`;
+  };
+
+  // Convert DD/MM/YYYY to YYYY-MM-DD for storage
+  const convertToStorageDate = (dateString) => {
+    if (!dateString) return '';
+    // Check if it's already in YYYY-MM-DD format
+    if (dateString.includes('-') && dateString.length === 10) {
+      return dateString;
+    }
+    // Convert from DD/MM/YYYY to YYYY-MM-DD
+    const parts = dateString.split('/');
+    if (parts.length === 3) {
+      const [day, month, year] = parts;
+      return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+    }
+    return dateString;
+  };
+
   const handleEdit = (promotion) => {
     setEditingPromotion(promotion);
     setFormData({
@@ -225,7 +259,6 @@ export default function Promotions() {
     switch (type) {
       case 'percentage': return <FaPercent />;
       case 'fixed': return <FaDollarSign />;
-      case 'buy_x_get_y': return <FaGift />;
       default: return <FaPercent />;
     }
   };
@@ -234,7 +267,6 @@ export default function Promotions() {
     switch (type) {
       case 'percentage': return 'Percentage Discount';
       case 'fixed': return 'Fixed Amount Discount';
-      case 'buy_x_get_y': return 'Buy X Get Y Free';
       default: return type;
     }
   };
@@ -244,7 +276,6 @@ export default function Promotions() {
     switch (type) {
       case 'percentage': return `${value}%`;
       case 'fixed': return formatPrice(value, currency);
-      case 'buy_x_get_y': return `Buy ${value.split(':')[0]} Get ${value.split(':')[1]} Free`;
       default: return value;
     }
   };
@@ -315,8 +346,8 @@ export default function Promotions() {
                 <div className="promotion-details">
                   <p className="promotion-description">{promotion.description}</p>
                   <div className="promotion-dates">
-                    <span><FaCalendarAlt /> {new Date(promotion.start_date).toLocaleDateString()}</span>
-                    <span>to {new Date(promotion.end_date).toLocaleDateString()}</span>
+                    <span><FaCalendarAlt /> {formatDate(promotion.start_date)}</span>
+                    <span>to {formatDate(promotion.end_date)}</span>
                     {isExpired(promotion.end_date) && (
                       <span className="expired-indicator">(Expired)</span>
                     )}
@@ -430,73 +461,54 @@ export default function Promotions() {
                     <span className="type-option-label">$</span>
                   </label>
                   
-                  <label className={`type-option ${formData.type === 'buy_x_get_y' ? 'selected' : ''}`}>
-                    <input
-                      type="radio"
-                      name="type"
-                      value="buy_x_get_y"
-                      checked={formData.type === 'buy_x_get_y'}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
-                    />
-                    <span className="type-option-icon">🎁</span>
-                    <span className="type-option-label">BOGO</span>
-                  </label>
                 </div>
               </div>
 
               <div className="form-group">
                 <label>Discount Value *</label>
-                {formData.type === 'buy_x_get_y' ? (
-                  <div className="buy-x-get-y-inputs">
-                    <input
-                      type="number"
-                      placeholder="Buy"
-                      value={formData.value.split(':')[0] || ''}
-                      onChange={(e) => {
-                        const y = formData.value.split(':')[1] || '1';
-                        setFormData({...formData, value: `${e.target.value}:${y}`});
-                      }}
-                      min="1"
-                      required
-                    />
-                    <span>Get</span>
-                    <input
-                      type="number"
-                      placeholder="Free"
-                      value={formData.value.split(':')[1] || ''}
-                      onChange={(e) => {
-                        const x = formData.value.split(':')[0] || '1';
-                        setFormData({...formData, value: `${x}:${e.target.value}`});
-                      }}
-                      min="1"
-                      required
-                    />
-                  </div>
-                ) : (
-                  <div className="value-input-container">
-                    <input
-                      type="number"
-                      value={formData.value}
-                      onChange={(e) => setFormData({...formData, value: e.target.value})}
-                      min="0"
-                      step="0.01"
-                      placeholder={formData.type === 'percentage' ? '20' : '10'}
-                      required
-                    />
-                    <span className="value-suffix">
-                      {formData.type === 'percentage' ? '%' : currency}
-                    </span>
-                  </div>
-                )}
+                <div className="value-input-container">
+                  <input
+                    type="number"
+                    value={formData.value}
+                    onChange={(e) => setFormData({...formData, value: e.target.value})}
+                    min="0"
+                    step="0.01"
+                    placeholder={formData.type === 'percentage' ? '20' : '10'}
+                    required
+                  />
+                  <span className="value-suffix">
+                    {formData.type === 'percentage' ? '%' : currency}
+                  </span>
+                </div>
               </div>
 
               <div className="form-group">
                 <label>Start Date *</label>
                 <input
-                  type="date"
-                  value={formData.startDate}
-                  onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                  min={new Date().toISOString().split('T')[0]}
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={convertToDisplayDate(formData.startDate)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow only numbers and forward slashes, max 10 characters
+                    if (/^[\d/]*$/.test(value) && value.length <= 10) {
+                      setFormData({...formData, startDate: convertToStorageDate(value)});
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    // Validate date format on blur
+                    if (value && !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+                      // If not in DD/MM/YYYY format, try to convert
+                      const date = new Date(value);
+                      if (!isNaN(date.getTime())) {
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const year = date.getFullYear();
+                        setFormData({...formData, startDate: `${year}-${month}-${day}`});
+                      }
+                    }
+                  }}
                   required
                 />
               </div>
@@ -504,10 +516,30 @@ export default function Promotions() {
               <div className="form-group">
                 <label>End Date *</label>
                 <input
-                  type="date"
-                  value={formData.endDate}
-                  onChange={(e) => setFormData({...formData, endDate: e.target.value})}
-                  min={formData.startDate || new Date().toISOString().split('T')[0]}
+                  type="text"
+                  placeholder="DD/MM/YYYY"
+                  value={convertToDisplayDate(formData.endDate)}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    // Allow only numbers and forward slashes, max 10 characters
+                    if (/^[\d/]*$/.test(value) && value.length <= 10) {
+                      setFormData({...formData, endDate: convertToStorageDate(value)});
+                    }
+                  }}
+                  onBlur={(e) => {
+                    const value = e.target.value;
+                    // Validate date format on blur
+                    if (value && !/^\d{2}\/\d{2}\/\d{4}$/.test(value)) {
+                      // If not in DD/MM/YYYY format, try to convert
+                      const date = new Date(value);
+                      if (!isNaN(date.getTime())) {
+                        const day = date.getDate().toString().padStart(2, '0');
+                        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+                        const year = date.getFullYear();
+                        setFormData({...formData, endDate: `${year}-${month}-${day}`});
+                      }
+                    }
+                  }}
                   required
                 />
               </div>
