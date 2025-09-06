@@ -160,7 +160,7 @@ const Profile = () => {
         setImagePreview('');
       }
       const token = localStorage.getItem('token');
-      await axios.put(`/api/profile/${user_id}`, {
+      const response = await axios.put(`/api/profile/${user_id}`, {
         name: profileData.name,
         phone: profileData.phone,
         city: profileData.address,
@@ -169,8 +169,15 @@ const Profile = () => {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       
-      // Update username in context to reflect in header
-      updateUsername(profileData.name);
+      // Update token if new one is provided
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
+        // Re-evaluate token to update context with new name
+        window.location.reload();
+      } else {
+        // Update username in context to reflect in header
+        updateUsername(profileData.name);
+      }
       
       showNotification('Profile updated successfully!', 'success');
     } catch (error) {
@@ -238,36 +245,42 @@ const Profile = () => {
             <div className="personal-info-form">
               <div className="form-field">
                 <label className="form-label">Full Name</label>
-                <FaUser className="form-icon" />
-                <input
-                  type="text"
-                  name="name"
-                  value={profileData.name}
-                  onChange={handleChange}
-                  className="form-input"
-                />
+                <div className="form-input-container">
+                  <FaUser className="form-icon" />
+                  <input
+                    type="text"
+                    name="name"
+                    value={profileData.name}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
               </div>
               <div className="form-field">
                 <label className="form-label">Phone Number</label>
-                <FaPhone className="form-icon" />
-                <input
-                  type="text"
-                  name="phone"
-                  value={profileData.phone}
-                  onChange={handleChange}
-                  className="form-input"
-                />
+                <div className="form-input-container">
+                  <FaPhone className="form-icon" />
+                  <input
+                    type="text"
+                    name="phone"
+                    value={profileData.phone}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
               </div>
               <div className="form-field">
                 <label className="form-label">Address</label>
-                <FaMapMarkerAlt className="form-icon" />
-                <input
-                  type="text"
-                  name="address"
-                  value={profileData.address}
-                  onChange={handleChange}
-                  className="form-input"
-                />
+                <div className="form-input-container">
+                  <FaMapMarkerAlt className="form-icon" />
+                  <input
+                    type="text"
+                    name="address"
+                    value={profileData.address}
+                    onChange={handleChange}
+                    className="form-input"
+                  />
+                </div>
               </div>
             </div>
             <button

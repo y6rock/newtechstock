@@ -52,7 +52,16 @@
   color: #1976D2;
   text-decoration: none;
   font-weight: bold;
-  transition: color 0.2s;
+  transition: all 0.2s;
+  font-size: 1.1em;
+  padding: 8px 12px;
+  border-radius: 4px;
+  background-color: #f8f9fa;
+}
+
+.header-auth-welcome a:hover {
+  background-color: #e9ecef;
+  transform: translateY(-1px);
 }
 
 .header-auth-logout-btn {

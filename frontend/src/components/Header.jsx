@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
+import { FaUser } from 'react-icons/fa';
 import Logo from './Logo';
 import './Header.css'; // Import the new CSS file
 
@@ -63,7 +64,10 @@ export default function Header() {
               </>
             ) : (
               <div className="header-auth-welcome">
-                <Link to="/profile" onClick={closeMenu}>Welcome, {username}</Link>
+                <Link to="/profile" onClick={closeMenu}>
+                  <FaUser style={{ marginRight: '8px' }} />
+                  Welcome, {username}
+                </Link>
                 <button onClick={handleLogout} className="header-auth-logout-btn">Logout</button>
               </div>
             )}

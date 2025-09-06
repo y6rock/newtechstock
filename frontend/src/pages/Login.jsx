@@ -46,7 +46,7 @@ const Login = () => {
         if (data.role === 'admin') {
             navigate('/manager/dashboard');
         } else {
-            navigate('/profile');
+            navigate('/');
         }
         
         reEvaluateToken();

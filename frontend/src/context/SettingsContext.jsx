@@ -41,7 +41,7 @@ export const SettingsProvider = ({ children }) => {
           const currentTime = Math.floor(Date.now() / 1000);
           if (payload.exp && payload.exp > currentTime) {
             setIsUserAdmin(payload.role === 'admin');
-            setUsername(payload.username || 'User');
+            setUsername(payload.name || payload.username || 'User');
             setUserId(payload.user_id);
           } else {
             localStorage.removeItem('token');

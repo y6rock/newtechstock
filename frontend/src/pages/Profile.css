@@ -192,17 +192,25 @@
   font-size: 1.05em;
 }
 
+.form-input-container {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
 .form-icon {
   position: absolute;
-  left: 10px;
-  top: 44px;
+  left: 15px;
   color: #aaa;
+  font-size: 16px;
+  z-index: 2;
+  pointer-events: none;
 }
 
 .form-input {
   width: 100%;
   max-width: 100%;
-  padding: 14px 10px 14px 38px;
+  padding: 14px 15px 14px 60px; /* Increased left padding to 60px for more space after icon */
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 1.08em;
@@ -282,11 +290,11 @@
   
   .form-input {
     font-size: 1em;
-    padding: 12px 10px 12px 36px;
+    padding: 12px 15px 12px 60px; /* Increased left padding for mobile too */
   }
   
   .form-icon {
-    top: 40px;
+    top: 40px; /* Adjusted for mobile */
   }
 }
 

@@ -1,123 +1,36 @@
 const express = require('express');
-const dbSingleton = require('../../dbSingleton.js');
 const { authenticateToken, requireAdmin } = require('../middleware/auth.js');
+const {
+    getPublicCategories,
+    getAllCategories,
+    createCategory,
+    updateCategory,
+    deleteCategory,
+    restoreCategory,
+    toggleCategoryStatus
+} = require('../controllers/categoryController.js');
 
 const router = express.Router();
-const db = dbSingleton.getConnection();
 
 // Get all categories (public)
-router.get('/public', async (req, res) => {
-    try {
-        const [categories] = await db.query('SELECT * FROM categories WHERE isActive = TRUE ORDER BY name');
-        res.json(categories);
-    } catch (err) {
-        console.error('Database error in GET /categories/public:', err);
-        res.status(500).json({ message: 'Database error' });
-    }
-});
+router.get('/public', getPublicCategories);
 
 // Get all categories (admin only) - shows both active and inactive
-router.get('/', authenticateToken, requireAdmin, async (req, res) => {
-    try {
-        const [categories] = await db.query('SELECT *, CASE WHEN isActive = TRUE THEN "Active" ELSE "Inactive" END as status FROM categories ORDER BY name');
-        res.json(categories);
-    } catch (err) {
-        console.error('Database error in GET /categories:', err);
-        res.status(500).json({ message: 'Database error' });
-    }
-});
+router.get('/', authenticateToken, requireAdmin, getAllCategories);
 
 // Create a new category
-router.post('/', authenticateToken, requireAdmin, async (req, res) => {
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-        return res.status(400).json({ message: 'Category name cannot be empty.' });
-    }
-    try {
-        const [result] = await db.query('INSERT INTO categories (name) VALUES (?)', [name.trim()]);
-        res.status(201).json({ message: 'Category added successfully', category_id: result.insertId });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'A category with this name already exists.' });
-        }
-        console.error('Error adding category:', err);
-        res.status(500).json({ message: 'Failed to add category due to a server error.' });
-    }
-});
+router.post('/', authenticateToken, requireAdmin, createCategory);
 
 // Update a category
-router.put('/:id', authenticateToken, requireAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { name } = req.body;
-    if (!name || !name.trim()) {
-        return res.status(400).json({ message: 'Category name cannot be empty.' });
-    }
-    try {
-        const [result] = await db.query('UPDATE categories SET name = ? WHERE category_id = ?', [name.trim(), id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Category not found.' });
-        }
-        res.json({ message: 'Category updated successfully' });
-    } catch (err) {
-        if (err.code === 'ER_DUP_ENTRY') {
-            return res.status(409).json({ message: 'A category with this name already exists.' });
-        }
-        console.error(`Error updating category ${id}:`, err);
-        res.status(500).json({ message: 'Failed to update category due to a server error.' });
-    }
-});
+router.put('/:id', authenticateToken, requireAdmin, updateCategory);
 
 // Soft delete a category (set isActive to false)
-router.delete('/:id', authenticateToken, requireAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query('UPDATE categories SET isActive = FALSE WHERE category_id = ?', [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Category not found.' });
-        }
-        res.json({ message: 'Category deactivated successfully' });
-    } catch (err) {
-        console.error(`Error deactivating category ${id}:`, err);
-        res.status(500).json({ message: 'Failed to deactivate category due to a server error.' });
-    }
-});
+router.delete('/:id', authenticateToken, requireAdmin, deleteCategory);
 
 // Restore a deactivated category (set isActive to true)
-router.patch('/:id/restore', authenticateToken, requireAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        const [result] = await db.query('UPDATE categories SET isActive = TRUE WHERE category_id = ?', [id]);
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: 'Category not found.' });
-        }
-        res.json({ message: 'Category restored successfully' });
-    } catch (err) {
-        console.error(`Error restoring category ${id}:`, err);
-        res.status(500).json({ message: 'Failed to restore category due to a server error.' });
-    }
-});
+router.patch('/:id/restore', authenticateToken, requireAdmin, restoreCategory);
 
 // Toggle category status (active/inactive)
-router.patch('/:id/toggle-status', authenticateToken, requireAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        // First get the current status
-        const [current] = await db.query('SELECT isActive FROM categories WHERE category_id = ?', [id]);
-        if (current.length === 0) {
-            return res.status(404).json({ message: 'Category not found.' });
-        }
-        
-        const newStatus = !current[0].isActive;
-        const [result] = await db.query('UPDATE categories SET isActive = ? WHERE category_id = ?', [newStatus, id]);
-        
-        res.json({ 
-            message: `Category ${newStatus ? 'activated' : 'deactivated'} successfully`,
-            isActive: newStatus
-        });
-    } catch (err) {
-        console.error(`Error toggling category status ${id}:`, err);
-        res.status(500).json({ message: 'Failed to toggle category status due to a server error.' });
-    }
-});
+router.patch('/:id/toggle-status', authenticateToken, requireAdmin, toggleCategoryStatus);
 
 module.exports = router; 
