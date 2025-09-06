@@ -116,7 +116,6 @@ const Login = () => {
           </div>
 
           <div className="form-group">
-            <FaLock className="form-icon" />
             <input
               type={showPassword ? 'text' : 'password'}
               placeholder="Enter your password"

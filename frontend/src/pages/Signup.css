@@ -66,9 +66,8 @@
 
 .form-group {
   display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 8px;
   margin-bottom: 20px;
 }
 
@@ -84,8 +83,8 @@
 }
 
 .signup-form .form-input {
-  flex: 1;
-  padding: 10px 15px !important;
+  width: 100%;
+  padding: 10px 15px;
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 1em;
@@ -98,33 +97,31 @@
   border-color: #007bff;
 }
 
-/* Form Field with Icon */
-.signup-form .form-field {
-  display: flex !important;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
-  width: 100%;
-  box-sizing: border-box;
-  position: static !important;
-}
+/* Form Field with Icon - Removed as icons are no longer used */
 
-.signup-form .form-icon {
-  color: #aaa;
-  font-size: 1.2em;
-  flex-shrink: 0;
-  position: static !important;
+/* Password field with toggle */
+.form-group:has(.password-toggle) {
+  position: relative;
 }
 
 .password-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
   cursor: pointer;
   color: #aaa;
   padding: 5px;
-  flex-shrink: 0;
+  z-index: 1;
 }
 
 .password-toggle:hover {
   color: #667eea;
+}
+
+/* Password input fields need extra padding for the toggle icon */
+.form-group:has(.password-toggle) .form-input {
+  padding-right: 45px;
 }
 
 .form-input.error {
