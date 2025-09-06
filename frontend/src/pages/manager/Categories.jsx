@@ -178,37 +178,39 @@ const Categories = () => {
 
   return (
     <div className="categories-container">
-      <h1 className="categories-title">Manage Categories</h1>
-      <p className="categories-subtitle">Add, edit, or delete product categories.</p>
-
-      {error && <p className="categories-error">{error}</p>}
-
-      {/* Filter and Add Button */}
-      <div className="filter-section">
-        <div className="filter-controls">
-          <div className="filter-group">
-            <label htmlFor="status-filter" className="filter-label">Filter by Status:</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select"
+      <div className="categories-header">
+        <h1 className="categories-title">Manage Categories</h1>
+        <p className="categories-subtitle">Add, edit, or delete product categories.</p>
+        
+        {/* Filter Section */}
+        <div className="filter-section">
+          <div className="filter-controls">
+            <div className="filter-group">
+              <label htmlFor="status-filter" className="filter-label">Filter by Status:</label>
+              <select
+                id="status-filter"
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="filter-select"
+              >
+                <option value="all">All Categories ({categories.length})</option>
+                <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
+                <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
+              </select>
+            </div>
+            <button 
+              onClick={() => setShowAddModal(true)}
+              className="add-category-btn"
             >
-              <option value="all">All Categories ({categories.length})</option>
-              <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
-              <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
-            </select>
+              + Add New Category
+            </button>
           </div>
-          <button 
-            onClick={() => setShowAddModal(true)}
-            className="add-category-btn"
-          >
-            + Add New Category
-          </button>
         </div>
       </div>
 
-      {/* Categories List */}
+      {error && <p className="categories-error">{error}</p>}
+
+      {/* Categories Table */}
       <div className="table-container">
         <table className="categories-table">
           <thead>

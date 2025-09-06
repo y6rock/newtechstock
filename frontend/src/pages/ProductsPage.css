@@ -199,10 +199,11 @@
 
 .search-form {
   display: flex;
-  gap: 10px;
+  gap: 15px;
   align-items: center;
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto;
+  justify-content: center;
 }
 
 .search-input-container {
@@ -221,12 +222,13 @@
 
 .search-input {
   width: 100%;
-  padding: 12px 40px 12px 40px;
+  padding: 15px 50px 15px 50px;
   border: 2px solid #e0e0e0;
   border-radius: 25px;
-  font-size: 1em;
+  font-size: 1.1em;
   outline: none;
   transition: border-color 0.3s ease;
+  min-width: 400px;
 }
 
 .search-input:focus {
@@ -256,15 +258,16 @@
 }
 
 .search-submit-button {
-  padding: 12px 24px;
+  padding: 15px 30px;
   background-color: #4a90e2;
   color: white;
   border: none;
   border-radius: 25px;
   cursor: pointer;
-  font-size: 1em;
-  font-weight: 500;
+  font-size: 1.1em;
+  font-weight: 600;
   transition: background-color 0.3s ease;
+  white-space: nowrap;
 }
 
 .search-submit-button:hover {

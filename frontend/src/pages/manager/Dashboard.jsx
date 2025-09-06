@@ -28,13 +28,14 @@ export default function Dashboard() {
   const [salesData, setSalesData] = useState([]);
   const [topProducts, setTopProducts] = useState([]);
   const [orderStatus, setOrderStatus] = useState([]);
+  const [lowStockProducts, setLowStockProducts] = useState([]);
   const [settings, setSettings] = useState({ currency: 'ILS' });
   const [currencies, setCurrencies] = useState({});
   
-  // Date range state
+  // Date range state - start with all-time data
   const [dateRange, setDateRange] = useState({
-    startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ago
-    endDate: new Date().toISOString().split('T')[0] // Today
+    startDate: '', // Empty means no start date filter
+    endDate: '' // Empty means no end date filter
   });
 
   // Function to fetch dashboard data with date range
@@ -53,6 +54,7 @@ export default function Dashboard() {
         salesRes,
         topProductsRes,
         orderStatusRes,
+        lowStockRes,
         settingsRes,
         currenciesRes
       ] = await Promise.all([
@@ -60,6 +62,7 @@ export default function Dashboard() {
         axios.get('/api/admin/sales-over-time', { headers, params }),
         axios.get('/api/admin/top-products', { headers, params }),
         axios.get('/api/admin/order-status-distribution', { headers, params }),
+        axios.get('/api/admin/low-stock-products', { headers }),
         axios.get('/api/settings'),
         axios.get('/api/settings/currencies')
       ]);
@@ -69,6 +72,7 @@ export default function Dashboard() {
         sales: salesRes.data,
         topProducts: topProductsRes.data,
         orderStatus: orderStatusRes.data,
+        lowStock: lowStockRes.data,
         settings: settingsRes.data,
         currencies: currenciesRes.data
       });
@@ -77,6 +81,7 @@ export default function Dashboard() {
       setSalesData(salesRes.data);
       setTopProducts(topProductsRes.data);
       setOrderStatus(orderStatusRes.data);
+      setLowStockProducts(lowStockRes.data);
       setSettings(settingsRes.data);
       setCurrencies(currenciesRes.data);
     } catch (err) {
@@ -332,6 +337,120 @@ export default function Dashboard() {
       <div className="chart-container">
         <h3>Top Selling Products</h3>
         <Bar data={topProductsBarData} options={topProductsBarOptions} />
+      </div>
+
+      {/* Low Stock Products */}
+      <div className="chart-container">
+        <h3>Low Stock Products (≤10 units)</h3>
+        {lowStockProducts.length > 0 ? (
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+            gap: '15px',
+            marginTop: '20px'
+          }}>
+            {lowStockProducts.map(product => (
+              <div key={product.id} style={{
+                backgroundColor: '#fff',
+                border: '1px solid #e9ecef',
+                borderRadius: '8px',
+                padding: '15px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '15px'
+              }}>
+                <div style={{
+                  width: '60px',
+                  height: '60px',
+                  backgroundColor: '#f8f9fa',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  overflow: 'hidden'
+                }}>
+                  {product.image ? (
+                    <img 
+                      src={product.image} 
+                      alt={product.name}
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        objectFit: 'cover'
+                      }}
+                    />
+                  ) : (
+                    <div style={{
+                      color: '#6c757d',
+                      fontSize: '24px'
+                    }}>📦</div>
+                  )}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <h4 style={{ 
+                    margin: '0 0 5px 0', 
+                    fontSize: '16px',
+                    color: '#333'
+                  }}>
+                    {product.name}
+                  </h4>
+                  <p style={{ 
+                    margin: '0 0 5px 0', 
+                    color: '#666',
+                    fontSize: '14px'
+                  }}>
+                    {product.category}
+                  </p>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{
+                      backgroundColor: product.stock <= 5 ? '#dc3545' : '#ffc107',
+                      color: 'white',
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      fontSize: '12px',
+                      fontWeight: 'bold'
+                    }}>
+                      {product.stock} units left
+                    </span>
+                    {!product.is_active && (
+                      <span style={{
+                        backgroundColor: '#6c757d',
+                        color: 'white',
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        INACTIVE
+                      </span>
+                    )}
+                    <span style={{
+                      color: '#007bff',
+                      fontWeight: 'bold',
+                      fontSize: '14px'
+                    }}>
+                      {formatPrice(product.price, currency)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{
+            textAlign: 'center',
+            padding: '40px',
+            color: '#6c757d',
+            backgroundColor: '#f8f9fa',
+            borderRadius: '8px',
+            marginTop: '20px'
+          }}>
+            <div style={{ fontSize: '48px', marginBottom: '15px' }}>✅</div>
+            <h4 style={{ margin: '0 0 10px 0' }}>All products are well stocked!</h4>
+            <p style={{ margin: '0' }}>No products have stock levels ≤ 10 units.</p>
+          </div>
+        )}
       </div>
 
     </div>

@@ -13,6 +13,17 @@
   padding: 20px;
 }
 
+.categories-header {
+  margin-bottom: 20px;
+  display: block;
+  width: 100%;
+}
+
+.categories-header .filter-section {
+  margin-top: 20px;
+  margin-bottom: 0;
+}
+
 .categories-title {
   font-size: 2em;
   margin-bottom: 10px;
@@ -20,7 +31,7 @@
 
 .categories-subtitle {
   color: #666;
-  margin-bottom: 20px;
+  margin-bottom: 0;
 }
 
 .categories-error {
@@ -36,6 +47,9 @@
   border-radius: 8px;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   background-color: #fff;
+  display: block;
+  width: 100%;
+  clear: both;
 }
 
 .filter-controls {
@@ -54,16 +68,25 @@
 
 .filter-label {
   font-weight: 600;
-  color: #555;
+  color: #333;
+  white-space: nowrap;
 }
 
 .filter-select {
   padding: 8px 12px;
   border: 1px solid #ddd;
-  border-radius: 5px;
+  border-radius: 4px;
   background-color: #fff;
   font-size: 14px;
+  transition: border-color 0.3s;
   cursor: pointer;
+  min-width: 150px;
+}
+
+.filter-select:focus {
+  outline: none;
+  border-color: #4a90e2;
+  box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
 }
 
 .add-category-btn {
@@ -71,11 +94,11 @@
   background-color: #007bff;
   color: #fff;
   border: none;
-  border-radius: 5px;
+  border-radius: 4px;
   cursor: pointer;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  transition: background-color 0.2s ease;
+  transition: background-color 0.3s;
 }
 
 .add-category-btn:hover {
@@ -359,6 +382,22 @@
   }
   
   .form-btn {
+    width: 100%;
+  }
+}
+
+/* Responsive styles for filter section */
+@media (max-width: 768px) {
+  .filter-controls {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .filter-group {
+    margin-bottom: 15px;
+  }
+  
+  .add-category-btn {
     width: 100%;
   }
 }

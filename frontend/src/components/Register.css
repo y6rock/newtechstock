@@ -1,0 +1,243 @@
+/* Register Component Styles */
+
+/* Main Container */
+.register-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f0f2f5;
+  padding: 20px;
+  box-sizing: border-box;
+}
+
+.register-form-wrapper {
+  background: #fff;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  width: 100%;
+  max-width: 500px;
+  text-align: center;
+}
+
+/* Header */
+.register-header {
+  margin-bottom: 30px;
+}
+
+.register-title {
+  font-size: 1.8em;
+  margin-bottom: 10px;
+  color: #333;
+  font-weight: 600;
+}
+
+.register-subtitle {
+  color: #666;
+  margin-bottom: 30px;
+  font-size: 0.95em;
+}
+
+/* Form */
+.register-form {
+  text-align: left;
+}
+
+/* Form Fields Container */
+.form-fields-row {
+  display: flex;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.form-field {
+  position: relative;
+  flex: 1;
+}
+
+.form-field-single {
+  position: relative;
+  margin-bottom: 20px;
+}
+
+/* Icons */
+.form-icon {
+  position: absolute;
+  left: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #aaa;
+  z-index: 1;
+}
+
+.password-toggle {
+  position: absolute;
+  right: 15px;
+  top: 50%;
+  transform: translateY(-50%);
+  cursor: pointer;
+  color: #aaa;
+  z-index: 1;
+  padding: 5px;
+}
+
+.password-toggle:hover {
+  color: #007bff;
+}
+
+/* Input Fields */
+.form-input {
+  width: calc(100% - 30px);
+  padding: 12px 15px 12px 45px;
+  border: 1px solid #ddd;
+  border-radius: 5px;
+  font-size: 1em;
+  box-sizing: border-box;
+  transition: border-color 0.3s;
+  background-color: #fff;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.1);
+}
+
+.form-input:hover {
+  border-color: #007bff;
+}
+
+/* Message Display */
+.status-message {
+  margin-bottom: 15px;
+  font-weight: 500;
+  text-align: center;
+}
+
+.status-error {
+  color: red;
+}
+
+.status-success {
+  color: green;
+}
+
+/* Submit Button */
+.submit-button {
+  width: 100%;
+  padding: 12px;
+  background: #007bff;
+  color: #fff;
+  border: none;
+  border-radius: 5px;
+  font-size: 1.1em;
+  cursor: pointer;
+  transition: background-color 0.3s;
+  box-sizing: border-box;
+  font-weight: 600;
+}
+
+.submit-button:hover {
+  background: #0056b3;
+}
+
+.submit-button:active {
+  background: #004085;
+}
+
+/* Login Link */
+.login-link {
+  margin-top: 25px;
+  font-size: 0.95em;
+  color: #666;
+  text-align: center;
+}
+
+.login-link a {
+  color: #007bff;
+  text-decoration: none;
+  transition: color 0.3s;
+  font-weight: 500;
+}
+
+.login-link a:hover {
+  color: #0056b3;
+  text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .register-container {
+    padding: 15px;
+  }
+  
+  .register-form-wrapper {
+    padding: 30px 20px;
+  }
+  
+  .form-fields-row {
+    flex-direction: column;
+    gap: 15px;
+  }
+  
+  .register-title {
+    font-size: 1.5em;
+  }
+  
+  .form-input {
+    font-size: 16px; /* Prevent zoom on mobile */
+  }
+}
+
+@media (max-width: 480px) {
+  .register-container {
+    padding: 10px;
+  }
+  
+  .register-form-wrapper {
+    padding: 20px 15px;
+  }
+  
+  .register-title {
+    font-size: 1.3em;
+  }
+  
+  .register-subtitle {
+    font-size: 0.9em;
+  }
+  
+  .form-input {
+    padding: 10px 12px 10px 40px;
+    font-size: 14px;
+  }
+  
+  .form-icon {
+    left: 12px;
+  }
+  
+  .password-toggle {
+    right: 12px;
+  }
+  
+  .submit-button {
+    padding: 10px;
+    font-size: 1em;
+  }
+}
+
+/* Animation for form appearance */
+.register-form-wrapper {
+  animation: slideUp 0.5s ease-out;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

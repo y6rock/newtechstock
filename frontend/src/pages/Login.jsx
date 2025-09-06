@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { FaEnvelope, FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
+import './Login.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -82,129 +83,63 @@ const Login = () => {
   };
 
   return (
-    <div style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      minHeight: '100vh',
-      background: '#f0f2f5',
-      padding: '20px',
-      boxSizing: 'border-box'
-    }}>
-      <div style={{
-        background: '#fff',
-        padding: '40px',
-        borderRadius: '8px',
-        boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-        width: '100%',
-        maxWidth: '400px',
-        textAlign: 'center'
-      }}>
-        <h2 style={{
-          fontSize: '1.8em',
-          marginBottom: '10px',
-          color: '#333'
-        }}>Sign in</h2>
-        <p style={{
-          color: '#666',
-          marginBottom: '30px',
-          fontSize: '0.95em'
-        }}>Enter your credentials to access your account</p>
+    <div className="login-container">
+      <div className="login-form-wrapper">
+        <div className="login-header">
+          <h2 className="login-title">Sign in</h2>
+          <p className="login-subtitle">Enter your credentials to access your account</p>
+        </div>
 
-        <form onSubmit={handleLogin} style={{ textAlign: 'left' }}>
-          {error && <p style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>{error}</p>}
+        <form onSubmit={handleLogin} className="login-form">
+          {error && <p className="error-message">{error}</p>}
           {remainingAttempts !== null && remainingAttempts > 0 && (
-            <p style={{ color: 'orange', marginBottom: '15px', textAlign: 'center' }}>
+            <p className="warning-message">
               Remaining login attempts: {remainingAttempts}
             </p>
           )}
           {remainingTime !== null && remainingTime > 0 && (
-            <p style={{ color: 'red', marginBottom: '15px', textAlign: 'center' }}>
+            <p className="error-message">
               Account temporarily locked. Please wait {remainingTime} seconds before trying again.
             </p>
           )}
           
-          <div style={{ position: 'relative', marginBottom: '20px' }}>
-            <FaEnvelope style={{
-              position: 'absolute',
-              left: '15px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#aaa'
-            }} />
-            <input
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              style={{
-                width: 'calc(100% - 30px)',
-                padding: '12px 15px 12px 45px',
-                border: '1px solid #ddd',
-                borderRadius: '5px',
-                fontSize: '1em',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.3s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#007bff'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            />
+          <div className="form-group">
+            <div className="form-field">
+              <FaEnvelope className="form-icon" />
+              <input
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                className="form-input"
+              />
+            </div>
           </div>
 
-          <div style={{ position: 'relative', marginBottom: '20px' }}>
-            <FaLock style={{
-              position: 'absolute',
-              left: '15px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#aaa'
-            }} />
-            <input
-              type={showPassword ? 'text' : 'password'}
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="off"
-              required
-              style={{
-                width: '100%',
-                padding: '12px 45px 12px 45px',
-                border: '1px solid #ddd',
-                borderRadius: '5px',
-                fontSize: '1em',
-                boxSizing: 'border-box',
-                transition: 'border-color 0.3s'
-              }}
-              onFocus={(e) => e.target.style.borderColor = '#007bff'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
-            />
-            <span 
-              onClick={() => setShowPassword(!showPassword)} 
-              style={{
-                position: 'absolute',
-                right: '15px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                cursor: 'pointer',
-                color: '#aaa',
-                padding: '5px'
-              }}
-            >
-              {showPassword ? <FaEyeSlash /> : <FaEye />}
-            </span>
+          <div className="form-group">
+            <div className="form-field">
+              <FaLock className="form-icon" />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                autoComplete="off"
+                required
+                className="form-input"
+              />
+              <span 
+                onClick={() => setShowPassword(!showPassword)} 
+                className="password-toggle"
+              >
+                {showPassword ? <FaEyeSlash /> : <FaEye />}
+              </span>
+            </div>
           </div>
 
-          <div style={{ textAlign: 'right', marginBottom: '20px' }}>
-            <Link to="/forgot-password" style={{
-              color: '#007bff',
-              textDecoration: 'none',
-              fontSize: '0.95em',
-              transition: 'color 0.3s'
-            }}
-            onMouseOver={(e) => e.target.style.color = '#0056b3'}
-            onMouseOut={(e) => e.target.style.color = '#007bff'}
-            >
+          <div className="forgot-password-link">
+            <Link to="/forgot-password">
               Forgot your password?
             </Link>
           </div>
@@ -212,35 +147,14 @@ const Login = () => {
           <button
             type="submit"
             disabled={isSubmitting || (remainingTime !== null && remainingTime > 0)}
-            style={{
-              width: '100%',
-              padding: '12px',
-              background: '#007bff',
-              color: '#fff',
-              border: 'none',
-              borderRadius: '5px',
-              fontSize: '1.1em',
-              cursor: 'pointer',
-              transition: 'background-color 0.3s',
-              boxSizing: 'border-box'
-            }}
-            onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-            onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+            className="submit-button"
           >
             {isSubmitting ? 'Signing In...' : 'Sign In'}
           </button>
         </form>
 
-        <div style={{ marginTop: '25px' }}>
-          <Link to="/signup" style={{
-            color: '#007bff',
-            textDecoration: 'none',
-            fontSize: '0.95em',
-            transition: 'color 0.3s'
-          }}
-          onMouseOver={(e) => e.target.style.color = '#0056b3'}
-          onMouseOut={(e) => e.target.style.color = '#007bff'}
-          >
+        <div className="signup-link">
+          <Link to="/signup">
             Don't have an account? Sign up →
           </Link>
         </div>

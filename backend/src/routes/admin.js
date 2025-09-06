@@ -10,16 +10,28 @@ router.get('/dashboard-stats', authenticateToken, requireAdmin, async (req, res)
     try {
         const { startDate, endDate } = req.query;
         
+        console.log('Dashboard stats request:', { startDate, endDate });
+        
         let dateFilter = '';
         let params = [];
         
         if (startDate && endDate) {
             dateFilter = 'WHERE DATE(order_date) BETWEEN ? AND ?';
             params = [startDate, endDate];
+        } else if (startDate) {
+            dateFilter = 'WHERE DATE(order_date) >= ?';
+            params = [startDate];
+        } else if (endDate) {
+            dateFilter = 'WHERE DATE(order_date) <= ?';
+            params = [endDate];
         } else {
-            // Default to last 30 days if no dates provided
-            dateFilter = 'WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+            // No date filter - show all data
+            dateFilter = '';
         }
+        
+        // Get all orders first to debug
+        const [allOrders] = await db.query("SELECT COUNT(*) as total FROM orders");
+        console.log('Total orders in database:', allOrders[0].total);
         
         const [revenue] = await db.query(
             `SELECT SUM(total_amount) as total_revenue FROM orders ${dateFilter}`,
@@ -29,7 +41,15 @@ router.get('/dashboard-stats', authenticateToken, requireAdmin, async (req, res)
             `SELECT COUNT(*) as total_orders FROM orders ${dateFilter}`,
             params
         );
-        const [products] = await db.query("SELECT COUNT(*) as total_products FROM products");
+        const [products] = await db.query("SELECT COUNT(*) as total_products FROM products WHERE is_active = 1");
+        const [allProducts] = await db.query("SELECT COUNT(*) as total_all_products FROM products");
+        
+        console.log('Dashboard stats results:', {
+            revenue: revenue[0].total_revenue,
+            orders: orders[0].total_orders,
+            products: products[0].total_products,
+            allProducts: allProducts[0].total_all_products
+        });
         
         res.json({
             total_revenue: revenue[0].total_revenue || 0,
@@ -40,12 +60,14 @@ router.get('/dashboard-stats', authenticateToken, requireAdmin, async (req, res)
         console.error("Error fetching dashboard stats:", err);
         res.status(500).json({ message: "Database error" });
     }
- });
+});
 
 // Get sales over time data
 router.get('/sales-over-time', authenticateToken, requireAdmin, async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
+        
+        console.log('Sales over time request:', { startDate, endDate });
         
         let dateFilter = '';
         let params = [];
@@ -53,9 +75,15 @@ router.get('/sales-over-time', authenticateToken, requireAdmin, async (req, res)
         if (startDate && endDate) {
             dateFilter = 'WHERE DATE(order_date) BETWEEN ? AND ?';
             params = [startDate, endDate];
+        } else if (startDate) {
+            dateFilter = 'WHERE DATE(order_date) >= ?';
+            params = [startDate];
+        } else if (endDate) {
+            dateFilter = 'WHERE DATE(order_date) <= ?';
+            params = [endDate];
         } else {
-            // Default to last 30 days if no dates provided
-            dateFilter = 'WHERE order_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)';
+            // No date filter - show all data
+            dateFilter = '';
         }
         
         const [sales] = await db.query(`
@@ -68,6 +96,8 @@ router.get('/sales-over-time', authenticateToken, requireAdmin, async (req, res)
             GROUP BY day
             ORDER BY day
         `, params);
+        
+        console.log('Sales over time results:', sales);
         res.json(sales);
     } catch (err) {
         console.error("Error fetching sales data:", err);
@@ -261,6 +291,46 @@ router.patch('/customers/:userId/restore', authenticateToken, requireAdmin, asyn
     }
 });
 
+// Get low stock products (stock <= 10)
+router.get('/low-stock-products', authenticateToken, requireAdmin, async (req, res) => {
+    try {
+        // First, let's check what products we have with low stock
+        const [allProducts] = await db.query(`
+            SELECT 
+                p.product_id,
+                p.name,
+                p.stock,
+                p.is_active
+            FROM products p
+            WHERE CAST(p.stock AS UNSIGNED) <= 10
+            ORDER BY CAST(p.stock AS UNSIGNED) ASC
+        `);
+        
+        console.log('All products with stock <= 10:', allProducts);
+        
+        // Now get the full details for ALL products with low stock (including inactive)
+        const [products] = await db.query(`
+            SELECT 
+                p.product_id as id,
+                p.name,
+                p.description,
+                p.price,
+                p.stock,
+                p.image,
+                p.is_active,
+                c.name as category
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE CAST(p.stock AS UNSIGNED) <= 10
+            ORDER BY CAST(p.stock AS UNSIGNED) ASC, p.name ASC
+        `);
 
+        console.log('Active products with low stock:', products);
+        res.json(products);
+    } catch (error) {
+        console.error('Error fetching low stock products:', error);
+        res.status(500).json({ message: "Database error" });
+    }
+});
 
 module.exports = router; 
