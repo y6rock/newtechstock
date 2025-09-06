@@ -249,7 +249,7 @@ exports.forgotPassword = async (req, res) => {
         console.log('Reset token stored in database');
         
         // Send reset email using existing EmailService
-        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
+        const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password/${resetToken}`;
         
         const emailService = new EmailService();
         const emailSent = await emailService.sendPasswordResetEmail(email, user.name, resetUrl);
