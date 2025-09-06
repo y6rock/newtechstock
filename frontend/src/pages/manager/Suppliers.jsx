@@ -168,9 +168,7 @@ const Suppliers = () => {
     <div className="suppliers-container">
       <h1 className="suppliers-title">Manage Suppliers</h1>
       <p className="suppliers-subtitle">Add, edit, or delete product suppliers.</p>
-
-      {error && <p className="suppliers-error">{error}</p>}
-
+      
       {/* Add Supplier Button */}
       <div className="add-button-container">
         <button 
@@ -180,6 +178,8 @@ const Suppliers = () => {
           + Add New Supplier
         </button>
       </div>
+
+      {error && <p className="suppliers-error">{error}</p>}
 
       {/* Suppliers List */}
       <div className="table-container">

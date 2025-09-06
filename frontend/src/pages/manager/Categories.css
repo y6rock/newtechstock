@@ -54,10 +54,11 @@
 
 .filter-controls {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
   flex-wrap: wrap;
   gap: 15px;
+  margin-bottom: 15px;
 }
 
 .filter-group {
@@ -87,6 +88,13 @@
   outline: none;
   border-color: #4a90e2;
   box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.1);
+}
+
+/* Add Button Container */
+.add-button-container {
+  display: flex;
+  justify-content: flex-start;
+  margin-top: 10px;
 }
 
 .add-category-btn {

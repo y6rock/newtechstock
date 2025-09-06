@@ -198,6 +198,10 @@ const Categories = () => {
                 <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
               </select>
             </div>
+          </div>
+          
+          {/* Add Category Button */}
+          <div className="add-button-container">
             <button 
               onClick={() => setShowAddModal(true)}
               className="add-category-btn"
@@ -205,13 +209,11 @@ const Categories = () => {
               + Add New Category
             </button>
           </div>
-        </div>
-      </div>
 
-      {error && <p className="categories-error">{error}</p>}
+          {error && <p className="categories-error">{error}</p>}
 
-      {/* Categories Table */}
-      <div className="table-container">
+          {/* Categories Table */}
+          <div className="table-container">
         <table className="categories-table">
           <thead>
             <tr>
@@ -252,6 +254,8 @@ const Categories = () => {
             )}
           </tbody>
         </table>
+      </div>
+        </div>
       </div>
 
       {/* Add Category Modal */}

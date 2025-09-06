@@ -32,7 +32,7 @@
 .add-button-container {
   margin-bottom: 30px;
   display: flex;
-  justify-content: flex-end;
+  justify-content: flex-start;
 }
 
 .add-supplier-btn {
