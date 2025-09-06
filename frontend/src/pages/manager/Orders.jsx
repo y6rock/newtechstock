@@ -39,11 +39,11 @@ const Orders = () => {
   const getUniqueUsers = () => {
     const userMap = new Map();
     orders.forEach(order => {
-      if (order.user_id && (order.user_name || order.user_email)) {
+      if (order.user_id && (order.customer_name || order.customer_email)) {
         userMap.set(order.user_id, {
           id: order.user_id,
-          name: order.user_name || 'Unknown User',
-          email: order.user_email || 'No email'
+          name: order.customer_name || 'Unknown User',
+          email: order.customer_email || 'No email'
         });
       }
     });
@@ -73,8 +73,8 @@ const Orders = () => {
     // Filter by search term (name or email)
     if (searchTerm) {
       filtered = filtered.filter(order => {
-        const userName = order.user_name || '';
-        const userEmail = order.user_email || '';
+        const userName = order.customer_name || '';
+        const userEmail = order.customer_email || '';
         return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
                userEmail.toLowerCase().includes(searchTerm.toLowerCase());
       });
@@ -289,8 +289,8 @@ const Orders = () => {
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
                 <td>{formatDate(order.order_date)}</td>
-                <td>{order.user_name || order.user_email}</td>
-                <td>{formatPrice(order.total_price, currency)}</td>
+                <td>{order.customer_name || order.customer_email}</td>
+                <td>{formatPrice(order.total_amount, currency)}</td>
                 <td>
                   <select
                     className={`status-dropdown status-${order.status}`}

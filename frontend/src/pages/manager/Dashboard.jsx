@@ -120,11 +120,11 @@ export default function Dashboard() {
 
   // Prepare chart data
   const salesLineData = {
-    labels: salesData.length > 0 ? salesData.map(d => formatDateShort(d.day)) : ['No Data'],
+    labels: salesData.length > 0 ? salesData.map(d => formatDateShort(d.period)) : ['No Data'],
     datasets: [
       {
         label: 'Total Sales',
-        data: salesData.length > 0 ? salesData.map(d => d.total_sales) : [0],
+        data: salesData.length > 0 ? salesData.map(d => d.total_revenue) : [0],
         borderColor: '#007bff',
         backgroundColor: 'rgba(0,123,255,0.1)',
         tension: 0.3,
@@ -132,7 +132,7 @@ export default function Dashboard() {
       },
       {
         label: 'Order Count',
-        data: salesData.length > 0 ? salesData.map(d => d.order_count) : [0],
+        data: salesData.length > 0 ? salesData.map(d => d.orders_count) : [0],
         borderColor: '#28a745',
         backgroundColor: 'rgba(40,167,69,0.1)',
         tension: 0.3,
@@ -178,12 +178,12 @@ export default function Dashboard() {
     datasets: [
       {
         label: 'Units Sold',
-        data: topProducts.length > 0 ? topProducts.map(p => p.total_quantity) : [0],
+        data: topProducts.length > 0 ? topProducts.map(p => p.total_sold) : [0],
         backgroundColor: '#ffc107',
       },
       {
         label: 'Total Sales',
-        data: topProducts.length > 0 ? topProducts.map(p => p.total_sales) : [0],
+        data: topProducts.length > 0 ? topProducts.map(p => p.total_revenue) : [0],
         backgroundColor: '#007bff',
       }
     ]

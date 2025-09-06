@@ -6,6 +6,7 @@ const dbSingleton = require('../../dbSingleton.js');
 const multer = require('multer');
 const path = require('path');
 const loginLimiter = require('../../utils/loginLimiter.js');
+const EmailService = require('../../utils/emailService.js');
 
 const db = dbSingleton.getConnection();
 
@@ -217,59 +218,57 @@ exports.changePassword = async (req, res) => {
 
 // Forgot password
 exports.forgotPassword = async (req, res) => {
-    const { email } = req.body;
-    
-    if (!email) {
-        return res.status(400).json({ message: 'Email is required' });
-    }
-    
     try {
+        const { email } = req.body;
+        console.log('Forgot password request for email:', email);
+        
+        if (!email) {
+            return res.status(400).json({ message: 'Email is required' });
+        }
+        
         const [users] = await db.query('SELECT user_id, name FROM users WHERE email = ?', [email]);
+        console.log('User query result:', users);
+        
         if (users.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
         
         const user = users[0];
         const resetToken = crypto.randomBytes(32).toString('hex');
-        const resetTokenExpiry = new Date(Date.now() + 3600000); // 1 hour
+        const resetTokenExpiry = Date.now() + 3600000; // 1 hour from now
+        
+        console.log('Generated reset token:', resetToken);
+        console.log('Token expiry timestamp:', resetTokenExpiry);
         
         // Store reset token in database
         await db.query(
-            'UPDATE users SET reset_token = ?, reset_token_expiry = ? WHERE user_id = ?',
+            'UPDATE users SET resetPasswordToken = ?, resetPasswordExpires = ? WHERE user_id = ?',
             [resetToken, resetTokenExpiry, user.user_id]
         );
         
-        // Send reset email
+        console.log('Reset token stored in database');
+        
+        // Send reset email using existing EmailService
         const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`;
         
-        const transporter = nodemailer.createTransporter({
-            service: 'gmail',
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
-            }
-        });
+        const emailService = new EmailService();
+        const emailSent = await emailService.sendPasswordResetEmail(email, user.name, resetUrl);
         
-        const mailOptions = {
-            from: process.env.EMAIL_USER,
-            to: email,
-            subject: 'Password Reset Request',
-            html: `
-                <h2>Password Reset Request</h2>
-                <p>Hello ${user.name},</p>
-                <p>You requested a password reset. Click the link below to reset your password:</p>
-                <a href="${resetUrl}">Reset Password</a>
-                <p>This link will expire in 1 hour.</p>
-                <p>If you didn't request this, please ignore this email.</p>
-            `
-        };
+        if (emailSent) {
+            console.log('Password reset email sent successfully to:', email);
+            res.json({ message: 'Password reset email sent successfully' });
+        } else {
+            console.log('Email service not configured or failed. Password reset token:', resetToken);
+            res.json({ 
+                message: 'Password reset token generated, but email could not be sent. Please contact support.',
+                resetToken: resetToken, // For development/fallback
+                resetUrl: resetUrl
+            });
+        }
         
-        await transporter.sendMail(mailOptions);
-        
-        res.json({ message: 'Password reset email sent' });
     } catch (error) {
         console.error('Forgot password error:', error);
-        res.status(500).json({ message: 'Internal server error' });
+        res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 };
 
@@ -287,8 +286,8 @@ exports.resetPassword = async (req, res) => {
     
     try {
         const [users] = await db.query(
-            'SELECT user_id FROM users WHERE reset_token = ? AND reset_token_expiry > NOW()',
-            [token]
+            'SELECT user_id FROM users WHERE resetPasswordToken = ? AND resetPasswordExpires > ?',
+            [token, Date.now()]
         );
         
         if (users.length === 0) {
@@ -298,7 +297,7 @@ exports.resetPassword = async (req, res) => {
         const hashedPassword = await bcrypt.hash(newPassword, 10);
         
         await db.query(
-            'UPDATE users SET password = ?, reset_token = NULL, reset_token_expiry = NULL WHERE user_id = ?',
+            'UPDATE users SET password = ?, resetPasswordToken = NULL, resetPasswordExpires = NULL WHERE user_id = ?',
             [hashedPassword, users[0].user_id]
         );
         

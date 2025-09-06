@@ -54,10 +54,10 @@ exports.getDashboardStats = async (req, res) => {
         `);
 
         res.json({
-            totalRevenue: revenueResult[0].total_revenue,
-            totalOrders: ordersResult[0].total_orders,
-            totalCustomers: customersResult[0].total_customers,
-            totalProducts: productsResult[0].total_products
+            total_revenue: revenueResult[0].total_revenue,
+            total_orders: ordersResult[0].total_orders,
+            total_customers: customersResult[0].total_customers,
+            total_products: productsResult[0].total_products
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -311,10 +311,10 @@ exports.getLowStockProducts = async (req, res) => {
                 product_id,
                 name,
                 price,
-                stock_quantity
+                stock
             FROM products
-            WHERE stock_quantity <= 10
-            ORDER BY stock_quantity ASC
+            WHERE stock <= 10
+            ORDER BY stock ASC
         `);
         
         res.json(lowStockProducts);

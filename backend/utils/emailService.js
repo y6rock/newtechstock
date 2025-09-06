@@ -100,6 +100,44 @@ class EmailService {
             return false;
         }
     }
+
+    async sendPasswordResetEmail(userEmail, userName, resetUrl) {
+        if (!this.transporter) {
+            console.log('Email service not configured. Skipping password reset email.');
+            return false;
+        }
+
+        try {
+            const mailOptions = {
+                from: 'TechStock <noreply@techstock.com>',
+                to: userEmail,
+                subject: 'Password Reset Request - TechStock',
+                html: `
+                    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+                        <h2 style="color: #2563eb;">Password Reset Request</h2>
+                        <p>Hello ${userName},</p>
+                        <p>You requested a password reset for your TechStock account. Click the button below to reset your password:</p>
+                        <div style="text-align: center; margin: 30px 0;">
+                            <a href="${resetUrl}" style="background-color: #2563eb; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block;">Reset Password</a>
+                        </div>
+                        <p>Or copy and paste this link into your browser:</p>
+                        <p style="word-break: break-all; background-color: #f8f9fa; padding: 10px; border-radius: 5px;">${resetUrl}</p>
+                        <p><strong>This link will expire in 1 hour.</strong></p>
+                        <p>If you didn't request this password reset, please ignore this email. Your password will remain unchanged.</p>
+                        <hr style="margin: 30px 0; border: none; border-top: 1px solid #eee;">
+                        <p style="color: #666; font-size: 14px;">This email was sent from TechStock. If you have any questions, please contact our support team.</p>
+                    </div>
+                `
+            };
+
+            const info = await this.transporter.sendMail(mailOptions);
+            console.log('Password reset email sent successfully:', info.messageId);
+            return true;
+        } catch (error) {
+            console.error('Error sending password reset email:', error);
+            return false;
+        }
+    }
 }
 
 module.exports = EmailService; 
