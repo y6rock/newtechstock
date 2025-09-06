@@ -59,8 +59,10 @@
 
 .form-group {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .form-label {
@@ -70,8 +72,8 @@
 }
 
 .form-input {
-  width: 100%;
-  padding: 12px 15px 12px 50px;
+  flex: 1;
+  padding: 12px 15px;
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 1em;
@@ -355,30 +357,17 @@
   margin-bottom: 20px;
 }
 
-.form-field {
-  position: relative;
-  display: block;
-  width: 100%;
-}
-
 .form-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
   color: #aaa;
-  z-index: 1;
+  font-size: 1.2em;
+  flex-shrink: 0;
 }
 
 .password-toggle {
-  position: absolute;
-  right: 15px;
-  top: 50%;
-  transform: translateY(-50%);
   cursor: pointer;
   color: #aaa;
   padding: 5px;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
 .password-toggle:hover {

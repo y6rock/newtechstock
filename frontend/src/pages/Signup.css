@@ -66,9 +66,10 @@
 
 .form-group {
   display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 15px;
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
 }
 
 .form-group.row {
@@ -82,9 +83,9 @@
   font-size: 0.9rem;
 }
 
-.form-input {
-  width: 100%;
-  padding: 10px 15px 10px 50px;
+.signup-form .form-input {
+  flex: 1;
+  padding: 10px 15px !important;
   border: 1px solid #ddd;
   border-radius: 5px;
   font-size: 1em;
@@ -98,32 +99,28 @@
 }
 
 /* Form Field with Icon */
-.form-field {
-  position: relative;
-  display: block;
+.signup-form .form-field {
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
   flex: 1;
   width: 100%;
   box-sizing: border-box;
+  position: static !important;
 }
 
-.form-icon {
-  position: absolute;
-  left: 12px;
-  top: 50%;
-  transform: translateY(-50%);
+.signup-form .form-icon {
   color: #aaa;
-  z-index: 1;
+  font-size: 1.2em;
+  flex-shrink: 0;
+  position: static !important;
 }
 
 .password-toggle {
-  position: absolute;
-  right: 15px;
-  top: 50%;
-  transform: translateY(-50%);
   cursor: pointer;
   color: #aaa;
   padding: 5px;
-  z-index: 1;
+  flex-shrink: 0;
 }
 
 .password-toggle:hover {

@@ -112,92 +112,82 @@ function Signup() {
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaEnvelope className="form-icon" />
-              <input
-                type="email"
-                name="email"
-                placeholder="Enter your email"
-                value={form.email}
-                onChange={handleChange}
-                required
-                className="form-input"
-              />
-            </div>
+            <FaEnvelope className="form-icon" />
+            <input
+              type="email"
+              name="email"
+              placeholder="Enter your email"
+              value={form.email}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaPhone className="form-icon" />
-              <input
-                type="text"
-                name="phone"
-                placeholder="Phone number"
-                value={form.phone}
-                onChange={handleChange}
-                required
-                className="form-input"
-              />
-            </div>
+            <FaPhone className="form-icon" />
+            <input
+              type="text"
+              name="phone"
+              placeholder="Phone number"
+              value={form.phone}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaCity className="form-icon" />
-              <input
-                type="text"
-                name="city"
-                placeholder="City"
-                value={form.city}
-                onChange={handleChange}
-                required
-                className="form-input"
-              />
-            </div>
+            <FaCity className="form-icon" />
+            <input
+              type="text"
+              name="city"
+              placeholder="City"
+              value={form.city}
+              onChange={handleChange}
+              required
+              className="form-input"
+            />
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaLock className="form-icon" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                name="password"
-                placeholder="Create a password"
-                value={form.password}
-                onChange={handleChange}
-                autoComplete="off"
-                required
-                className="form-input"
-              />
-              <span 
-                onClick={() => setShowPassword(!showPassword)} 
-                className="password-toggle"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
+            <FaLock className="form-icon" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              name="password"
+              placeholder="Create a password"
+              value={form.password}
+              onChange={handleChange}
+              autoComplete="off"
+              required
+              className="form-input"
+            />
+            <span 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="password-toggle"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaLock className="form-icon" />
-              <input
-                type={showConfirmPassword ? 'text' : 'password'}
-                name="confirmPassword"
-                placeholder="Confirm password"
-                value={form.confirmPassword}
-                onChange={handleChange}
-                autoComplete="off"
-                required
-                className="form-input"
-              />
-              <span 
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
-                className="password-toggle"
-              >
-                {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
+            <FaLock className="form-icon" />
+            <input
+              type={showConfirmPassword ? 'text' : 'password'}
+              name="confirmPassword"
+              placeholder="Confirm password"
+              value={form.confirmPassword}
+              onChange={handleChange}
+              autoComplete="off"
+              required
+              className="form-input"
+            />
+            <span 
+              onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+              className="password-toggle"
+            >
+              {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
           </div>
 
           <button

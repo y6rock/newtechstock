@@ -104,38 +104,34 @@ const Login = () => {
           )}
           
           <div className="form-group">
-            <div className="form-field">
-              <FaEnvelope className="form-icon" />
-              <input
-                type="email"
-                placeholder="Enter your email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                className="form-input"
-              />
-            </div>
+            <FaEnvelope className="form-icon" />
+            <input
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              className="form-input"
+            />
           </div>
 
           <div className="form-group">
-            <div className="form-field">
-              <FaLock className="form-icon" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                autoComplete="off"
-                required
-                className="form-input"
-              />
-              <span 
-                onClick={() => setShowPassword(!showPassword)} 
-                className="password-toggle"
-              >
-                {showPassword ? <FaEyeSlash /> : <FaEye />}
-              </span>
-            </div>
+            <FaLock className="form-icon" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="off"
+              required
+              className="form-input"
+            />
+            <span 
+              onClick={() => setShowPassword(!showPassword)} 
+              className="password-toggle"
+            >
+              {showPassword ? <FaEyeSlash /> : <FaEye />}
+            </span>
           </div>
 
           <div className="forgot-password-link">
