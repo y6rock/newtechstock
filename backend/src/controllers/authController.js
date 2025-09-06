@@ -274,7 +274,8 @@ exports.forgotPassword = async (req, res) => {
 
 // Reset password
 exports.resetPassword = async (req, res) => {
-    const { token, newPassword } = req.body;
+    const { token } = req.params;
+    const { newPassword } = req.body;
     
     if (!token || !newPassword) {
         return res.status(400).json({ message: 'Token and new password are required' });

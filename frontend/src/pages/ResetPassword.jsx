@@ -40,7 +40,7 @@ const ResetPassword = () => {
 
     try {
       const response = await axios.post(`/api/auth/reset-password/${token}`, {
-        password: password,
+        newPassword: password,
       });
       setMessage(response.data.message);
       setTimeout(() => {
