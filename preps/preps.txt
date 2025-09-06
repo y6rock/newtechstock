@@ -1,5 +1,0 @@
-
-
-cmd:
-cd CodeStudio\MonirBisharaProject\Proj-TechStock\backend
-cd CodeStudio\MonirBisharaProject\Proj-TechStock\frontend
