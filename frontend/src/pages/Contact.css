@@ -1,5 +1,10 @@
 /* Contact Page Styles */
 
+/* Page Container */
+.simple-page-container.no-padding-top {
+  padding-top: 0;
+}
+
 /* Header Section */
 .contact-header {
   background: #1e40af;

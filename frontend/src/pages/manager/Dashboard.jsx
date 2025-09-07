@@ -211,41 +211,21 @@ export default function Dashboard() {
       <p className="subtitle">Overview of your store's performance</p>
 
       {/* Date Range Picker */}
-      <div style={{
-        backgroundColor: '#fff',
-        padding: '20px',
-        borderRadius: '8px',
-        marginBottom: '20px',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '15px',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label style={{ fontWeight: 'bold', color: '#333' }}>Date Range:</label>
+      <div className="date-range-picker">
+        <div className="date-range-controls">
+          <label className="date-range-label">Date Range:</label>
           <input
             type="date"
             value={dateRange.startDate}
             onChange={(e) => setDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '14px'
-            }}
+            className="date-input"
           />
-          <span style={{ color: '#666' }}>to</span>
+          <span className="date-separator">to</span>
           <input
             type="date"
             value={dateRange.endDate}
             onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-            style={{
-              padding: '8px 12px',
-              border: '1px solid #ddd',
-              borderRadius: '4px',
-              fontSize: '14px'
-            }}
+            className="date-input"
           />
         </div>
         
@@ -258,15 +238,7 @@ export default function Dashboard() {
               endDate: today.toISOString().split('T')[0]
             });
           }}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#6c757d',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="date-range-button secondary"
         >
           Last 30 Days
         </button>
@@ -280,30 +252,15 @@ export default function Dashboard() {
               endDate: today.toISOString().split('T')[0]
             });
           }}
-          style={{
-            padding: '8px 16px',
-            backgroundColor: '#17a2b8',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            cursor: 'pointer',
-            fontSize: '14px'
-          }}
+          className="date-range-button primary"
         >
           Last 7 Days
         </button>
       </div>
 
       {/* Date Range Summary */}
-      <div style={{
-        textAlign: 'center',
-        marginBottom: '20px',
-        padding: '15px',
-        backgroundColor: '#f8f9fa',
-        borderRadius: '8px',
-        border: '1px solid #e9ecef'
-      }}>
-        <p style={{ margin: '0', color: '#495057', fontSize: '16px' }}>
+      <div className="date-range-summary">
+        <p className="date-range-summary-text">
           <strong>Statistics for:</strong> {formatDate(dateRange.startDate)} to {formatDate(dateRange.endDate)}
         </p>
       </div>
@@ -343,93 +300,36 @@ export default function Dashboard() {
       <div className="chart-container">
         <h3>Low Stock Products (≤10 units)</h3>
         {lowStockProducts.length > 0 ? (
-          <div style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '15px',
-            marginTop: '20px'
-          }}>
+          <div className="low-stock-grid">
             {lowStockProducts.map(product => (
-              <div key={product.id} style={{
-                backgroundColor: '#fff',
-                border: '1px solid #e9ecef',
-                borderRadius: '8px',
-                padding: '15px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '15px'
-              }}>
-                <div style={{
-                  width: '60px',
-                  height: '60px',
-                  backgroundColor: '#f8f9fa',
-                  borderRadius: '8px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  overflow: 'hidden'
-                }}>
+              <div key={product.id} className="low-stock-product-card">
+                <div className="low-stock-product-image">
                   {product.image ? (
                     <img 
                       src={product.image} 
                       alt={product.name}
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
                     />
                   ) : (
-                    <div style={{
-                      color: '#6c757d',
-                      fontSize: '24px'
-                    }}>📦</div>
+                    <div className="low-stock-product-placeholder">📦</div>
                   )}
                 </div>
-                <div style={{ flex: 1 }}>
-                  <h4 style={{ 
-                    margin: '0 0 5px 0', 
-                    fontSize: '16px',
-                    color: '#333'
-                  }}>
+                <div className="low-stock-product-info">
+                  <h4 className="low-stock-product-name">
                     {product.name}
                   </h4>
-                  <p style={{ 
-                    margin: '0 0 5px 0', 
-                    color: '#666',
-                    fontSize: '14px'
-                  }}>
+                  <p className="low-stock-product-category">
                     {product.category}
                   </p>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      backgroundColor: product.stock <= 5 ? '#dc3545' : '#ffc107',
-                      color: 'white',
-                      padding: '2px 8px',
-                      borderRadius: '12px',
-                      fontSize: '12px',
-                      fontWeight: 'bold'
-                    }}>
+                  <div className="low-stock-product-details">
+                    <span className={`stock-badge ${product.stock <= 5 ? 'low' : 'medium'}`}>
                       {product.stock} units left
                     </span>
                     {!product.is_active && (
-                      <span style={{
-                        backgroundColor: '#6c757d',
-                        color: 'white',
-                        padding: '2px 8px',
-                        borderRadius: '12px',
-                        fontSize: '12px',
-                        fontWeight: 'bold'
-                      }}>
+                      <span className="inactive-badge">
                         INACTIVE
                       </span>
                     )}
-                    <span style={{
-                      color: '#007bff',
-                      fontWeight: 'bold',
-                      fontSize: '14px'
-                    }}>
+                    <span className="product-price">
                       {formatPrice(product.price, currency)}
                     </span>
                   </div>
@@ -438,17 +338,10 @@ export default function Dashboard() {
             ))}
           </div>
         ) : (
-          <div style={{
-            textAlign: 'center',
-            padding: '40px',
-            color: '#6c757d',
-            backgroundColor: '#f8f9fa',
-            borderRadius: '8px',
-            marginTop: '20px'
-          }}>
-            <div style={{ fontSize: '48px', marginBottom: '15px' }}>✅</div>
-            <h4 style={{ margin: '0 0 10px 0' }}>All products are well stocked!</h4>
-            <p style={{ margin: '0' }}>No products have stock levels ≤ 10 units.</p>
+          <div className="no-low-stock-message">
+            <div className="no-low-stock-icon">✅</div>
+            <h4 className="no-low-stock-title">All products are well stocked!</h4>
+            <p className="no-low-stock-text">No products have stock levels ≤ 10 units.</p>
           </div>
         )}
       </div>

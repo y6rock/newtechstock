@@ -1,5 +1,49 @@
 /* --- Promotions.css --- */
 
+/* Loading State */
+.promotions-loading-container {
+  display: flex;
+  min-height: 100vh;
+}
+
+.promotions-loading-content {
+  flex: 1;
+  padding: 20px;
+  text-align: center;
+}
+
+/* Form Help Text */
+.form-help-text {
+  color: #666;
+  font-size: 12px;
+}
+
+.form-help-text-block {
+  color: #666;
+  font-size: 12px;
+  margin-top: 8px;
+  display: block;
+}
+
+/* Empty State */
+.empty-state {
+  padding: 20px;
+  text-align: center;
+  color: #666;
+}
+
+/* Checkbox Container */
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: #333;
+}
+
 .promotions-container {
   padding: 20px;
   max-width: 1200px;

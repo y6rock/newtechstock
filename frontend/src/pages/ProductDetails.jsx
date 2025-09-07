@@ -299,7 +299,11 @@ export default function ProductDetails() {
               </div>
               <div className="spec-item">
                 <span className="spec-label">Availability:</span>
-                <div className="spec-value" style={{ color: stockColor }}>{stockStatus}</div>
+                <div className={`spec-value ${
+                  !hasValidStock ? 'stock-invalid' : 
+                  product.stock === 0 ? 'stock-out-of-stock' : 
+                  'stock-in-stock'
+                }`}>{stockStatus}</div>
               </div>
               <div className="spec-item">
                 <span className="spec-label">Condition:</span>

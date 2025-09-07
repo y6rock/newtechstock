@@ -252,12 +252,12 @@ const Checkout = () => {
 
                     {paymentMethod === 'paypal' && (
                         <div className="paypal-container">
-                            <div style={{ marginBottom: '10px', padding: '10px', background: '#f8f9fa', borderRadius: '5px' }}>
+                            <div className="paypal-payment-info">
                                 <p>PayPal payment for: {formatPrice(total, currency)}</p>
                             </div>
                             
                             {paypalLoading && (
-                                <div style={{ textAlign: 'center', padding: '20px' }}>
+                                <div className="paypal-loading">
                                     <p>Loading PayPal...</p>
                                 </div>
                             )}
@@ -303,9 +303,9 @@ const Checkout = () => {
                                 style={{ layout: "horizontal" }}
                             />
                             
-                            <div style={{ marginTop: '10px', fontSize: '12px', color: '#666' }}>
+                            <div className="paypal-help">
                                 <p>If PayPal button doesn't appear:</p>
-                                <ul style={{ margin: '5px 0', paddingLeft: '20px' }}>
+                                <ul>
                                     <li>Refresh the page and try again</li>
                                     <li>Check your internet connection</li>
                                     <li>Try a different browser</li>

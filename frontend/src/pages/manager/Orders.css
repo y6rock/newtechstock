@@ -2,6 +2,10 @@
     padding: 2rem;
 }
 
+.orders-error {
+    color: red;
+}
+
 .orders-header {
     margin-bottom: 2rem;
 }

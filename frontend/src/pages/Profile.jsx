@@ -233,7 +233,7 @@ const Profile = () => {
           {/* Profile Picture Section */}
           <div className="profile-picture-section">
             <h2 className="profile-picture-title">
-              <FaCamera style={{ marginRight: '10px' }} />
+              <FaCamera className="profile-icon" />
               Profile Picture
             </h2>
             <div className="profile-picture-container">
@@ -250,52 +250,52 @@ const Profile = () => {
           {/* Personal Information Section */}
           <div className="personal-info-section">
             <h2 className="personal-info-title">
-              <FaUser style={{ marginRight: '10px' }} />
+              <FaUser className="profile-icon" />
               Personal Information
             </h2>
             <div className="personal-info-form">
               <div className="form-field">
-                <label className="form-label">Full Name</label>
-                <div className="form-input-container">
-                  <FaUser className="form-icon" />
-                  <input
-                    type="text"
-                    name="name"
-                    value={profileData.name}
-                    onChange={handleChange}
-                    className="form-input"
-                    maxLength={70}
-                  />
-                </div>
+                <label className="form-label">
+                  <FaUser className="form-label-icon" />
+                  Full Name
+                </label>
+                <input
+                  type="text"
+                  name="name"
+                  value={profileData.name}
+                  onChange={handleChange}
+                  className="form-input"
+                  maxLength={70}
+                />
                 <div className="character-count">
                   {profileData.name ? profileData.name.length : 0}/70 characters
                 </div>
               </div>
               <div className="form-field">
-                <label className="form-label">Phone Number</label>
-                <div className="form-input-container">
-                  <FaPhone className="form-icon" />
-                  <input
-                    type="text"
-                    name="phone"
-                    value={profileData.phone}
-                    onChange={handleChange}
-                    className="form-input"
-                  />
-                </div>
+                <label className="form-label">
+                  <FaPhone className="form-label-icon" />
+                  Phone Number
+                </label>
+                <input
+                  type="text"
+                  name="phone"
+                  value={profileData.phone}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
               <div className="form-field">
-                <label className="form-label">Address</label>
-                <div className="form-input-container">
-                  <FaMapMarkerAlt className="form-icon" />
-                  <input
-                    type="text"
-                    name="address"
-                    value={profileData.address}
-                    onChange={handleChange}
-                    className="form-input"
-                  />
-                </div>
+                <label className="form-label">
+                  <FaMapMarkerAlt className="form-label-icon" />
+                  Address
+                </label>
+                <input
+                  type="text"
+                  name="address"
+                  value={profileData.address}
+                  onChange={handleChange}
+                  className="form-input"
+                />
               </div>
             </div>
             <button

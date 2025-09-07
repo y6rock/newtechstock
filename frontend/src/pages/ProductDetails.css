@@ -586,6 +586,19 @@
   color: #856404;
 }
 
+/* Stock Status in Specs */
+.spec-value.stock-in-stock {
+  color: #28a745;
+}
+
+.spec-value.stock-out-of-stock {
+  color: #dc3545;
+}
+
+.spec-value.stock-invalid {
+  color: #ff6b35;
+}
+
 /* Product Description */
 .description-section {
   margin-bottom: 30px;

@@ -1,5 +1,20 @@
 /* --- ProductsPage.css --- */
 
+/* Checkbox Styles */
+.manufacturer-checkbox input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #4a90e2;
+  cursor: pointer;
+}
+
+/* Stock Info Styles */
+.stock-info {
+  font-size: 0.8em;
+  color: #666;
+  margin-bottom: 10px;
+}
+
 .products-page-container {
   max-width: 1200px;
   margin: 0 auto;

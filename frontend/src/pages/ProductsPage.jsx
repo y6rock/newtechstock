@@ -214,12 +214,6 @@ const ProductsPage = () => {
                     value={manufacturer.name}
                     checked={isChecked}
                     onChange={handleManufacturerChange}
-                    style={{
-                      width: '18px',
-                      height: '18px',
-                      accentColor: '#4a90e2',
-                      cursor: 'pointer'
-                    }}
                   />
                   <span className="checkbox-label">{manufacturer.name}</span>
                 </label>
@@ -357,7 +351,7 @@ const ProductsPage = () => {
                         {formatPriceWithCommas(product.price, currency)}
                       </p>
                       {hasValidStock && product.stock > 0 && (
-                        <p className="stock-info" style={{ fontSize: '0.8em', color: '#666', marginBottom: '10px' }}>
+                        <p className="stock-info">
                           {stockStatus}
                         </p>
                       )}

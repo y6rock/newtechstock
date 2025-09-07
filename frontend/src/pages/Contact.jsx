@@ -45,7 +45,7 @@ const Contact = () => {
         </p>
       </div>
 
-      <div className="simple-page-container" style={{paddingTop: 0}}>
+      <div className="simple-page-container no-padding-top">
         <div className="contact-container">
           {/* Contact Information */}
           <div className="contact-info-card">

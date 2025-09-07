@@ -177,7 +177,7 @@ const Orders = () => {
   };
 
   if (loading) return <div className="orders-page"><p>Loading orders...</p></div>;
-  if (error) return <div className="orders-page"><p style={{ color: 'red' }}>{error}</p></div>;
+  if (error) return <div className="orders-page"><p className="orders-error">{error}</p></div>;
 
   return (
     <div className="orders-page">

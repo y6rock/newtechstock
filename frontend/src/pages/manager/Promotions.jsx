@@ -271,8 +271,8 @@ export default function Promotions() {
 
   if (loadingSettings) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>
+      <div className="promotions-loading-container">
+        <div className="promotions-loading-content">
           <p>Loading Admin Panel...</p>
         </div>
       </div>
@@ -534,7 +534,7 @@ export default function Promotions() {
                   placeholder="1"
                   required
                 />
-                <small style={{ color: '#666', fontSize: '12px' }}>
+                <small className="form-help-text">
                   Minimum quantity required per item to apply this promotion
                 </small>
               </div>
@@ -548,7 +548,7 @@ export default function Promotions() {
                   min="1"
                   placeholder="No limit"
                 />
-                <small style={{ color: '#666', fontSize: '12px' }}>
+                <small className="form-help-text">
                   Maximum quantity allowed per item (leave empty for no limit)
                 </small>
               </div>
@@ -594,7 +594,7 @@ export default function Promotions() {
                     <span className="apply-option-label">Categories</span>
                   </label>
                 </div>
-                <small style={{ color: '#666', fontSize: '12px', marginTop: '8px', display: 'block' }}>
+                <small className="form-help-text-block">
                   Select whether this promotion applies to specific products or entire categories
                 </small>
               </div>
@@ -604,7 +604,7 @@ export default function Promotions() {
                   <label>Select Products</label>
                   <div className="multi-select-container">
                     {products.length === 0 ? (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                      <div className="empty-state">
                         No products available. Loading...
                       </div>
                     ) : (
@@ -640,7 +640,7 @@ export default function Promotions() {
                   <label>Select Categories</label>
                   <div className="multi-select-container">
                     {categories.length === 0 ? (
-                      <div style={{ padding: '20px', textAlign: 'center', color: '#666' }}>
+                      <div className="empty-state">
                         No categories available. Loading...
                       </div>
                     ) : (
@@ -673,13 +673,13 @@ export default function Promotions() {
 
               <div className="form-group">
                 <label>Active Promotion</label>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <div className="checkbox-container">
                   <input
                     type="checkbox"
                     checked={formData.is_active}
                     onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
                   />
-                  <span style={{ fontSize: '14px', color: '#333' }}>Enable this promotion</span>
+                  <span className="checkbox-label">Enable this promotion</span>
                 </div>
               </div>
 

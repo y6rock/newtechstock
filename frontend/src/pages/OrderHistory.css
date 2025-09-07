@@ -28,6 +28,14 @@
   margin: 0;
 }
 
+/* Embedded Order History Title */
+.order-history-embedded-title {
+  font-size: 1.5em;
+  margin-bottom: 20px;
+  text-align: center;
+  color: #333;
+}
+
 .order-card {
   margin-bottom: 30px;
   border: 1px solid #eee;

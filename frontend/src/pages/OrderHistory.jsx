@@ -89,7 +89,7 @@ const OrderHistory = ({ userId }) => {
           <p className="order-history-subtitle">Track all your past orders and their status</p>
         </div>
       ) : (
-        <h2 style={{ fontSize: '1.5em', marginBottom: '20px', textAlign: 'center', color: '#333' }}>Your Order History</h2>
+        <h2 className="order-history-embedded-title">Your Order History</h2>
       )}
 
       {orders.length === 0 ? (

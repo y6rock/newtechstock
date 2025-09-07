@@ -1,5 +1,10 @@
 /* Profile Page Styles */
 
+/* Icon Styles */
+.profile-icon {
+  margin-right: 10px;
+}
+
 /* Loading and Error States */
 .profile-loading {
   text-align: center;
@@ -193,32 +198,24 @@
 }
 
 .form-label {
-  display: block;
+  display: flex;
+  align-items: center;
   margin-bottom: 7px;
   color: #555;
   font-weight: bold;
   font-size: 1.05em;
 }
 
-.form-input-container {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.form-icon {
-  position: absolute;
-  left: 15px;
-  color: #aaa;
+.form-label-icon {
+  margin-right: 8px;
+  color: #666;
   font-size: 16px;
-  z-index: 2;
-  pointer-events: none;
 }
 
 .form-input {
   width: 100%;
   max-width: 100%;
-  padding: 14px 15px 14px 60px; /* Increased left padding to 60px for more space after icon */
+  padding: 14px 15px;
   border: 1px solid #ddd;
   border-radius: 6px;
   font-size: 1.08em;
