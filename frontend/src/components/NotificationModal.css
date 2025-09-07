@@ -1,0 +1,129 @@
+/* NotificationModal.css */
+
+/* Modal Content Styles */
+.notification-modal-content {
+  max-width: 400px;
+  text-align: center;
+  border: 2px solid;
+}
+
+.notification-modal-content.success {
+  background-color: #d4edda;
+  border-color: #c3e6cb;
+}
+
+.notification-modal-content.error {
+  background-color: #f8d7da;
+  border-color: #f5c6cb;
+}
+
+.notification-modal-content.info {
+  background-color: #d1ecf1;
+  border-color: #bee5eb;
+}
+
+/* Close Button */
+.notification-close-button {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  font-size: 1.2em;
+  cursor: pointer;
+  color: #666;
+}
+
+/* Content Container */
+.notification-content {
+  margin-top: 20px;
+}
+
+/* Icon Styles */
+.notification-icon {
+  font-size: 2em;
+}
+
+.notification-icon.success {
+  color: #28a745;
+}
+
+.notification-icon.error {
+  color: #dc3545;
+}
+
+.notification-icon.info {
+  color: #007bff;
+}
+
+/* Title Styles */
+.notification-title {
+  margin: 15px 0;
+  font-size: 1.5em;
+}
+
+.notification-title.success {
+  color: #155724;
+}
+
+.notification-title.error {
+  color: #721c24;
+}
+
+.notification-title.info {
+  color: #155724;
+}
+
+/* Message Styles */
+.notification-message {
+  margin: 0 0 20px 0;
+  font-size: 1.1em;
+  line-height: 1.5;
+}
+
+.notification-message.success {
+  color: #155724;
+}
+
+.notification-message.error {
+  color: #721c24;
+}
+
+.notification-message.info {
+  color: #155724;
+}
+
+/* OK Button Styles */
+.notification-ok-button {
+  padding: 10px 25px;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  font-size: 1em;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.notification-ok-button.success {
+  background-color: #28a745;
+}
+
+.notification-ok-button.success:hover {
+  background-color: #218838;
+}
+
+.notification-ok-button.error {
+  background-color: #dc3545;
+}
+
+.notification-ok-button.error:hover {
+  background-color: #c82333;
+}
+
+.notification-ok-button.info {
+  background-color: #28a745;
+}
+
+.notification-ok-button.info:hover {
+  background-color: #218838;
+}

@@ -1,5 +1,20 @@
 /* Product Manager Component Styles */
 
+/* Image Placeholder */
+.image-placeholder {
+  display: flex;
+}
+
+.image-placeholder.hidden {
+  display: none;
+}
+
+/* No Products Message */
+.no-products-message {
+  text-align: center;
+  color: #888;
+}
+
 /* Main Container */
 .product-manager-container {
   padding: 20px;

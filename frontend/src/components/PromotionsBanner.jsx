@@ -3,6 +3,7 @@ import { FaTag, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 import { useSettings } from '../context/SettingsContext';
 import { formatPrice } from '../utils/currency';
+import './PromotionsBanner.css';
 
 const PromotionsBanner = () => {
   const [promotions, setPromotions] = useState([]);
@@ -42,64 +43,27 @@ const PromotionsBanner = () => {
   };
 
   return (
-    <div style={{
-      backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      color: 'white',
-      padding: '15px 20px',
-      position: 'relative',
-      overflow: 'hidden'
-    }}>
+    <div className="promotions-banner">
       <button
         onClick={() => setIsVisible(false)}
-        style={{
-          position: 'absolute',
-          top: '10px',
-          right: '15px',
-          background: 'none',
-          border: 'none',
-          color: 'white',
-          cursor: 'pointer',
-          fontSize: '18px',
-          zIndex: 2
-        }}
+        className="promotions-close-button"
       >
         <FaTimes />
       </button>
       
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '20px',
-        flexWrap: 'wrap'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <FaTag style={{ fontSize: '20px' }} />
-          <span style={{ fontWeight: 'bold', fontSize: '16px' }}>Special Offers!</span>
+      <div className="promotions-content">
+        <div className="promotions-header">
+          <FaTag className="promotions-tag-icon" />
+          <span className="promotions-title">Special Offers!</span>
         </div>
         
         {promotions.slice(0, 3).map((promotion, index) => (
-          <div key={promotion.promotion_id} style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '10px',
-            padding: '8px 15px',
-            backgroundColor: 'rgba(255,255,255,0.2)',
-            borderRadius: '20px',
-            fontSize: '14px'
-          }}>
-            <span style={{ fontWeight: 'bold' }}>
+          <div key={promotion.promotion_id} className="promotion-item">
+            <span className="promotion-value">
               {formatValue(promotion.type, promotion.value)}
             </span>
             {promotion.code && (
-              <span style={{ 
-                backgroundColor: 'rgba(255,255,255,0.3)', 
-                padding: '2px 8px', 
-                borderRadius: '10px',
-                fontSize: '12px',
-                fontFamily: 'monospace'
-              }}>
+              <span className="promotion-code">
                 {promotion.code}
               </span>
             )}

@@ -550,10 +550,7 @@ function ProductManager() {
                     />
                   ) : null}
                   <div 
-                    className="image-placeholder"
-                    style={{ 
-                      display: p.image ? 'none' : 'flex',
-                    }}
+                    className={`image-placeholder ${p.image ? 'hidden' : ''}`}
                   >
                     {p.name ? p.name.substring(0, 8) : 'No Image'}
                   </div>
@@ -593,7 +590,7 @@ function ProductManager() {
             ))}
             {filteredProducts.length === 0 && (
               <tr>
-                <td colSpan="7" className="table-body-cell" style={{ textAlign: 'center', color: '#888' }}>No products found.</td>
+                <td colSpan="7" className="table-body-cell no-products-message">No products found.</td>
               </tr>
             )}
           </tbody>

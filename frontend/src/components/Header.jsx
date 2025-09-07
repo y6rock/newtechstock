@@ -65,7 +65,7 @@ export default function Header() {
             ) : (
               <div className="header-auth-welcome">
                 <Link to="/profile" onClick={closeMenu}>
-                  <FaUser style={{ marginRight: '8px' }} />
+                  <FaUser className="header-user-icon" />
                   Welcome, {username}
                 </Link>
                 <button onClick={handleLogout} className="header-auth-logout-btn">Logout</button>

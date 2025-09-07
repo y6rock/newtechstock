@@ -1,4 +1,9 @@
 /* Base Styles for the Header */
+
+/* User Icon */
+.header-user-icon {
+  margin-right: 8px;
+}
 .header-nav {
   padding: 10px 20px;
   background: #ffffff;

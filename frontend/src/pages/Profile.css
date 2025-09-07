@@ -184,6 +184,14 @@
   position: relative;
 }
 
+.character-count {
+  font-size: 0.85em;
+  color: #666;
+  text-align: right;
+  margin-top: 4px;
+  font-style: italic;
+}
+
 .form-label {
   display: block;
   margin-bottom: 7px;

@@ -1,0 +1,42 @@
+/* FloatingCart.css */
+
+.floating-cart {
+  position: fixed;
+  bottom: 32px;
+  right: 32px;
+  z-index: 1000;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.18);
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 0.2s;
+  overflow: visible;
+}
+
+.floating-cart:hover {
+  box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+}
+
+.cart-icon {
+  color: #1976D2;
+}
+
+.cart-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ff5252;
+  color: #fff;
+  border-radius: 50%;
+  padding: 2px 8px;
+  font-size: 0.95em;
+  font-weight: bold;
+  min-width: 24px;
+  text-align: center;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.12);
+}

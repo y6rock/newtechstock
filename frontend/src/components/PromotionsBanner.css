@@ -1,0 +1,79 @@
+/* PromotionsBanner.css */
+
+.promotions-banner {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 15px 20px;
+  position: relative;
+  overflow: hidden;
+}
+
+.promotions-close-button {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  background: none;
+  border: none;
+  color: white;
+  cursor: pointer;
+  font-size: 18px;
+  z-index: 2;
+}
+
+.promotions-close-button:hover {
+  opacity: 0.8;
+}
+
+.promotions-content {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  min-height: 40px; /* Ensure consistent height */
+}
+
+.promotions-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+}
+
+.promotions-title {
+  font-weight: bold;
+  font-size: 16px;
+  color: white;
+}
+
+.promotions-tag-icon {
+  font-size: 20px;
+  color: white;
+}
+
+.promotion-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 15px;
+  background-color: rgba(255,255,255,0.2);
+  border-radius: 20px;
+  font-size: 14px;
+}
+
+.promotion-value {
+  font-weight: bold;
+  color: white !important; /* White color for discount values to match original */
+  margin-right: 5px;
+}
+
+.promotion-code {
+  background-color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-family: monospace;
+  color: #333;
+  font-weight: bold;
+  white-space: nowrap;
+}

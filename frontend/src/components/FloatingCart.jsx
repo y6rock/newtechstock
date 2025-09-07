@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { FaShoppingCart } from 'react-icons/fa';
 import { useNavigate } from 'react-router-dom';
 import { useEffect, useState } from 'react';
+import './FloatingCart.css';
 
 const FloatingCart = () => {
   const { cartItems } = useCart();
@@ -56,41 +57,12 @@ const FloatingCart = () => {
   return (
     <div
       onClick={() => navigate('/cart')}
-      style={{
-        position: 'fixed',
-        bottom: '32px',
-        right: '32px',
-        zIndex: 1000,
-        background: '#fff',
-        borderRadius: '50%',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.18)',
-        width: '64px',
-        height: '64px',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        cursor: 'pointer',
-        transition: 'box-shadow 0.2s',
-        overflow: 'visible',
-      }}
+      className="floating-cart"
       title="View Cart"
     >
-      <FaShoppingCart size={32} color="#1976D2" />
+      <FaShoppingCart size={32} className="cart-icon" />
       {itemCount > 0 && (
-        <span style={{
-          position: 'absolute',
-          top: '-6px',
-          right: '-6px',
-          background: '#ff5252',
-          color: '#fff',
-          borderRadius: '50%',
-          padding: '2px 8px',
-          fontSize: '0.95em',
-          fontWeight: 'bold',
-          minWidth: '24px',
-          textAlign: 'center',
-          boxShadow: '0 1px 4px rgba(0,0,0,0.12)'
-        }}>{itemCount}</span>
+        <span className="cart-badge">{itemCount}</span>
       )}
     </div>
   );

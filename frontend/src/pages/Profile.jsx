@@ -146,6 +146,12 @@ const Profile = () => {
 
   const handleUpdateProfile = async () => {
     try {
+      // Validate name length
+      if (profileData.name && profileData.name.length > 70) {
+        showNotification('Name must be 70 characters or less', 'error');
+        return;
+      }
+      
       let profile_image = profileData.profilePic;
       if (imageFile) {
         const data = new FormData();
@@ -172,14 +178,19 @@ const Profile = () => {
       // Update token if new one is provided
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        // Re-evaluate token to update context with new name
-        window.location.reload();
+        // Update username in context to reflect in header
+        updateUsername(profileData.name);
       } else {
         // Update username in context to reflect in header
         updateUsername(profileData.name);
       }
       
       showNotification('Profile updated successfully!', 'success');
+      
+      // Reload page after showing notification
+      setTimeout(() => {
+        window.location.reload();
+      }, 2000);
     } catch (error) {
       console.error('Error updating profile:', error);
       showNotification(`Error updating profile: ${error.response?.data?.message || error.message}`, 'error');
@@ -253,7 +264,11 @@ const Profile = () => {
                     value={profileData.name}
                     onChange={handleChange}
                     className="form-input"
+                    maxLength={70}
                   />
+                </div>
+                <div className="character-count">
+                  {profileData.name ? profileData.name.length : 0}/70 characters
                 </div>
               </div>
               <div className="form-field">

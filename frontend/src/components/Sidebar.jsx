@@ -19,10 +19,7 @@ const Sidebar = ({ sidebarOpen, setSidebarOpen }) => {
     return (
         <>
             {/* Overlay for closing the sidebar when clicking outside */}
-            {sidebarOpen && <div onClick={() => setSidebarOpen(false)} style={{
-                position: 'fixed', top: 0, left: 0, width: '100%', height: '100%',
-                background: 'rgba(0,0,0,0.4)', zIndex: 999
-            }}></div>}
+            {sidebarOpen && <div onClick={() => setSidebarOpen(false)} className="sidebar-overlay"></div>}
             
             <div className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
                 <h3 className="sidebar-header">Admin Panel</h3>

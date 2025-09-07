@@ -1,5 +1,10 @@
 /* Register Component Styles */
 
+/* Form Field with Extra Margin */
+.form-field-single.extra-margin {
+  margin-bottom: 30px;
+}
+
 /* Main Container */
 .register-container {
   display: flex;

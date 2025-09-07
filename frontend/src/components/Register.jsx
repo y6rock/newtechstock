@@ -141,7 +141,7 @@ function Register() {
                     </span>
                 </div>
 
-                <div className="form-field-single" style={{ marginBottom: '30px' }}>
+                <div className="form-field-single extra-margin">
                     <FaLock className="form-icon" />
                     <input
                         type={showConfirmPassword ? 'text' : 'password'}
