@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ProductManager from '../../components/ProductManager';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
+import './Products.css';
 
 export default function Products() {
   const { isUserAdmin, loadingSettings } = useSettings();
@@ -15,8 +16,8 @@ export default function Products() {
 
   if (loadingSettings) {
     return (
-      <div style={{ display: 'flex', minHeight: '100vh' }}>
-        <div style={{ flex: 1, padding: '20px', textAlign: 'center' }}>
+      <div className="products-loading-container">
+        <div className="products-loading-content">
           <p>Loading Admin Panel...</p>
         </div>
       </div>
@@ -28,7 +29,7 @@ export default function Products() {
   }
 
   return (
-    <div style={{ flex: 1, padding: '20px' }}>
+    <div className="products-container">
       <ProductManager />
     </div>
   );

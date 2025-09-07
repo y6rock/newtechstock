@@ -25,12 +25,12 @@
 - [x] `pages/manager/Promotions.jsx` - ✅ SEPARATED - Updated Promotions.css
 - [x] `pages/Checkout.jsx` - ✅ SEPARATED - Updated Checkout.css
 - [x] `pages/OrderHistory.jsx` - ✅ SEPARATED - Updated OrderHistory.css
-- [ ] `pages/Home.jsx` - Has inline styles (already has Home.css)
-- [ ] `pages/ForgotPassword.jsx` - Has inline styles
-- [ ] `pages/OrderConfirmation.jsx` - Has inline styles
-- [ ] `pages/NotFound.jsx` - Has inline styles
-- [ ] `pages/manager/Products.jsx` - Has inline styles
-- [ ] `App.js` - Has inline styles (already has App.css)
+- [x] `pages/Home.jsx` - ✅ SEPARATED - Updated Home.css
+- [x] `pages/ForgotPassword.jsx` - ✅ SEPARATED - Created ForgotPassword.css
+- [x] `pages/OrderConfirmation.jsx` - ✅ SEPARATED - Created OrderConfirmation.css
+- [x] `pages/NotFound.jsx` - ✅ SEPARATED - Created NotFound.css
+- [x] `pages/manager/Products.jsx` - ✅ SEPARATED - Created Products.css
+- [x] `App.js` - ✅ SEPARATED - Updated App.css
 
 ## Files already separated (have corresponding CSS files):
 - [x] `components/Header.jsx` + `components/Header.css`
@@ -48,12 +48,16 @@
 - [x] `pages/Checkout.jsx` + `pages/Checkout.css`
 - [x] `pages/OrderHistory.jsx` + `pages/OrderHistory.css`
 - [x] `pages/Home.jsx` + `pages/Home.css`
+- [x] `pages/ForgotPassword.jsx` + `pages/ForgotPassword.css`
+- [x] `pages/OrderConfirmation.jsx` + `pages/OrderConfirmation.css`
+- [x] `pages/NotFound.jsx` + `pages/NotFound.css`
+- [x] `pages/manager/Products.jsx` + `pages/manager/Products.css`
 - [x] `App.js` + `App.css`
 
 ## Summary:
 - **Total files needing separation**: 0 files
-- **Files already separated**: 34 files
-- **Progress**: 34/34 (100% complete) 🎉
+- **Files already separated**: 38 files
+- **Progress**: 38/38 (100% complete) 🎉
 
 ## Notes:
 - Some files already have CSS files but still contain inline styles that need to be moved

@@ -34,11 +34,11 @@ const Home = () => {
   }, []);
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '50px' }}>Loading content...</div>;
+    return <div className="home-loading">Loading content...</div>;
   }
 
   if (error) {
-    return <div style={{ textAlign: 'center', padding: '50px', color: 'red' }}>{error}</div>;
+    return <div className="home-error">{error}</div>;
   }
 
   const displayCategories = [

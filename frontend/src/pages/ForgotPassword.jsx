@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { FaEnvelope } from 'react-icons/fa'; // Assuming you have react-icons installed
+import './ForgotPassword.css';
 
 const ForgotPassword = () => {
     const [email, setEmail] = useState('');
@@ -40,98 +41,37 @@ const ForgotPassword = () => {
     };
 
     return (
-        <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            minHeight: '100vh',
-            background: '#f0f2f5',
-            padding: '20px',
-            boxSizing: 'border-box'
-        }}>
-            <div style={{
-                background: '#fff',
-                padding: '40px',
-                borderRadius: '8px',
-                boxShadow: '0 4px 15px rgba(0, 0, 0, 0.1)',
-                width: '100%',
-                maxWidth: '400px',
-                textAlign: 'center'
-            }}>
-                <h2 style={{
-                    fontSize: '1.8em',
-                    marginBottom: '10px',
-                    color: '#333'
-                }}>Forgot password?</h2>
-                <p style={{
-                    color: '#666',
-                    marginBottom: '30px',
-                    fontSize: '0.95em'
-                }}>Enter your email address and we'll send you a link to reset your password</p>
+        <div className="forgot-password-container">
+            <div className="forgot-password-card">
+                <h2 className="forgot-password-title">Forgot password?</h2>
+                <p className="forgot-password-description">Enter your email address and we'll send you a link to reset your password</p>
 
-                <form onSubmit={handleSubmit} style={{ textAlign: 'left' }}>
-                    <div style={{ marginBottom: '20px', position: 'relative' }}>
-                        <FaEnvelope style={{
-                            position: 'absolute',
-                            left: '15px',
-                            top: '50%',
-                            transform: 'translateY(-50%)',
-                            color: '#aaa'
-                        }} />
+                <form onSubmit={handleSubmit} className="forgot-password-form">
+                    <div className="input-container">
+                        <FaEnvelope className="input-icon" />
                         <input
                             type="email"
                             placeholder="Enter your email"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            style={{
-                                width: 'calc(100% - 30px)', // Adjust for padding and icon
-                                padding: '12px 15px 12px 45px', // Left padding for icon
-                                border: '1px solid #ddd',
-                                borderRadius: '5px',
-                                fontSize: '1em',
-                                boxSizing: 'border-box',
-                                transition: 'border-color 0.3s'
-                            }}
-                            onFocus={(e) => e.target.style.borderColor = '#007bff'}
-                            onBlur={(e) => e.target.style.borderColor = '#ddd'}
+                            className="forgot-password-input"
                             required
                         />
                     </div>
 
-                    {message && <p style={{ color: 'green', marginBottom: '15px' }}>{message}</p>}
-                    {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+                    {message && <p className="success-message">{message}</p>}
+                    {error && <p className="error-message">{error}</p>}
 
                     <button
                         type="submit"
-                        style={{
-                            width: '100%',
-                            padding: '12px',
-                            background: '#007bff',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '5px',
-                            fontSize: '1.1em',
-                            cursor: 'pointer',
-                            transition: 'background-color 0.3s',
-                            boxSizing: 'border-box'
-                        }}
-                        onMouseOver={(e) => e.target.style.backgroundColor = '#0056b3'}
-                        onMouseOut={(e) => e.target.style.backgroundColor = '#007bff'}
+                        className="forgot-password-button"
                     >
                         Send reset link
                     </button>
                 </form>
 
-                <div style={{ marginTop: '25px' }}>
-                    <Link to="/login" style={{
-                        color: '#007bff',
-                        textDecoration: 'none',
-                        fontSize: '0.95em',
-                        transition: 'color 0.3s'
-                    }}
-                    onMouseOver={(e) => e.target.style.color = '#0056b3'}
-                    onMouseOut={(e) => e.target.style.color = '#007bff'}
-                    >
+                <div className="back-link-container">
+                    <Link to="/login" className="back-link">
                         ← Back to sign in
                     </Link>
                 </div>

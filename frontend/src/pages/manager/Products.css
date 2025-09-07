@@ -1,0 +1,15 @@
+.products-container {
+    flex: 1;
+    padding: 20px;
+}
+
+.products-loading-container {
+    display: flex;
+    min-height: 100vh;
+}
+
+.products-loading-content {
+    flex: 1;
+    padding: 20px;
+    text-align: center;
+}

@@ -1,0 +1,29 @@
+.order-confirmation-container {
+    text-align: center;
+    padding: 50px;
+}
+
+.order-confirmation-title {
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.order-confirmation-order-id {
+    font-weight: bold;
+    color: #007bff;
+}
+
+.order-confirmation-message {
+    margin: 15px 0;
+    color: #666;
+}
+
+.order-confirmation-link {
+    color: #007bff;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.order-confirmation-link:hover {
+    text-decoration: underline;
+}
