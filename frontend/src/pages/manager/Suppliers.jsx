@@ -250,66 +250,39 @@ const Suppliers = () => {
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Phone:</label>
+              <div className="form-group">
+                <label className="form-label">Phone:</label>
                 <input
                   type="tel"
                   placeholder="Enter phone number"
                   value={newSupplierPhone}
                   onChange={(e) => setNewSupplierPhone(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="form-input"
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Address:</label>
+              <div className="form-group">
+                <label className="form-label">Address:</label>
                 <textarea
                   placeholder="Enter address"
                   value={newSupplierAddress}
                   onChange={(e) => setNewSupplierAddress(e.target.value)}
                   rows="3"
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box',
-                    resize: 'vertical'
-                  }}
+                  className="form-textarea"
                 />
               </div>
               
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="modal-buttons">
                 <button 
                   type="button" 
                   onClick={handleCloseAddModal}
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#6c757d', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="modal-button secondary"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#007bff', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="modal-button primary"
                 >
                   Add Supplier
                 </button>
@@ -321,124 +294,65 @@ const Suppliers = () => {
 
       {/* Edit Supplier Modal */}
       {showEditModal && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: '#fff',
-            padding: '30px',
-            borderRadius: '8px',
-            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-            width: '90%',
-            maxWidth: '500px',
-            maxHeight: '90vh',
-            overflow: 'auto'
-          }}>
-            <h2 style={{ marginTop: '0', marginBottom: '20px', color: '#333' }}>Edit Supplier</h2>
+        <div className="edit-modal-overlay">
+          <div className="edit-modal-content">
+            <h2 className="edit-modal-header">Edit Supplier</h2>
             
-            {error && <p style={{ color: 'red', marginBottom: '15px' }}>{error}</p>}
+            {error && <p className="edit-modal-error">{error}</p>}
             
-            <form onSubmit={handleUpdateSupplier} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Supplier Name:</label>
+            <form onSubmit={handleUpdateSupplier} className="edit-modal-form">
+              <div className="edit-form-group">
+                <label className="edit-form-label">Supplier Name:</label>
                 <input
                   type="text"
                   value={editedSupplierName}
                   onChange={(e) => setEditedSupplierName(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="edit-form-input"
                   required
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Email:</label>
+              <div className="edit-form-group">
+                <label className="edit-form-label">Email:</label>
                 <input
                   type="email"
                   value={editedSupplierEmail}
                   onChange={(e) => setEditedSupplierEmail(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="edit-form-input"
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Phone:</label>
+              <div className="edit-form-group">
+                <label className="edit-form-label">Phone:</label>
                 <input
                   type="tel"
                   value={editedSupplierPhone}
                   onChange={(e) => setEditedSupplierPhone(e.target.value)}
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box'
-                  }}
+                  className="edit-form-input"
                 />
               </div>
               
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: '600', color: '#555' }}>Address:</label>
+              <div className="edit-form-group">
+                <label className="edit-form-label">Address:</label>
                 <textarea
                   value={editedSupplierAddress}
                   onChange={(e) => setEditedSupplierAddress(e.target.value)}
                   rows="3"
-                  style={{ 
-                    width: '100%', 
-                    padding: '10px', 
-                    border: '1px solid #ddd', 
-                    borderRadius: '5px',
-                    boxSizing: 'border-box',
-                    resize: 'vertical'
-                  }}
+                  className="edit-form-textarea"
                 />
               </div>
               
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div className="edit-modal-buttons">
                 <button 
                   type="button" 
                   onClick={handleCloseEditModal}
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#6c757d', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="edit-modal-button secondary"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit" 
-                  style={{ 
-                    padding: '10px 20px', 
-                    backgroundColor: '#007bff', 
-                    color: '#fff', 
-                    border: 'none', 
-                    borderRadius: '5px', 
-                    cursor: 'pointer' 
-                  }}
+                  className="edit-modal-button primary"
                 >
                   Update Supplier
                 </button>
