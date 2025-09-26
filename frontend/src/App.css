@@ -1,6 +1,4 @@
-body {
-  background-color: red !important;
-}
+/* Remove the body background override - let index.css handle it */
 
 /* .App {
   text-align: center;
