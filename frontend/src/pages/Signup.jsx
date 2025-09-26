@@ -85,27 +85,34 @@ function Signup() {
           )}
 
           <div className="form-group row">
-            <input
-              type="text"
-              name="name"
-              placeholder="First name"
-              value={form.name}
-              onChange={handleChange}
-              required
-              className="form-input"
-            />
-            <input
-              type="text"
-              name="lastName"
-              placeholder="Last name"
-              value={form.lastName}
-              onChange={handleChange}
-              required
-              className="form-input"
-            />
+            <div className="form-field">
+              <FaUser className="form-icon" />
+              <input
+                type="text"
+                name="name"
+                placeholder="First name"
+                value={form.name}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
+            </div>
+            <div className="form-field">
+              <FaUser className="form-icon" />
+              <input
+                type="text"
+                name="lastName"
+                placeholder="Last name"
+                value={form.lastName}
+                onChange={handleChange}
+                required
+                className="form-input"
+              />
+            </div>
           </div>
 
           <div className="form-group">
+            <FaEnvelope className="form-icon" />
             <input
               type="email"
               name="email"
@@ -118,6 +125,7 @@ function Signup() {
           </div>
 
           <div className="form-group">
+            <FaPhone className="form-icon" />
             <input
               type="text"
               name="phone"
@@ -130,6 +138,7 @@ function Signup() {
           </div>
 
           <div className="form-group">
+            <FaCity className="form-icon" />
             <input
               type="text"
               name="city"
@@ -142,6 +151,7 @@ function Signup() {
           </div>
 
           <div className="form-group">
+            <FaLock className="form-icon" />
             <input
               type={showPassword ? 'text' : 'password'}
               name="password"
@@ -161,6 +171,7 @@ function Signup() {
           </div>
 
           <div className="form-group">
+            <FaLock className="form-icon" />
             <input
               type={showConfirmPassword ? 'text' : 'password'}
               name="confirmPassword"
