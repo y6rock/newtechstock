@@ -33,22 +33,17 @@
   min-height: 40px; /* Ensure consistent height */
 }
 
-.promotions-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  height: 100%;
-}
-
 .promotions-title {
   font-weight: bold;
-  font-size: 16px;
+  font-size: 18px;
   color: white;
+  margin-right: 10px;
 }
 
 .promotions-tag-icon {
   font-size: 20px;
   color: white;
+  margin-right: 2px;
 }
 
 .promotion-item {

@@ -52,10 +52,8 @@ const PromotionsBanner = () => {
       </button>
       
       <div className="promotions-content">
-        <div className="promotions-header">
-          <FaTag className="promotions-tag-icon" />
-          <span className="promotions-title">Special Offers!</span>
-        </div>
+        <FaTag className="promotions-tag-icon" />
+        <span className="promotions-title">Special Offers!</span>
         
         {promotions.slice(0, 3).map((promotion, index) => (
           <div key={promotion.promotion_id} className="promotion-item">
