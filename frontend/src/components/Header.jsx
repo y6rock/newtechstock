@@ -4,6 +4,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import { FaUser } from 'react-icons/fa';
 import Logo from './Logo';
+import HeaderSearch from './HeaderSearch';
 import './Header.css'; // Import the new CSS file
 
 export default function Header() {
@@ -56,6 +57,11 @@ export default function Header() {
         </div>
 
         <div className="header-right">
+          {/* Search Bar - Next to Auth Links */}
+          <div className="header-search-container">
+            <HeaderSearch />
+          </div>
+          
           <div className="header-auth-links">
             {!username ? (
               <>

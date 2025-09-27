@@ -13,6 +13,7 @@
   align-items: center;
   box-shadow: 0 2px 4px rgba(0,0,0,0.05);
   position: relative; /* Needed for the mobile menu positioning */
+  gap: 20px;
 }
 
 .header-left, .header-right, .header-nav-links, .header-auth-links {
@@ -93,8 +94,14 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  flex: 1; /* Takes up the available space between logo and hamburger */
+  flex: 1;
   gap: 20px;
+}
+
+/* Search Container - Now in header-right */
+.header-search-container {
+  max-width: 300px;
+  min-width: 250px;
 }
 
 /* Hamburger Menu Icon */
@@ -123,6 +130,11 @@
 
 /* Mobile Responsive Styles */
 @media (max-width: 992px) { /* Breakpoint for tablets and mobile */
+  .header-search-container {
+    max-width: 250px;
+    min-width: 200px;
+  }
+  
   .header-nav-container {
     display: none; /* Hide the nav links container by default */
     flex-direction: column;
@@ -153,7 +165,39 @@
     border-bottom: 1px solid #f0f0f0;
   }
 
+  .header-search-container {
+    width: 100%;
+    max-width: none;
+    min-width: auto;
+    padding: 15px 20px;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
   .hamburger-menu {
     display: flex; /* Show the hamburger icon */
+  }
+}
+
+@media (max-width: 768px) {
+  .header-nav {
+    padding: 10px 15px;
+    gap: 10px;
+  }
+  
+  .header-search-container {
+    max-width: 220px;
+    min-width: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header-nav {
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  
+  .header-search-container {
+    max-width: 180px;
+    min-width: 150px;
   }
 } 

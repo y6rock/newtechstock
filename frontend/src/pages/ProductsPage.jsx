@@ -34,11 +34,6 @@ const formatPriceWithCommas = (price, currency) => {
 
 const ProductsPage = () => {
   const { currency } = useSettings();
-  const [products, setProducts] = useState([]);
-  const [categories, setCategories] = useState([
-    { category_id: 'All Products', name: 'All Products' }
-  ]);
-  const [searchTerm, setSearchTerm] = useState('');
   const location = useLocation();
   const { addToCart } = useCart();
   const navigate = useNavigate();
@@ -52,6 +47,17 @@ const ProductsPage = () => {
     return 'All Products';
   };
 
+  const getInitialSearchTerm = () => {
+    const params = new URLSearchParams(location.search);
+    return params.get('search') || '';
+  };
+
+  const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([
+    { category_id: 'All Products', name: 'All Products' }
+  ]);
+  const [searchTerm, setSearchTerm] = useState(getInitialSearchTerm());
+
   const [selectedCategory, setSelectedCategory] = useState('All Products');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
   const [selectedMaxPrice, setSelectedMaxPrice] = useState(1000);
@@ -60,6 +66,29 @@ const ProductsPage = () => {
   const [manufacturers, setManufacturers] = useState([]);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
   
+  // Handle URL parameter changes
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const searchParam = params.get('search');
+    const categoryParam = params.get('category');
+    
+    if (searchParam !== null) {
+      setSearchTerm(searchParam);
+    }
+    if (categoryParam !== null) {
+      setSelectedCategory(categoryParam);
+    }
+  }, [location.search]);
+
+  // Debounced price filter update
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setSelectedMaxPrice(tempMaxPrice);
+    }, 300); // 300ms delay after user stops dragging
+
+    return () => clearTimeout(timeoutId);
+  }, [tempMaxPrice]);
+
   // Clean up duplicates on component mount
   useEffect(() => {
     setSelectedManufacturers(prev => {
@@ -118,6 +147,11 @@ const ProductsPage = () => {
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
+  };
+
+  const handleTempPriceChange = (e) => {
+    const value = parseFloat(e.target.value);
+    setTempMaxPrice(value);
   };
 
   const handlePriceChange = (e) => {
@@ -184,6 +218,11 @@ const ProductsPage = () => {
       <div className="filter-group">
         <h3>Price Range</h3>
         <div className="price-range-container">
+          <div className="price-range-display">
+            <span className="current-price">
+              Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(tempMaxPrice)}
+            </span>
+          </div>
           <input
             type="range"
             id="priceRange"
@@ -191,7 +230,8 @@ const ProductsPage = () => {
             max={priceRange.max}
             step="0.01"
             value={tempMaxPrice}
-            onChange={handlePriceChange}
+            onInput={handleTempPriceChange}
+            onChange={handleTempPriceChange}
             className="price-range-slider"
           />
           <div className="price-range-labels">
@@ -268,7 +308,6 @@ const ProductsPage = () => {
 
       {/* Categories Filter */}
       <div className="categories-filter">
-        <h3>Categories</h3>
         <div className="categories-filter-buttons">
           {categories.map(cat => (
             <button
