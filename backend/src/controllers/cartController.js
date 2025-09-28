@@ -30,7 +30,7 @@ const validateCart = async (req, res) => {
                 p.image,
                 p.category_id,
                 p.supplier_id,
-                p.status,
+                p.is_active,
                 c.name as category_name,
                 s.name as supplier_name
             FROM products p
@@ -50,7 +50,7 @@ const validateCart = async (req, res) => {
             const currentProduct = currentProductsMap.get(cartItem.product_id);
             
             // Product was deleted or is inactive
-            if (!currentProduct || currentProduct.status !== 'active') {
+            if (!currentProduct || currentProduct.is_active !== 1) {
                 removedItems.push({
                     ...cartItem,
                     reason: !currentProduct ? 'Product deleted' : 'Product inactive'
@@ -192,9 +192,9 @@ const getCartProductInfo = async (req, res) => {
                 image,
                 category_id,
                 supplier_id,
-                status
+                is_active
             FROM products
-            WHERE product_id IN (${placeholders}) AND status = 'active'
+            WHERE product_id IN (${placeholders}) AND is_active = 1
         `;
         
         const [products] = await db.execute(query, productIds);
@@ -209,7 +209,349 @@ const getCartProductInfo = async (req, res) => {
     }
 };
 
+/**
+ * Get user's cart from database
+ */
+const getCart = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const db = dbSingleton.getConnection();
+
+        // Get or create cart for user
+        let [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        let cartId;
+        
+        if (carts.length === 0) {
+            // Create new cart for user
+            const [result] = await db.execute('INSERT INTO carts (user_id) VALUES (?)', [user_id]);
+            cartId = result.insertId;
+        } else {
+            cartId = carts[0].cart_id;
+        }
+
+        // Get cart items with product details
+        const [cartItems] = await db.execute(`
+            SELECT 
+                ci.cart_item_id,
+                ci.product_id,
+                ci.quantity,
+                ci.price as cart_price,
+                p.name,
+                p.price as current_price,
+                p.stock,
+                p.image,
+                p.category_id,
+                p.supplier_id,
+                p.is_active,
+                c.name as category_name,
+                s.name as supplier_name
+            FROM cart_items ci
+            JOIN products p ON ci.product_id = p.product_id
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            WHERE ci.cart_id = ? AND p.is_active = 1
+            ORDER BY ci.added_at ASC
+        `, [cartId]);
+
+        // Get applied promotion if any
+        const [promotions] = await db.execute(`
+            SELECT 
+                cp.discount_amount,
+                p.promotion_id,
+                p.name,
+                p.code,
+                p.value,
+                p.type
+            FROM cart_promotions cp
+            JOIN promotions p ON cp.promotion_id = p.promotion_id
+            WHERE cp.cart_id = ?
+        `, [cartId]);
+
+        const appliedPromotion = promotions.length > 0 ? {
+            promotion_id: promotions[0].promotion_id,
+            name: promotions[0].name,
+            code: promotions[0].code,
+            value: promotions[0].value,
+            type: promotions[0].type
+        } : null;
+
+        const discountAmount = promotions.length > 0 ? parseFloat(promotions[0].discount_amount) : 0;
+
+        res.json({
+            cartItems: cartItems.map(item => ({
+                product_id: item.product_id,
+                name: item.name,
+                price: parseFloat(item.cart_price), // Use cart price for consistency
+                current_price: parseFloat(item.current_price),
+                quantity: item.quantity,
+                stock: item.stock,
+                image: item.image,
+                category_id: item.category_id,
+                supplier_id: item.supplier_id,
+                category_name: item.category_name,
+                supplier_name: item.supplier_name
+            })),
+            appliedPromotion,
+            discountAmount
+        });
+
+    } catch (error) {
+        console.error('Error getting cart:', error);
+        res.status(500).json({ message: 'Failed to get cart', error: error.message });
+    }
+};
+
+/**
+ * Add item to cart
+ */
+const addToCart = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const { product_id, quantity = 1, price } = req.body;
+        
+        if (!product_id || !price) {
+            return res.status(400).json({ message: 'Product ID and price are required' });
+        }
+
+        if (quantity <= 0) {
+            return res.status(400).json({ message: 'Quantity must be greater than 0' });
+        }
+
+        const db = dbSingleton.getConnection();
+
+        // Verify product exists and is active
+        const [products] = await db.execute('SELECT stock, is_active FROM products WHERE product_id = ?', [product_id]);
+        if (products.length === 0 || !products[0].is_active) {
+            return res.status(404).json({ message: 'Product not found or inactive' });
+        }
+
+        if (products[0].stock < quantity) {
+            return res.status(400).json({ message: 'Insufficient stock' });
+        }
+
+        // Get or create cart
+        let [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        let cartId;
+        
+        if (carts.length === 0) {
+            const [result] = await db.execute('INSERT INTO carts (user_id) VALUES (?)', [user_id]);
+            cartId = result.insertId;
+        } else {
+            cartId = carts[0].cart_id;
+        }
+
+        // Check if item already exists in cart
+        const [existingItems] = await db.execute('SELECT quantity FROM cart_items WHERE cart_id = ? AND product_id = ?', [cartId, product_id]);
+        
+        if (existingItems.length > 0) {
+            // Update existing item
+            const newQuantity = existingItems[0].quantity + quantity;
+            if (newQuantity > products[0].stock) {
+                return res.status(400).json({ message: 'Total quantity exceeds available stock' });
+            }
+            
+            await db.execute('UPDATE cart_items SET quantity = ?, price = ? WHERE cart_id = ? AND product_id = ?', 
+                [newQuantity, price, cartId, product_id]);
+        } else {
+            // Add new item
+            await db.execute('INSERT INTO cart_items (cart_id, product_id, quantity, price) VALUES (?, ?, ?, ?)', 
+                [cartId, product_id, quantity, price]);
+        }
+
+        res.json({ message: 'Item added to cart successfully' });
+
+    } catch (error) {
+        console.error('Error adding to cart:', error);
+        res.status(500).json({ message: 'Failed to add item to cart', error: error.message });
+    }
+};
+
+/**
+ * Update cart item quantity
+ */
+const updateCartItem = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const { product_id, quantity } = req.body;
+        
+        if (!product_id || quantity <= 0) {
+            return res.status(400).json({ message: 'Product ID and valid quantity are required' });
+        }
+
+        const db = dbSingleton.getConnection();
+
+        // Get user's cart
+        const [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        if (carts.length === 0) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+
+        const cartId = carts[0].cart_id;
+
+        // Verify product stock
+        const [products] = await db.execute('SELECT stock FROM products WHERE product_id = ? AND is_active = 1', [product_id]);
+        if (products.length === 0) {
+            return res.status(404).json({ message: 'Product not found' });
+        }
+
+        if (quantity > products[0].stock) {
+            return res.status(400).json({ message: 'Quantity exceeds available stock' });
+        }
+
+        // Update cart item
+        const [result] = await db.execute('UPDATE cart_items SET quantity = ? WHERE cart_id = ? AND product_id = ?', 
+            [quantity, cartId, product_id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Cart item not found' });
+        }
+
+        res.json({ message: 'Cart item updated successfully' });
+
+    } catch (error) {
+        console.error('Error updating cart item:', error);
+        res.status(500).json({ message: 'Failed to update cart item', error: error.message });
+    }
+};
+
+/**
+ * Remove item from cart
+ */
+const removeFromCart = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const { product_id } = req.body;
+        
+        if (!product_id) {
+            return res.status(400).json({ message: 'Product ID is required' });
+        }
+
+        const db = dbSingleton.getConnection();
+
+        // Get user's cart
+        const [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        if (carts.length === 0) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+
+        const cartId = carts[0].cart_id;
+
+        // Remove cart item
+        const [result] = await db.execute('DELETE FROM cart_items WHERE cart_id = ? AND product_id = ?', 
+            [cartId, product_id]);
+
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Cart item not found' });
+        }
+
+        res.json({ message: 'Item removed from cart successfully' });
+
+    } catch (error) {
+        console.error('Error removing from cart:', error);
+        res.status(500).json({ message: 'Failed to remove item from cart', error: error.message });
+    }
+};
+
+/**
+ * Clear entire cart
+ */
+const clearCart = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const db = dbSingleton.getConnection();
+
+        // Get user's cart
+        const [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        if (carts.length === 0) {
+            return res.json({ message: 'Cart is already empty' });
+        }
+
+        const cartId = carts[0].cart_id;
+
+        // Remove all cart items and promotions
+        await db.execute('DELETE FROM cart_items WHERE cart_id = ?', [cartId]);
+        await db.execute('DELETE FROM cart_promotions WHERE cart_id = ?', [cartId]);
+
+        res.json({ message: 'Cart cleared successfully' });
+
+    } catch (error) {
+        console.error('Error clearing cart:', error);
+        res.status(500).json({ message: 'Failed to clear cart', error: error.message });
+    }
+};
+
+/**
+ * Apply promotion to cart
+ */
+const applyPromotion = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const { promotion_id, discount_amount } = req.body;
+        
+        if (!promotion_id || discount_amount === undefined) {
+            return res.status(400).json({ message: 'Promotion ID and discount amount are required' });
+        }
+
+        const db = dbSingleton.getConnection();
+
+        // Get user's cart
+        const [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        if (carts.length === 0) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+
+        const cartId = carts[0].cart_id;
+
+        // Remove existing promotion if any
+        await db.execute('DELETE FROM cart_promotions WHERE cart_id = ?', [cartId]);
+
+        // Apply new promotion
+        await db.execute('INSERT INTO cart_promotions (cart_id, promotion_id, discount_amount) VALUES (?, ?, ?)', 
+            [cartId, promotion_id, discount_amount]);
+
+        res.json({ message: 'Promotion applied successfully' });
+
+    } catch (error) {
+        console.error('Error applying promotion:', error);
+        res.status(500).json({ message: 'Failed to apply promotion', error: error.message });
+    }
+};
+
+/**
+ * Remove promotion from cart
+ */
+const removePromotion = async (req, res) => {
+    try {
+        const user_id = req.user.user_id;
+        const db = dbSingleton.getConnection();
+
+        // Get user's cart
+        const [carts] = await db.execute('SELECT cart_id FROM carts WHERE user_id = ?', [user_id]);
+        if (carts.length === 0) {
+            return res.status(404).json({ message: 'Cart not found' });
+        }
+
+        const cartId = carts[0].cart_id;
+
+        // Remove promotion
+        await db.execute('DELETE FROM cart_promotions WHERE cart_id = ?', [cartId]);
+
+        res.json({ message: 'Promotion removed successfully' });
+
+    } catch (error) {
+        console.error('Error removing promotion:', error);
+        res.status(500).json({ message: 'Failed to remove promotion', error: error.message });
+    }
+};
+
 module.exports = {
     validateCart,
-    getCartProductInfo
+    getCartProductInfo,
+    getCart,
+    addToCart,
+    updateCartItem,
+    removeFromCart,
+    clearCart,
+    applyPromotion,
+    removePromotion
 };

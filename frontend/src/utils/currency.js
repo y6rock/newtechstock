@@ -1,4 +1,5 @@
 // src/utils/currency.js
+import { calculatePriceWithTax } from './tax';
 
 export const getCurrencySymbol = (currencyCode) => {
     const symbols = {
@@ -34,4 +35,26 @@ export const formatPrice = (price, currencyCode) => {
     const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
     
     return `${symbol}${formattedAmount}`;
+};
+
+/**
+ * Format price with tax included for customer display
+ * @param {number} basePrice - Base price without tax
+ * @param {string} currencyCode - Currency code
+ * @param {number} taxRate - Tax rate percentage (default 18%)
+ * @returns {string} Formatted price with tax
+ */
+export const formatPriceWithTax = (basePrice, currencyCode, taxRate = 18) => {
+    const priceWithTax = calculatePriceWithTax(basePrice, taxRate);
+    return formatPrice(priceWithTax, currencyCode);
+};
+
+/**
+ * Format base price (without tax) for admin display
+ * @param {number} basePrice - Base price without tax
+ * @param {string} currencyCode - Currency code
+ * @returns {string} Formatted base price
+ */
+export const formatBasePrice = (basePrice, currencyCode) => {
+    return formatPrice(basePrice, currencyCode);
 }; 

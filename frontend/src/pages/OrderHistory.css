@@ -157,6 +157,18 @@
   font-size: 1em;
 }
 
+.promotion-badge {
+  display: inline-block;
+  background-color: #10b981;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .order-status {
   font-weight: bold;
   text-transform: capitalize;

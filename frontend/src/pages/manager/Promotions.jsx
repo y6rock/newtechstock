@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
 import './Promotions.css';
-import axios from 'axios';
 import { formatPrice } from '../../utils/currency';
 import { formatDate } from '../../utils/dateFormat';
 
 export default function Promotions() {
   const { isUserAdmin, loadingSettings, currency } = useSettings();
+  const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
   const [promotions, setPromotions] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +17,7 @@ export default function Promotions() {
   const [editingPromotion, setEditingPromotion] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
-  const [deactivating, setDeactivating] = useState(false);
+  const [statusFilter, setStatusFilter] = useState('all'); // Filter state
 
   const [formData, setFormData] = useState({
     name: '',
@@ -106,7 +107,19 @@ export default function Promotions() {
     
     // Validate quantity constraints
     if (formData.maxQuantity && parseInt(formData.maxQuantity) <= parseInt(formData.minQuantity)) {
-      alert('Maximum quantity must be greater than minimum quantity.');
+      showError('Maximum quantity must be greater than minimum quantity.');
+      return;
+    }
+    
+    // Validate date constraints
+    const today = new Date().toISOString().split('T')[0];
+    if (formData.startDate < today) {
+      showError('Start date cannot be in the past.');
+      return;
+    }
+    
+    if (formData.endDate <= formData.startDate) {
+      showError('End date must be after the start date.');
       return;
     }
     
@@ -128,59 +141,49 @@ export default function Promotions() {
       });
 
       if (response.ok) {
+        const successMessage = editingPromotion ? 'Promotion updated successfully!' : 'Promotion created successfully!';
+        showSuccess(successMessage);
         setShowModal(false);
         setEditingPromotion(null);
         resetForm();
         fetchPromotions();
       } else {
         const error = await response.json();
-        alert(error.message || 'Error saving promotion');
+        showError(error.message || 'Error saving promotion');
       }
     } catch (error) {
       console.error('Error saving promotion:', error);
-      alert('Error saving promotion');
+      showError('Error saving promotion');
     }
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm('Are you sure you want to delete this promotion?')) {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`/api/promotions/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.ok) {
-          fetchPromotions();
+    showConfirm(
+      'Are you sure you want to delete this promotion? This action cannot be undone.',
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          const response = await fetch(`/api/promotions/${id}`, {
+            method: 'DELETE',
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          if (response.ok) {
+            fetchPromotions();
+            showSuccess('Promotion deleted successfully!');
+          } else {
+            showError('Failed to delete promotion.');
+          }
+        } catch (error) {
+          console.error('Error deleting promotion:', error);
+          showError('Failed to delete promotion.');
         }
-      } catch (error) {
-        console.error('Error deleting promotion:', error);
+      },
+      () => {
+        // Cancel callback - do nothing
       }
-    }
+    );
   };
 
-  const handleDeactivateExpired = async () => {
-    if (window.confirm('Are you sure you want to deactivate all expired promotions?')) {
-      setDeactivating(true);
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/promotions/deactivate-expired', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        if (response.ok) {
-          const result = await response.json();
-          alert(result.message);
-          fetchPromotions();
-        }
-      } catch (error) {
-        console.error('Error deactivating expired promotions:', error);
-        alert('Error deactivating expired promotions');
-      } finally {
-        setDeactivating(false);
-      }
-    }
-  };
 
   const isExpired = (endDate) => {
     return new Date(endDate) < new Date();
@@ -200,6 +203,19 @@ export default function Promotions() {
   };
 
 
+  // Helper function to convert date to YYYY-MM-DD format for HTML date inputs
+  const formatDateForInput = (dateString) => {
+    if (!dateString) return '';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return '';
+    
+    const year = date.getFullYear();
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    const day = date.getDate().toString().padStart(2, '0');
+    
+    return `${year}-${month}-${day}`;
+  };
+
   const handleEdit = (promotion) => {
     setEditingPromotion(promotion);
     const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
@@ -216,8 +232,8 @@ export default function Promotions() {
       value: promotion.value,
       minQuantity: promotion.min_quantity || 1,
       maxQuantity: promotion.max_quantity || null,
-      startDate: promotion.start_date, // Store in YYYY-MM-DD format for backend
-      endDate: promotion.end_date, // Store in YYYY-MM-DD format for backend
+      startDate: formatDateForInput(promotion.start_date), // Convert to YYYY-MM-DD format for HTML input
+      endDate: formatDateForInput(promotion.end_date), // Convert to YYYY-MM-DD format for HTML input
       isActive: promotion.is_active,
       applicableProducts: applicableProducts,
       applicableCategories: applicableCategories,
@@ -263,8 +279,8 @@ export default function Promotions() {
   const formatValue = (type, value) => {
     if (!value) return 'N/A';
     switch (type) {
-      case 'percentage': return `${value}%`;
-      case 'fixed': return formatPrice(value, currency);
+      case 'percentage': return `${value}% OFF`;
+      case 'fixed': return `${formatPrice(value, currency)} OFF`;
       default: return value;
     }
   };
@@ -289,13 +305,6 @@ export default function Promotions() {
         <h1>Promotions & Discounts</h1>
         <div className="promotions-actions">
           <button 
-            className="deactivate-expired-btn"
-            onClick={handleDeactivateExpired}
-            disabled={deactivating}
-          >
-            {deactivating ? 'Deactivating...' : 'Deactivate Expired'}
-          </button>
-          <button 
             className="add-promotion-btn"
             onClick={() => {
               setEditingPromotion(null);
@@ -308,11 +317,52 @@ export default function Promotions() {
         </div>
       </div>
 
+      {/* Status Filter Buttons */}
+      <div className="promotions-filters">
+        <button 
+          className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('all')}
+        >
+          All
+        </button>
+        <button 
+          className={`filter-btn ${statusFilter === 'pending' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('pending')}
+        >
+          Pending
+        </button>
+        <button 
+          className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('active')}
+        >
+          Active
+        </button>
+        <button 
+          className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('inactive')}
+        >
+          Inactive
+        </button>
+        <button 
+          className={`filter-btn ${statusFilter === 'expired' ? 'active' : ''}`}
+          onClick={() => setStatusFilter('expired')}
+        >
+          Expired
+        </button>
+      </div>
+
       {loading ? (
         <div className="loading">Loading promotions...</div>
       ) : (
         <div className="promotions-grid">
-          {promotions.map((promotion) => {
+          {promotions.filter((promotion) => {
+            if (statusFilter === 'all') return true;
+            const status = getPromotionStatus(promotion);
+            if (statusFilter === 'inactive') {
+              return !promotion.is_active;
+            }
+            return status.status === statusFilter;
+          }).map((promotion) => {
             const status = getPromotionStatus(promotion);
             return (
               <div key={promotion.promotion_id} className={`promotion-card ${status.className}`}>
@@ -323,7 +373,10 @@ export default function Promotions() {
                   <div className="promotion-info">
                     <h3>{promotion.name}</h3>
                     <p className="promotion-type">{getPromotionTypeLabel(promotion.type)}</p>
-                    <p className="promotion-value">{formatValue(promotion.type, promotion.value)}</p>
+                    <div className="promotion-value-container">
+                      <span className="promotion-value-label">Discount:</span>
+                      <span className="promotion-value">{formatValue(promotion.type, promotion.value)}</span>
+                    </div>
                   </div>
                   <div className="promotion-status">
                     <span className={`status-badge ${status.className}`}>
@@ -509,9 +562,13 @@ export default function Promotions() {
                 <input
                   type="date"
                   value={formData.startDate}
+                  min={new Date().toISOString().split('T')[0]}
                   onChange={(e) => setFormData({...formData, startDate: e.target.value})}
                   required
                 />
+                <small className="form-help-text">
+                  Start date cannot be in the past
+                </small>
               </div>
 
               <div className="form-group">
@@ -519,9 +576,13 @@ export default function Promotions() {
                 <input
                   type="date"
                   value={formData.endDate}
+                  min={formData.startDate || new Date().toISOString().split('T')[0]}
                   onChange={(e) => setFormData({...formData, endDate: e.target.value})}
                   required
                 />
+                <small className="form-help-text">
+                  End date must be after the start date
+                </small>
               </div>
 
               <div className="form-group">
@@ -632,6 +693,9 @@ export default function Promotions() {
                       ))
                     )}
                   </div>
+                  <small className="form-help-text">
+                    Select multiple products that this promotion applies to
+                  </small>
                 </div>
               )}
 
@@ -676,10 +740,11 @@ export default function Promotions() {
                 <div className="checkbox-container">
                   <input
                     type="checkbox"
-                    checked={formData.is_active}
-                    onChange={(e) => setFormData({...formData, is_active: e.target.checked})}
+                    id="enable-promotion"
+                    checked={formData.isActive}
+                    onChange={(e) => setFormData({...formData, isActive: e.target.checked})}
                   />
-                  <span className="checkbox-label">Enable this promotion</span>
+                  <label htmlFor="enable-promotion" className="checkbox-label">Enable this promotion</label>
                 </div>
               </div>
 

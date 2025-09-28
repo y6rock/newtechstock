@@ -130,6 +130,9 @@ const OrderHistory = ({ userId }) => {
                 <div className="order-details">
                   <p className="order-detail">Date: {formatDateTimeFull(order.order_date)}</p>
                   <p className="order-detail">Status: <span className={`order-status ${order.status}`}>{order.status}</span></p>
+                  {order.promotion_code && (
+                    <p className="order-detail">Promotion: <span className="promotion-badge">{order.promotion_code}</span></p>
+                  )}
                 </div>
 
                 <div className="items-section">

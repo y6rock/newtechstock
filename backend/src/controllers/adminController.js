@@ -208,14 +208,15 @@ exports.getCustomers = async (req, res) => {
                 u.name AS username,
                 u.email,
                 u.phone,
+                u.isActive,
                 COUNT(o.order_id) AS order_count,
                 COALESCE(SUM(o.total_amount), 0) AS total_spent,
                 CASE WHEN u.isActive = TRUE THEN "Active" ELSE "Inactive" END as status
             FROM users u
             LEFT JOIN orders o ON u.user_id = o.user_id
             WHERE u.role != 'admin'
-            GROUP BY u.user_id, u.name, u.email, u.phone
-            ORDER BY u.name
+            GROUP BY u.user_id, u.name, u.email, u.phone, u.isActive
+            ORDER BY u.isActive DESC, u.name
         `);
         res.json(customers);
     } catch (error) {
@@ -308,13 +309,17 @@ exports.getLowStockProducts = async (req, res) => {
     try {
         const [lowStockProducts] = await db.query(`
             SELECT 
-                product_id,
-                name,
-                price,
-                stock
-            FROM products
-            WHERE stock <= 10
-            ORDER BY stock ASC
+                p.product_id,
+                p.name,
+                p.price,
+                p.stock,
+                p.image,
+                p.is_active,
+                c.name as category
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE p.stock <= 10
+            ORDER BY p.stock ASC
         `);
         
         res.json(lowStockProducts);

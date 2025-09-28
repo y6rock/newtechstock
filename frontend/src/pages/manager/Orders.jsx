@@ -320,6 +320,9 @@ const Orders = () => {
             <p><strong>User:</strong> {selectedOrder.user_name || selectedOrder.user_email || '-'}</p>
             <p><strong>Date:</strong> {formatDateTime(selectedOrder.order_date)}</p>
             <p><strong>Total:</strong> {formatPrice(selectedOrder.total_price, currency)}</p>
+            {selectedOrder.promotion_code && (
+              <p><strong>Promotion:</strong> <span className="promotion-badge">{selectedOrder.promotion_code}</span></p>
+            )}
             <h3>Products</h3>
             <ul className="order-products-list">
               {(selectedOrder.products || []).map((item, idx) => (

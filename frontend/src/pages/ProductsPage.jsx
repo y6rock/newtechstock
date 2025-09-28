@@ -4,7 +4,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
-import { formatNumberWithCommas } from '../utils/currency';
+import { formatNumberWithCommas, formatPriceWithTax } from '../utils/currency';
 
 import './ProductsPage.css';
 
@@ -18,22 +18,14 @@ const getCurrencySymbol = (currencyCode) => {
   return symbols[currencyCode] || '$';
 };
 
-// Helper to format price with commas
-const formatPriceWithCommas = (price, currency) => {
-  if (!price || isNaN(parseFloat(price))) {
-    return `${getCurrencySymbol(currency)}0.00`;
-  }
-  
-  const amount = parseFloat(price).toFixed(2);
-  const parts = amount.split('.');
-  const wholePart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
-  const formattedAmount = parts.length > 1 ? `${wholePart}.${parts[1]}` : wholePart;
-  
-  return `${getCurrencySymbol(currency)}${formattedAmount}`;
+// Helper to format price with commas (includes tax for customer display)
+const formatPriceWithCommas = (price, currency, taxRate = 18) => {
+  // Use the tax-included price formatting for customer display
+  return formatPriceWithTax(price, currency, taxRate);
 };
 
 const ProductsPage = () => {
-  const { currency, username, user_id } = useSettings();
+  const { currency, username, user_id, vat_rate } = useSettings();
   const location = useLocation();
   const { addToCart, validateCart } = useCart();
   const navigate = useNavigate();
@@ -403,7 +395,7 @@ const ProductsPage = () => {
                       <p className="product-info">{product.short_description}</p>
                     )}
                       <p className="product-price">
-                        {formatPriceWithCommas(product.price, currency)}
+                        {formatPriceWithCommas(product.price, currency, vat_rate)}
                       </p>
                       {hasValidStock && product.stock > 0 && (
                         <p className="stock-info">

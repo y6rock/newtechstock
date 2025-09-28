@@ -43,7 +43,7 @@ const Login = () => {
         localStorage.setItem('token', data.token);
         console.log("Login.jsx: Token stored. Calling reEvaluateToken and navigating.");
         
-        if (data.role === 'admin') {
+        if (data.user && data.user.role === 'admin') {
             navigate('/manager/dashboard');
         } else {
             navigate('/');

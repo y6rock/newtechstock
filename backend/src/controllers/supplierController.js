@@ -16,7 +16,7 @@ exports.getPublicSuppliers = async (req, res) => {
 // Get all suppliers (admin only) - shows both active and inactive
 exports.getAllSuppliers = async (req, res) => {
     try {
-        const [suppliers] = await db.query('SELECT supplier_id, name, email, phone, contact, address, CASE WHEN isActive = 1 THEN "Active" ELSE "Inactive" END as status FROM suppliers ORDER BY name');
+        const [suppliers] = await db.query('SELECT supplier_id, name, email, phone, contact, address, isActive, CASE WHEN isActive = 1 THEN "Active" ELSE "Inactive" END as status FROM suppliers ORDER BY isActive DESC, name');
         res.json(suppliers);
     } catch (err) {
         console.error("Error fetching suppliers:", err);
@@ -42,6 +42,9 @@ exports.createSupplier = async (req, res) => {
             supplier_id: result.insertId 
         });
     } catch (err) {
+        if (err.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'A supplier with this name already exists.' });
+        }
         console.error("Error adding supplier:", err);
         res.status(500).json({ message: "Database error" });
     }

@@ -1,16 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import './Suppliers.css';
 
 const Suppliers = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
+  const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
 
   const [suppliers, setSuppliers] = useState([]);
+  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
@@ -34,6 +39,28 @@ const Suppliers = () => {
 
     fetchSuppliers();
   }, [isUserAdmin, loadingSettings, navigate]);
+
+  // Filter suppliers based on status and search term
+  useEffect(() => {
+    let filtered = suppliers;
+    
+    // Apply status filter
+    if (statusFilter === 'active') {
+      filtered = filtered.filter(supplier => supplier.isActive === true);
+    } else if (statusFilter === 'inactive') {
+      filtered = filtered.filter(supplier => supplier.isActive === false);
+    }
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(supplier =>
+        supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    setFilteredSuppliers(filtered);
+  }, [suppliers, statusFilter, searchTerm]);
 
   const fetchSuppliers = async () => {
     try {
@@ -74,9 +101,10 @@ const Suppliers = () => {
       setShowAddModal(false);
       setError(null);
       fetchSuppliers();
+      showSuccess('Supplier added successfully!');
     } catch (err) {
       console.error('Error adding supplier:', err);
-      setError(err.response?.data?.message || 'Failed to add supplier.');
+      showError(err.response?.data?.message || 'Failed to add supplier.');
     }
   };
 
@@ -115,9 +143,10 @@ const Suppliers = () => {
       setShowEditModal(false);
       setError(null);
       fetchSuppliers();
+      showSuccess('Supplier updated successfully!');
     } catch (err) {
       console.error('Error updating supplier:', err);
-      setError(err.response?.data?.message || 'Failed to update supplier.');
+      showError(err.response?.data?.message || 'Failed to update supplier.');
     }
   };
 
@@ -141,19 +170,43 @@ const Suppliers = () => {
   };
 
   const handleDeleteSupplier = async (supplierId) => {
-    if (window.confirm('Are you sure you want to delete this supplier?')) {
-      try {
-        console.log('Attempting to delete supplier with ID:', supplierId);
-        const token = localStorage.getItem('token');
-        await axios.delete(`/api/suppliers/${supplierId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        fetchSuppliers();
-      } catch (err) {
-        console.error('Error deleting supplier:', err);
-        setError(err.response?.data?.message || 'Failed to delete supplier.');
+    showConfirm(
+      'Are you sure you want to deactivate this supplier? It will no longer be visible to customers but can be restored later.',
+      async () => {
+        try {
+          console.log('Attempting to delete supplier with ID:', supplierId);
+          const token = localStorage.getItem('token');
+          await axios.delete(`/api/suppliers/${supplierId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchSuppliers();
+          showSuccess('Supplier deactivated successfully!');
+        } catch (err) {
+          console.error('Error deleting supplier:', err);
+          showError(err.response?.data?.message || 'Failed to deactivate supplier.');
+        }
       }
-    }
+    );
+  };
+
+  const handleRestoreSupplier = async (supplierId) => {
+    showConfirm(
+      'Are you sure you want to restore this supplier? It will be visible to customers again.',
+      async () => {
+        try {
+          console.log('Attempting to restore supplier with ID:', supplierId);
+          const token = localStorage.getItem('token');
+          await axios.patch(`/api/suppliers/${supplierId}/restore`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchSuppliers();
+          showSuccess('Supplier restored successfully!');
+        } catch (err) {
+          console.error('Error restoring supplier:', err);
+          showError(err.response?.data?.message || 'Failed to restore supplier.');
+        }
+      }
+    );
   };
 
   if (loadingSettings || loadingSuppliers) {
@@ -181,6 +234,44 @@ const Suppliers = () => {
 
       {error && <p className="suppliers-error">{error}</p>}
 
+      {/* Filter Section */}
+      <div className="filter-section">
+        <div className="filter-controls">
+          <div className="search-filter-group">
+            <label className="filter-label">Search Suppliers</label>
+            <div className="search-input-wrapper">
+              <input
+                type="text"
+                placeholder="Search suppliers by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="search-input"
+              />
+              <span className="search-icon">🔍</span>
+            </div>
+            {searchTerm && (
+              <div className="search-results-count">
+                {filteredSuppliers.length} supplier{filteredSuppliers.length !== 1 ? 's' : ''} found
+              </div>
+            )}
+          </div>
+          
+          <div className="status-filter-group">
+            <label htmlFor="status-filter" className="filter-label">Filter by Status</label>
+            <select
+              id="status-filter"
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="filter-select"
+            >
+              <option value="all">All Suppliers ({suppliers.length})</option>
+              <option value="active">Active ({suppliers.filter(s => s.isActive === true).length})</option>
+              <option value="inactive">Inactive ({suppliers.filter(s => s.isActive === false).length})</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
       {/* Suppliers List */}
       <div className="table-container">
         <table className="suppliers-table">
@@ -191,25 +282,37 @@ const Suppliers = () => {
               <th>Email</th>
               <th>Phone</th>
               <th>Address</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {suppliers.length === 0 ? (
+            {filteredSuppliers.length === 0 ? (
               <tr>
-                <td colSpan="6" className="no-suppliers">No suppliers found.</td>
+                <td colSpan="7" className="no-suppliers">No suppliers found.</td>
               </tr>
             ) : (
-              suppliers.map((supplier) => (
-                <tr key={supplier.supplier_id}>
+              filteredSuppliers.map((supplier) => (
+                <tr key={supplier.supplier_id} className={supplier.isActive === 0 ? 'inactive-row' : ''}>
                   <td>{supplier.supplier_id}</td>
                   <td>{supplier.name}</td>
                   <td>{supplier.email || '-'}</td>
                   <td>{supplier.phone || '-'}</td>
                   <td className="address-cell">{supplier.address || '-'}</td>
+                  <td className="status-cell">
+                    <span className={`status-badge ${supplier.isActive === 1 ? 'active' : 'inactive'}`}>
+                      {supplier.status}
+                    </span>
+                  </td>
                   <td className="actions-cell">
-                    <button onClick={() => handleEditSupplier(supplier)} className="action-btn edit-btn">Edit</button>
-                    <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} className="action-btn delete-btn">Delete</button>
+                    {supplier.isActive === 1 ? (
+                      <>
+                        <button onClick={() => handleEditSupplier(supplier)} className="action-btn edit-btn">Edit</button>
+                        <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} className="action-btn delete-btn">Deactivate</button>
+                      </>
+                    ) : (
+                      <button onClick={() => handleRestoreSupplier(supplier.supplier_id)} className="action-btn restore-btn">Restore</button>
+                    )}
                   </td>
                 </tr>
               ))

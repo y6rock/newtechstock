@@ -521,7 +521,7 @@
 
 ### T23. If a promotion code was used in a purchase, display it in the Order History table, in Manage Orders for the admin, and in Manage Customers when viewing the order details
 **Severity:** Unspecified
-
+x
 **Context for Cursor**
 - Stack: React (frontend). Assume modular CSS/SCSS or CSS-in-JS where applicable.
 - Follow component responsibility: view markup in JSX, styles in dedicated stylesheet (or styled component), data fetching in services/hooks.

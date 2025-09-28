@@ -80,6 +80,18 @@ exports.createPromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Check if promotion name already exists
+        const [existingPromotion] = await db.query(
+            'SELECT promotion_id FROM promotions WHERE name = ?',
+            [name]
+        );
+
+        if (existingPromotion.length > 0) {
+            return res.status(400).json({ 
+                message: 'A promotion with this name already exists. Please choose a different name.' 
+            });
+        }
+
         const sql = `
             INSERT INTO promotions (name, code, description, type, value, start_date, end_date, 
             min_quantity, max_quantity, is_active, applicable_products, applicable_categories)
@@ -113,6 +125,18 @@ exports.updatePromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Check if another promotion with the same name exists (excluding current promotion)
+        const [existingPromotion] = await db.query(
+            'SELECT promotion_id FROM promotions WHERE name = ? AND promotion_id != ?',
+            [name, id]
+        );
+
+        if (existingPromotion.length > 0) {
+            return res.status(400).json({ 
+                message: 'A promotion with this name already exists. Please choose a different name.' 
+            });
+        }
+
         const sql = `
             UPDATE promotions 
             SET name = ?, code = ?, description = ?, type = ?, value = ?, 

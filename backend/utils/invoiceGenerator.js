@@ -48,76 +48,200 @@ class InvoiceGenerator {
         const stream = fs.createWriteStream(filePath);
         this.doc.pipe(stream);
 
-        // Header
+        // Enhanced Header with better styling
+        this.doc
+            .fontSize(28)
+            .fillColor('#2563eb')
+            .text('TechStock', { align: 'center' })
+            .fontSize(16)
+            .fillColor('#374151')
+            .text('Your Trusted Tech Partner', { align: 'center' })
+            .moveDown(0.5);
+
+        // Draw header line
+        this.doc
+            .strokeColor('#e5e7eb')
+            .lineWidth(1)
+            .moveTo(50, this.doc.y)
+            .lineTo(545, this.doc.y)
+            .stroke()
+            .moveDown();
+
+        // Invoice title and number section
         this.doc
             .fontSize(20)
-            .text('TechStock', { align: 'center' })
-            .fontSize(12)
-            .text('INVOICE', { align: 'center' })
-            .moveDown();
-
-        // Invoice details
-        this.doc
+            .fillColor('#1f2937')
+            .text('INVOICE', 50, this.doc.y, { align: 'left' })
             .fontSize(14)
-            .text(`Invoice #: ${order_id}`)
-            .text(`Date: ${new Date(order_date).toLocaleDateString()}`)
-            .text(`Customer: ${name}`)
-            .text(`Email: ${email}`)
-            .text(`Shipping Address: ${shipping_address}`)
-            .text(`Payment Method: ${payment_method.toUpperCase()}`)
+            .fillColor('#6b7280')
+            .text(`#${String(order_id).padStart(6, '0')}`, 450, this.doc.y - 20, { align: 'right' })
             .moveDown();
 
-        // Items table header
+        // Invoice and customer details in two columns
+        const leftColumnX = 50;
+        const rightColumnX = 300;
+        const detailsStartY = this.doc.y;
+
+        // Left column - Invoice details
         this.doc
             .fontSize(12)
-            .text('Items:', { underline: true })
-            .moveDown();
+            .fillColor('#374151')
+            .text('Invoice Date:', leftColumnX, detailsStartY, { continued: false })
+            .fillColor('#1f2937')
+            .text(`${new Date(order_date).toLocaleDateString('en-US', { 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+            })}`, leftColumnX, this.doc.y)
+            .moveDown(0.3)
+            .fillColor('#374151')
+            .text('Payment Method:', leftColumnX, this.doc.y)
+            .fillColor('#1f2937')
+            .text(`${payment_method.charAt(0).toUpperCase() + payment_method.slice(1)}`, leftColumnX, this.doc.y);
 
-        // Items
-        let yPosition = this.doc.y;
-        this.doc.text('Product', 50, yPosition);
-        this.doc.text('Quantity', 250, yPosition);
-        this.doc.text('Price', 350, yPosition);
-        this.doc.text('Total', 450, yPosition);
-        yPosition += 20;
+        // Right column - Customer details
+        this.doc
+            .fontSize(12)
+            .fillColor('#374151')
+            .text('Bill To:', rightColumnX, detailsStartY)
+            .fontSize(14)
+            .fillColor('#1f2937')
+            .text(`${name}`, rightColumnX, this.doc.y)
+            .fontSize(12)
+            .fillColor('#6b7280')
+            .text(`${email}`, rightColumnX, this.doc.y)
+            .moveDown(0.3)
+            .fillColor('#374151')
+            .text('Shipping Address:', rightColumnX, this.doc.y)
+            .fillColor('#6b7280')
+            .text(`${shipping_address}`, rightColumnX, this.doc.y, { width: 245 });
 
-        items.forEach(item => {
-            // Ensure price is a number
+        // Move to next section
+        this.doc.y = Math.max(this.doc.y, detailsStartY + 100);
+        this.doc.moveDown();
+
+        // Items section with better table design
+        this.doc
+            .fontSize(16)
+            .fillColor('#1f2937')
+            .text('Order Items', 50, this.doc.y)
+            .moveDown(0.5);
+
+        // Draw table header background
+        const tableHeaderY = this.doc.y;
+        this.doc
+            .rect(50, tableHeaderY, 495, 25)
+            .fillColor('#f3f4f6')
+            .fill()
+            .strokeColor('#e5e7eb')
+            .lineWidth(0.5)
+            .stroke();
+
+        // Table headers
+        this.doc
+            .fontSize(12)
+            .fillColor('#374151')
+            .text('Product', 60, tableHeaderY + 8)
+            .text('Qty', 280, tableHeaderY + 8, { width: 40, align: 'center' })
+            .text('Unit Price', 340, tableHeaderY + 8, { width: 80, align: 'right' })
+            .text('Total', 440, tableHeaderY + 8, { width: 95, align: 'right' });
+
+        let yPosition = tableHeaderY + 25;
+
+        // Items with alternating row colors
+        items.forEach((item, index) => {
             const price = parseFloat(item.price) || 0;
             const quantity = parseInt(item.quantity) || 0;
+            const total = price * quantity;
+
+            // Alternating row background
+            if (index % 2 === 0) {
+                this.doc
+                    .rect(50, yPosition, 495, 25)
+                    .fillColor('#f9fafb')
+                    .fill();
+            }
+
+            // Row border
+            this.doc
+                .rect(50, yPosition, 495, 25)
+                .strokeColor('#e5e7eb')
+                .lineWidth(0.5)
+                .stroke();
+
+            this.doc
+                .fontSize(11)
+                .fillColor('#1f2937')
+                .text(item.product_name || 'Product', 60, yPosition + 8, { width: 200 })
+                .text(quantity.toString(), 280, yPosition + 8, { width: 40, align: 'center' })
+                .text(`${currencySymbol}${price.toFixed(2)}`, 340, yPosition + 8, { width: 80, align: 'right' })
+                .text(`${currencySymbol}${total.toFixed(2)}`, 440, yPosition + 8, { width: 95, align: 'right' });
             
-            this.doc.text(item.product_name || 'Product', 50, yPosition);
-            this.doc.text(quantity.toString(), 250, yPosition);
-            this.doc.text(`${currencySymbol}${price.toFixed(2)}`, 350, yPosition);
-            this.doc.text(`${currencySymbol}${(price * quantity).toFixed(2)}`, 450, yPosition);
-            yPosition += 20;
+            yPosition += 25;
         });
 
         // Calculate subtotal
         const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
 
-        // Show discount information if applicable
+        // Summary section
+        this.doc.y = yPosition + 20;
+        const summaryX = 350;
+        
+        // Subtotal
+        this.doc
+            .fontSize(12)
+            .fillColor('#6b7280')
+            .text('Subtotal:', summaryX, this.doc.y)
+            .fillColor('#1f2937')
+            .text(`${currencySymbol}${subtotal.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+
+        // Show discount if applicable
         if (promotion && discount_amount > 0) {
             this.doc
-                .moveDown()
-                .fontSize(12)
-                .text(`Subtotal: ${currencySymbol}${subtotal.toFixed(2)}`, { align: 'right' })
-                .text(`Discount (${promotion.name}): -${currencySymbol}${discount_amount.toFixed(2)}`, { align: 'right' })
-                .text(`Total after discount: ${currencySymbol}${(subtotal - discount_amount).toFixed(2)}`, { align: 'right' });
+                .moveDown(0.3)
+                .fillColor('#6b7280')
+                .text(`Discount (${promotion.name}):`, summaryX, this.doc.y)
+                .fillColor('#dc2626')
+                .text(`-${currencySymbol}${discount_amount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
         }
 
-        // Total
+        // Draw line above total
         this.doc
-            .moveDown()
-            .fontSize(14)
-            .text(`Total Amount: ${currencySymbol}${parseFloat(total_amount || 0).toFixed(2)}`, { align: 'right' })
+            .moveDown(0.3)
+            .strokeColor('#d1d5db')
+            .lineWidth(1)
+            .moveTo(summaryX, this.doc.y)
+            .lineTo(545, this.doc.y)
+            .stroke()
+            .moveDown(0.3);
+
+        // Total amount
+        this.doc
+            .fontSize(16)
+            .fillColor('#1f2937')
+            .text('Total Amount:', summaryX, this.doc.y)
+            .fontSize(18)
+            .fillColor('#059669')
+            .text(`${currencySymbol}${parseFloat(total_amount || 0).toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+
+        // Footer section
+        this.doc
+            .moveDown(2)
+            .strokeColor('#e5e7eb')
+            .lineWidth(1)
+            .moveTo(50, this.doc.y)
+            .lineTo(545, this.doc.y)
+            .stroke()
             .moveDown();
 
-        // Footer
         this.doc
-            .fontSize(10)
+            .fontSize(14)
+            .fillColor('#2563eb')
             .text('Thank you for your purchase!', { align: 'center' })
-            .text('TechStock - Your trusted tech partner', { align: 'center' });
+            .fontSize(10)
+            .fillColor('#6b7280')
+            .text('Questions? Contact us at support@techstock.com', { align: 'center' })
+            .text('TechStock - Your Trusted Tech Partner', { align: 'center' });
 
         this.doc.end();
 

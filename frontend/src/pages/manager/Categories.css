@@ -54,17 +54,102 @@
 
 .filter-controls {
   display: flex;
-  justify-content: flex-start;
-  align-items: center;
+  align-items: flex-start;
+  gap: 3rem;
+  margin-bottom: 20px;
   flex-wrap: wrap;
-  gap: 15px;
-  margin-bottom: 15px;
+}
+
+@media (max-width: 768px) {
+  .filter-controls {
+    flex-direction: column;
+    gap: 1rem;
+  }
 }
 
 .filter-group {
   display: flex;
   align-items: center;
   gap: 15px;
+}
+
+/* Search Filter Group */
+.search-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 1;
+  min-width: 250px;
+  max-width: 400px;
+}
+
+.search-input-wrapper {
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 12px 16px 12px 40px;
+  border: 2px solid #e1e5e9;
+  border-radius: 8px;
+  font-size: 14px;
+  background-color: #ffffff;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
+  outline: none;
+}
+
+.search-input:focus {
+  border-color: #007bff;
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1), 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-1px);
+}
+
+.search-input::placeholder {
+  color: #9ca3af;
+  font-weight: 400;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  font-size: 16px;
+  pointer-events: none;
+  transition: color 0.3s ease;
+}
+
+.search-filter-group:focus-within .search-icon {
+  color: #007bff;
+}
+
+.search-results-count {
+  font-size: 12px;
+  color: #6b7280;
+  font-weight: 500;
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Status Filter Group */
+.status-filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 200px;
+  flex-shrink: 0;
 }
 
 .filter-label {
@@ -352,14 +437,7 @@
     font-size: 1.5em;
   }
   
-  .filter-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-group {
-    justify-content: space-between;
-  }
+  /* Filter controls now use grid layout defined above */
   
   .add-category-btn {
     padding: 10px 20px;
@@ -394,18 +472,4 @@
   }
 }
 
-/* Responsive styles for filter section */
-@media (max-width: 768px) {
-  .filter-controls {
-    flex-direction: column;
-    align-items: stretch;
-  }
-  
-  .filter-group {
-    margin-bottom: 15px;
-  }
-  
-  .add-category-btn {
-    width: 100%;
-  }
-}
+/* Responsive styles for filter section handled by grid layout above */

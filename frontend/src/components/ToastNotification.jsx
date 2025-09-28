@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaTimes } from 'react-icons/fa';
+import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaTimes, FaQuestionCircle } from 'react-icons/fa';
 import './ToastNotification.css';
 
-const ToastNotification = ({ isOpen, message, type = 'success', onClose, duration = 4000, style = {} }) => {
+const ToastNotification = ({ isOpen, message, type = 'success', onClose, duration = 4000, style = {}, onConfirm, onCancel }) => {
   useEffect(() => {
     if (isOpen && duration > 0) {
       const timer = setTimeout(() => {
@@ -23,6 +23,8 @@ const ToastNotification = ({ isOpen, message, type = 'success', onClose, duratio
         return <FaExclamationCircle className="toast-icon error" />;
       case 'info':
         return <FaInfoCircle className="toast-icon info" />;
+      case 'confirm':
+        return <FaQuestionCircle className="toast-icon confirm" />;
       default:
         return <FaCheckCircle className="toast-icon success" />;
     }
@@ -34,13 +36,30 @@ const ToastNotification = ({ isOpen, message, type = 'success', onClose, duratio
         {getIcon()}
         <span className="toast-message">{message}</span>
       </div>
-      <button
-        onClick={onClose}
-        className="toast-close-button"
-        aria-label="Close notification"
-      >
-        <FaTimes />
-      </button>
+      {type === 'confirm' ? (
+        <div className="toast-actions">
+          <button
+            onClick={onConfirm}
+            className="toast-action-button confirm-button"
+          >
+            Yes
+          </button>
+          <button
+            onClick={onCancel}
+            className="toast-action-button cancel-button"
+          >
+            Cancel
+          </button>
+        </div>
+      ) : (
+        <button
+          onClick={onClose}
+          className="toast-close-button"
+          aria-label="Close notification"
+        >
+          <FaTimes />
+        </button>
+      )}
     </div>
   );
 };

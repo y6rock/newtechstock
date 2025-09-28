@@ -273,7 +273,7 @@ const Checkout = () => {
                                             {
                                                 amount: {
                                                     value: total.toString(),
-                                                    currency_code: "ILS"
+                                                    currency_code: "USD"
                                                 },
                                                 description: `TechStock Order - ${cartItems.length} items`
                                             }

@@ -276,4 +276,17 @@
 
 .order-products-list li:last-child {
     border-bottom: none;
+}
+
+/* Promotion Badge */
+.promotion-badge {
+    display: inline-block;
+    background-color: #10b981;
+    color: white;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 } 

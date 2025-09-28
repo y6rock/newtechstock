@@ -150,11 +150,13 @@ exports.getOrderHistory = async (req, res) => {
 
     try {
         const sql = `
-            SELECT o.order_id, o.order_date, o.total_amount, o.status,
+            SELECT o.order_id, o.order_date, o.total_amount, o.status, o.promotion_id,
+                   pr.code as promotion_code, pr.name as promotion_name,
                    oi.product_id, oi.quantity, oi.price, p.name as product_name, p.image as product_image
             FROM orders o
             JOIN order_items oi ON o.order_id = oi.order_id
             JOIN products p ON oi.product_id = p.product_id
+            LEFT JOIN promotions pr ON o.promotion_id = pr.promotion_id
             WHERE o.user_id = ?
             ORDER BY o.order_date DESC
         `;
@@ -169,6 +171,9 @@ exports.getOrderHistory = async (req, res) => {
                     order_date: row.order_date,
                     total_amount: row.total_amount,
                     status: row.status,
+                    promotion_id: row.promotion_id,
+                    promotion_code: row.promotion_code,
+                    promotion_name: row.promotion_name,
                     items: []
                 };
             }
@@ -228,6 +233,9 @@ exports.getOrderDetails = async (req, res) => {
                 o.status,
                 o.shipping_address,
                 o.payment_method,
+                o.promotion_id,
+                pr.code as promotion_code,
+                pr.name as promotion_name,
                 u.name AS user_name,
                 u.email AS user_email,
                 oi.quantity,
@@ -237,6 +245,7 @@ exports.getOrderDetails = async (req, res) => {
             JOIN users u ON o.user_id = u.user_id
             JOIN order_items oi ON o.order_id = oi.order_id
             JOIN products p ON oi.product_id = p.product_id
+            LEFT JOIN promotions pr ON o.promotion_id = pr.promotion_id
             WHERE o.order_id = ?
         `;
         const [rows] = await db.query(sql, [orderId]);
@@ -253,6 +262,9 @@ exports.getOrderDetails = async (req, res) => {
             status: rows[0].status,
             shipping_address: rows[0].shipping_address,
             payment_method: rows[0].payment_method,
+            promotion_id: rows[0].promotion_id,
+            promotion_code: rows[0].promotion_code,
+            promotion_name: rows[0].promotion_name,
             user_name: rows[0].user_name,
             user_email: rows[0].user_email,
             products: rows.map(row => ({

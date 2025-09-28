@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import ProductModal from './ProductModal';
 import { useSettings } from '../context/SettingsContext';
-import { formatPrice } from '../utils/currency';
+import { useToast } from '../context/ToastContext';
+import { formatPrice, formatPriceWithTax, formatBasePrice } from '../utils/currency';
 import './ProductManager.css';
 
 function ProductManager() {
@@ -16,6 +17,8 @@ function ProductManager() {
   const [categories, setCategories] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [categoryFilter, setCategoryFilter] = useState('all');
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -23,7 +26,8 @@ function ProductManager() {
   const [sortField, setSortField] = useState('stock');
   const [sortDirection, setSortDirection] = useState('asc');
   
-  const { isUserAdmin, loadingSettings, currency } = useSettings();
+  const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const token = localStorage.getItem('token');
 
@@ -307,14 +311,14 @@ function ProductManager() {
         const res = await axios.delete(`/api/products/${productId}`, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMessage(res.data.message);
+        showSuccess('Product deactivated successfully!');
         // Reload products after deactivating
         const updated = await axios.get('/api/products/admin/all', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setProducts(updated.data);
       } catch (err) {
-        setMessage(err.response?.data?.message || 'Error deactivating product');
+        showError(err.response?.data?.message || 'Error deactivating product');
       }
     }
   };
@@ -325,58 +329,18 @@ function ProductManager() {
         const res = await axios.patch(`/api/products/${productId}/restore`, {}, {
           headers: { Authorization: `Bearer ${token}` }
         });
-        setMessage(res.data.message);
+        showSuccess('Product restored successfully!');
         // Reload products after restoring
         const updated = await axios.get('/api/products/admin/all', {
           headers: { Authorization: `Bearer ${token}` }
         });
         setProducts(updated.data);
       } catch (err) {
-        setMessage(err.response?.data?.message || 'Error restoring product');
+        showError(err.response?.data?.message || 'Error restoring product');
       }
     }
   };
 
-  // Filter and sort products based on search term, status, and sort criteria
-  const filteredProducts = products
-    .filter(product => {
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.category_name && product.category_name.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'active' && product.is_active === 1) ||
-        (statusFilter === 'inactive' && product.is_active === 0);
-      
-      return matchesSearch && matchesStatus;
-    })
-    .sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortField) {
-        case 'stock':
-          aValue = a.stock || 0;
-          bValue = b.stock || 0;
-          break;
-        case 'name':
-          aValue = a.name?.toLowerCase() || '';
-          bValue = b.name?.toLowerCase() || '';
-          break;
-        case 'price':
-          aValue = parseFloat(a.price) || 0;
-          bValue = parseFloat(b.price) || 0;
-          break;
-        case 'category':
-          aValue = a.category_name?.toLowerCase() || '';
-          bValue = b.category_name?.toLowerCase() || '';
-          break;
-        default:
-          return 0;
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
 
 
   const handleOpenModalForAdd = () => {
@@ -412,6 +376,69 @@ function ProductManager() {
     }
   };
 
+  // Filter and sort products
+  const filteredProducts = products
+    .filter(product => {
+      // Search term filter
+      const matchesSearch = !searchTerm || 
+        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
+      
+      // Status filter
+      const matchesStatus = statusFilter === 'all' || 
+        (statusFilter === 'active' && product.is_active === 1) ||
+        (statusFilter === 'inactive' && product.is_active === 0);
+      
+      // Category filter
+      const matchesCategory = categoryFilter === 'all' || 
+        product.category_id === parseInt(categoryFilter);
+      
+      // Supplier filter
+      const matchesSupplier = supplierFilter === 'all' || 
+        product.supplier_id === parseInt(supplierFilter);
+      
+      return matchesSearch && matchesStatus && matchesCategory && matchesSupplier;
+    })
+    .sort((a, b) => {
+      let aValue, bValue;
+      
+      switch (sortField) {
+        case 'name':
+          aValue = a.name || '';
+          bValue = b.name || '';
+          break;
+        case 'category':
+          aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
+          bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
+          break;
+        case 'price':
+          aValue = parseFloat(a.price) || 0;
+          bValue = parseFloat(b.price) || 0;
+          break;
+        case 'stock':
+          aValue = parseInt(a.stock) || 0;
+          bValue = parseInt(b.stock) || 0;
+          break;
+        case 'supplier':
+          aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
+          bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
+          break;
+        default:
+          aValue = a.stock || 0;
+          bValue = b.stock || 0;
+      }
+      
+      if (typeof aValue === 'string') {
+        return sortDirection === 'asc' 
+          ? aValue.localeCompare(bValue)
+          : bValue.localeCompare(aValue);
+      } else {
+        return sortDirection === 'asc' 
+          ? aValue - bValue
+          : bValue - aValue;
+      }
+    });
+
   return (
     <div className="product-manager-main-container">
       <h1 className="product-manager-title">Products</h1>
@@ -445,14 +472,48 @@ function ProductManager() {
             <option value="inactive">Inactive ({products.filter(p => p.is_active === 0).length})</option>
           </select>
         </div>
+
+        {/* Category Filter */}
+        <div className="category-filter-container">
+          <select
+            value={categoryFilter}
+            onChange={(e) => setCategoryFilter(e.target.value)}
+            className="category-filter-select"
+          >
+            <option value="all">All Categories</option>
+            {categories.map(category => (
+              <option key={category.category_id} value={category.category_id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Supplier Filter */}
+        <div className="supplier-filter-container">
+          <select
+            value={supplierFilter}
+            onChange={(e) => setSupplierFilter(e.target.value)}
+            className="supplier-filter-select"
+          >
+            <option value="all">All Suppliers</option>
+            {suppliers.filter(s => s.isActive === 1).map(supplier => (
+              <option key={supplier.supplier_id} value={supplier.supplier_id}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </div>
         
         {/* Filter Info */}
         <div className="filter-info-container">
           <span>Showing {filteredProducts.length} of {products.length} products</span>
-          {(statusFilter !== 'all' || searchTerm) && (
+          {(statusFilter !== 'all' || categoryFilter !== 'all' || supplierFilter !== 'all' || searchTerm) && (
             <button 
               onClick={() => {
                 setStatusFilter('all');
+                setCategoryFilter('all');
+                setSupplierFilter('all');
                 setSearchTerm('');
               }}
               className="clear-filters-button"
@@ -521,7 +582,7 @@ function ProductManager() {
                 onClick={() => handleSort('price')}
                 className="table-header-cell"
               >
-                Price
+                Price (Base / Final)
               </th>
               <th 
                 className={`sortable-header ${sortField === 'stock' ? sortDirection : ''}`}
@@ -562,7 +623,12 @@ function ProductManager() {
                   </div>
                 </td>
                 <td className="table-body-cell">{categories.find(c => c.category_id === p.category_id)?.name || 'N/A'}</td>
-                <td className="table-body-cell">{formatPrice(p.price, currency)}</td>
+                <td className="table-body-cell">
+                  <div className="price-display">
+                    <div className="base-price">Base: {formatBasePrice(p.price, currency)}</div>
+                    <div className="final-price">Final: {formatPriceWithTax(p.price, currency, vat_rate)}</div>
+                  </div>
+                </td>
                 <td className="table-body-cell">
                   <div className="table-stock-info">
                     <div className="table-stock-quantity">{p.stock || 0}</div>

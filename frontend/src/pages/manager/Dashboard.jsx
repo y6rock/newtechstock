@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { Line, Bar, Pie } from 'react-chartjs-2';
@@ -29,17 +29,23 @@ export default function Dashboard() {
   const [topProducts, setTopProducts] = useState([]);
   const [orderStatus, setOrderStatus] = useState([]);
   const [lowStockProducts, setLowStockProducts] = useState([]);
-  const [settings, setSettings] = useState({ currency: 'ILS' });
-  const [currencies, setCurrencies] = useState({});
+  const [lowStockDisplayCount, setLowStockDisplayCount] = useState(6);
   
-  // Date range state - start with all-time data
-  const [dateRange, setDateRange] = useState({
-    startDate: '', // Empty means no start date filter
-    endDate: '' // Empty means no end date filter
-  });
+  // Helper function to get last 30 days date range
+  const getLast30DaysRange = () => {
+    const today = new Date();
+    const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+    return {
+      startDate: thirtyDaysAgo.toISOString().split('T')[0],
+      endDate: today.toISOString().split('T')[0]
+    };
+  };
+
+  // Date range state - start with last 30 days by default
+  const [dateRange, setDateRange] = useState(getLast30DaysRange());
 
   // Function to fetch dashboard data with date range
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     try {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
@@ -82,12 +88,10 @@ export default function Dashboard() {
       setTopProducts(topProductsRes.data);
       setOrderStatus(orderStatusRes.data);
       setLowStockProducts(lowStockRes.data);
-      setSettings(settingsRes.data);
-      setCurrencies(currenciesRes.data);
     } catch (err) {
       console.error('Error fetching dashboard data:', err);
     }
-  };
+  }, [dateRange]);
 
   useEffect(() => {
     if (!loadingSettings) {
@@ -97,14 +101,14 @@ export default function Dashboard() {
         fetchDashboardData();
       }
     }
-  }, [isUserAdmin, loadingSettings, navigate]);
+  }, [isUserAdmin, loadingSettings, navigate, fetchDashboardData]);
 
   // Effect to refresh data when date range changes
   useEffect(() => {
     if (!loadingSettings && isUserAdmin) {
       fetchDashboardData();
     }
-  }, [dateRange, isUserAdmin, loadingSettings]);
+  }, [dateRange, isUserAdmin, loadingSettings, fetchDashboardData]);
 
   if (loadingSettings) {
     return (
@@ -224,20 +228,14 @@ export default function Dashboard() {
           <input
             type="date"
             value={dateRange.endDate}
+            min={dateRange.startDate || undefined}
             onChange={(e) => setDateRange(prev => ({ ...prev, endDate: e.target.value }))}
             className="date-input"
           />
         </div>
         
         <button
-          onClick={() => {
-            const today = new Date();
-            const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-            setDateRange({
-              startDate: thirtyDaysAgo.toISOString().split('T')[0],
-              endDate: today.toISOString().split('T')[0]
-            });
-          }}
+          onClick={() => setDateRange(getLast30DaysRange())}
           className="date-range-button secondary"
         >
           Last 30 Days
@@ -256,6 +254,82 @@ export default function Dashboard() {
         >
           Last 7 Days
         </button>
+
+        <button
+          onClick={() => setDateRange({ startDate: '', endDate: '' })}
+          className="date-range-button secondary"
+        >
+          All Time
+        </button>
+      </div>
+
+      {/* Low Stock Products - Moved to top */}
+      <div className="chart-container low-stock-section">
+        <h3>Low Stock Products (≤10 units)</h3>
+        {lowStockProducts.length > 0 ? (
+          <>
+            <div className="low-stock-grid">
+              {lowStockProducts.slice(0, lowStockDisplayCount).map(product => (
+                <div key={product.id} className="low-stock-product-card">
+                  <div className="low-stock-product-image">
+                    {product.image ? (
+                      <img 
+                        src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/50'} 
+                        alt={product.name}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`low-stock-product-placeholder ${product.image ? 'hidden' : ''}`}
+                    >
+                      📦
+                    </div>
+                  </div>
+                  <div className="low-stock-product-info">
+                    <h4 className="low-stock-product-name">
+                      {product.name}
+                    </h4>
+                    <p className="low-stock-product-category">
+                      {product.category}
+                    </p>
+                    <div className="low-stock-product-details">
+                      <span className={`stock-badge ${product.stock <= 5 ? 'low' : 'medium'}`}>
+                        {product.stock} units left
+                      </span>
+                      {!product.is_active && (
+                        <span className="inactive-badge">
+                          INACTIVE
+                        </span>
+                      )}
+                      <span className="product-price">
+                        {formatPrice(product.price, currency)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {lowStockProducts.length > lowStockDisplayCount && (
+              <div className="load-more-container">
+                <button 
+                  onClick={() => setLowStockDisplayCount(prev => prev + 6)}
+                  className="load-more-button"
+                >
+                  Load More ({lowStockProducts.length - lowStockDisplayCount} remaining)
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="no-low-stock-message">
+            <div className="no-low-stock-icon">✅</div>
+            <h4 className="no-low-stock-title">All products are well stocked!</h4>
+            <p className="no-low-stock-text">No products have stock levels ≤ 10 units.</p>
+          </div>
+        )}
       </div>
 
       {/* Date Range Summary */}
@@ -296,55 +370,6 @@ export default function Dashboard() {
         <Bar data={topProductsBarData} options={topProductsBarOptions} />
       </div>
 
-      {/* Low Stock Products */}
-      <div className="chart-container">
-        <h3>Low Stock Products (≤10 units)</h3>
-        {lowStockProducts.length > 0 ? (
-          <div className="low-stock-grid">
-            {lowStockProducts.map(product => (
-              <div key={product.id} className="low-stock-product-card">
-                <div className="low-stock-product-image">
-                  {product.image ? (
-                    <img 
-                      src={product.image} 
-                      alt={product.name}
-                    />
-                  ) : (
-                    <div className="low-stock-product-placeholder">📦</div>
-                  )}
-                </div>
-                <div className="low-stock-product-info">
-                  <h4 className="low-stock-product-name">
-                    {product.name}
-                  </h4>
-                  <p className="low-stock-product-category">
-                    {product.category}
-                  </p>
-                  <div className="low-stock-product-details">
-                    <span className={`stock-badge ${product.stock <= 5 ? 'low' : 'medium'}`}>
-                      {product.stock} units left
-                    </span>
-                    {!product.is_active && (
-                      <span className="inactive-badge">
-                        INACTIVE
-                      </span>
-                    )}
-                    <span className="product-price">
-                      {formatPrice(product.price, currency)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="no-low-stock-message">
-            <div className="no-low-stock-icon">✅</div>
-            <h4 className="no-low-stock-title">All products are well stocked!</h4>
-            <p className="no-low-stock-text">No products have stock levels ≤ 10 units.</p>
-          </div>
-        )}
-      </div>
 
     </div>
   );

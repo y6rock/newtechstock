@@ -138,6 +138,62 @@
   }
 }
 
+/* Confirmation Toast Styles */
+.toast-notification.confirm {
+  background-color: #ffffff !important;
+  color: #111827 !important;
+  border-color: #d1d5db !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25) !important;
+}
+
+.toast-notification.confirm .toast-message {
+  color: #111827 !important;
+  font-weight: 500 !important;
+}
+
+.toast-notification.confirm .toast-content {
+  color: #111827 !important;
+}
+
+.toast-notification.confirm .toast-icon.confirm {
+  color: #f59e0b !important;
+}
+
+/* Toast Action Buttons */
+.toast-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.toast-action-button {
+  padding: 6px 12px;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85em;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.confirm-button {
+  background-color: #dc2626;
+  color: white;
+}
+
+.confirm-button:hover {
+  background-color: #b91c1c;
+}
+
+.cancel-button {
+  background-color: #6b7280;
+  color: white;
+}
+
+.cancel-button:hover {
+  background-color: #4b5563;
+}
+
 /* Animation for multiple toasts (if needed in future) */
 .toast-notification:nth-child(2) {
   bottom: 100px;

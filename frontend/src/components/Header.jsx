@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useSettings } from '../context/SettingsContext';
 import { useCart } from '../context/CartContext';
 import { FaUser } from 'react-icons/fa';
@@ -10,6 +10,7 @@ import './Header.css'; // Import the new CSS file
 export default function Header() {
   const { isUserAdmin, username, reEvaluateToken } = useSettings();
   const { totalItems } = useCart();
+  const navigate = useNavigate();
   const cartTabRef = useRef(null);
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -24,8 +25,8 @@ export default function Header() {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    reEvaluateToken(); // This will reload the page and clear the state
-    // No need to navigate manually, the reload handles it.
+    navigate('/'); // Redirect to Home page first
+    reEvaluateToken(); // This will clear the state and refresh user data
   };
 
   const closeMenu = () => {

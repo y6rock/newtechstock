@@ -7,7 +7,7 @@ import './Categories.css';
 
 const Categories = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState([]);
@@ -20,6 +20,7 @@ const Categories = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [searchTerm, setSearchTerm] = useState(''); // Search functionality
 
   useEffect(() => {
     if (loadingSettings) {
@@ -33,18 +34,26 @@ const Categories = () => {
     fetchCategories();
   }, [isUserAdmin, loadingSettings, navigate]);
 
-  // Filter categories based on status
+  // Filter categories based on status and search term
   useEffect(() => {
     let filtered = categories;
     
+    // Apply status filter
     if (statusFilter === 'active') {
-      filtered = categories.filter(category => category.status === 'Active');
+      filtered = filtered.filter(category => category.status === 'Active');
     } else if (statusFilter === 'inactive') {
-      filtered = categories.filter(category => category.status === 'Inactive');
+      filtered = filtered.filter(category => category.status === 'Inactive');
+    }
+    
+    // Apply search filter
+    if (searchTerm.trim()) {
+      filtered = filtered.filter(category =>
+        category.name.toLowerCase().includes(searchTerm.toLowerCase())
+      );
     }
     
     setFilteredCategories(filtered);
-  }, [categories, statusFilter]);
+  }, [categories, statusFilter, searchTerm]);
 
   const fetchCategories = async () => {
     try {
@@ -93,7 +102,7 @@ const Categories = () => {
   const handleUpdateCategory = async (e) => {
     e.preventDefault();
     if (!editedCategoryName.trim()) {
-      setError('Category name cannot be empty.');
+      showError('Category name cannot be empty.');
       return;
     }
     if (!editingCategory) return;
@@ -107,10 +116,11 @@ const Categories = () => {
       setEditedCategoryName('');
       setShowEditModal(false);
       setError(null);
+      showSuccess('Category updated successfully!');
       fetchCategories();
     } catch (err) {
       console.error('Error updating category:', err);
-      setError(err.response?.data?.message || 'Failed to update category.');
+      showError(err.response?.data?.message || 'Failed to update category.');
     }
   };
 
@@ -128,47 +138,70 @@ const Categories = () => {
   };
 
   const handleDeleteCategory = async (categoryId) => {
-    if (window.confirm('Are you sure you want to deactivate this category? It will no longer be visible to customers but can be restored later.')) {
-      try {
-        const token = localStorage.getItem('token');
-        await axios.delete(`/api/categories/${categoryId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        fetchCategories();
-      } catch (err) {
-        console.error('Error deactivating category:', err);
-        setError(err.response?.data?.message || 'Failed to deactivate category.');
+    showConfirm(
+      'Are you sure you want to deactivate this category? It will no longer be visible to customers but can be restored later.',
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          await axios.delete(`/api/categories/${categoryId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchCategories();
+          showSuccess('Category deactivated successfully!');
+        } catch (err) {
+          console.error('Error deactivating category:', err);
+          showError(err.response?.data?.message || 'Failed to deactivate category.');
+        }
+      },
+      () => {
+        // Cancel callback - do nothing
       }
-    }
+    );
   };
 
   const handleRestoreCategory = async (categoryId) => {
-    try {
-      const token = localStorage.getItem('token');
-      await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      fetchCategories();
-    } catch (err) {
-      console.error('Error restoring category:', err);
-      setError(err.response?.data?.message || 'Failed to restore category.');
-    }
+    showConfirm(
+      'Are you sure you want to restore this category? It will be visible to customers again.',
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchCategories();
+          showSuccess('Category restored successfully!');
+        } catch (err) {
+          console.error('Error restoring category:', err);
+          showError(err.response?.data?.message || 'Failed to restore category.');
+        }
+      },
+      () => {
+        // Cancel callback - do nothing
+      }
+    );
   };
 
   const handleToggleStatus = async (categoryId, currentStatus) => {
     const action = currentStatus === 'Active' ? 'deactivate' : 'activate';
-    if (window.confirm(`Are you sure you want to ${action} this category?`)) {
-      try {
-        const token = localStorage.getItem('token');
-        await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        fetchCategories();
-      } catch (err) {
-        console.error('Error toggling category status:', err);
-        setError(err.response?.data?.message || 'Failed to toggle category status.');
+    showConfirm(
+      `Are you sure you want to ${action} this category?`,
+      async () => {
+        try {
+          const token = localStorage.getItem('token');
+          await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          fetchCategories();
+          showSuccess(`Category ${action}d successfully!`);
+        } catch (err) {
+          console.error('Error toggling category status:', err);
+          showError(err.response?.data?.message || 'Failed to toggle category status.');
+        }
+      },
+      () => {
+        // Cancel callback - do nothing
       }
-    }
+    );
   };
 
   if (loadingSettings || loadingCategories) {
@@ -188,8 +221,27 @@ const Categories = () => {
         {/* Filter Section */}
         <div className="filter-section">
           <div className="filter-controls">
-            <div className="filter-group">
-              <label htmlFor="status-filter" className="filter-label">Filter by Status:</label>
+            <div className="search-filter-group">
+              <label className="filter-label">Search Categories</label>
+              <div className="search-input-wrapper">
+                <input
+                  type="text"
+                  placeholder="Search categories by name..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="search-input"
+                />
+                <span className="search-icon">🔍</span>
+              </div>
+              {searchTerm && (
+                <div className="search-results-count">
+                  {filteredCategories.length} categor{filteredCategories.length !== 1 ? 'ies' : 'y'} found
+                </div>
+              )}
+            </div>
+            
+            <div className="status-filter-group">
+              <label htmlFor="status-filter" className="filter-label">Filter by Status</label>
               <select
                 id="status-filter"
                 value={statusFilter}

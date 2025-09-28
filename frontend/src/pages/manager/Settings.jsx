@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings as useLocalSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import './Settings.css';
 
 const Settings = () => {
   const { refreshSiteSettings, ...initialSettings } = useLocalSettings();
+  const { showSuccess, showError } = useToast();
   const [settings, setSettings] = useState(initialSettings);
   const [currencies, setCurrencies] = useState({});
-  const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -21,13 +22,13 @@ const Settings = () => {
         setSettings(prev => ({...prev, ...fetchedSettings}));
         setCurrencies(currenciesRes.data);
       } catch (err) {
-        setMessage('Error loading settings');
+        showError('Error loading settings');
       } finally {
         setLoading(false);
       }
     };
     fetchSettings();
-  }, []);
+  }, [showError]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -38,10 +39,10 @@ const Settings = () => {
       await axios.put('/api/settings', { currency, vat_rate }, {
         headers: { Authorization: `Bearer ${token}` }
       });
-      setMessage('Settings updated successfully');
+      showSuccess('Settings updated successfully');
       await refreshSiteSettings();
     } catch (err) {
-      setMessage('Error updating settings');
+      showError('Error updating settings');
     } finally {
       setLoading(false);
     }
@@ -66,7 +67,6 @@ const Settings = () => {
         <p>Manage your store settings and preferences</p>
       </div>
 
-      {message && <div className={`message ${message.includes('Error') ? 'error' : 'success'}`}>{message}</div>}
       
       <form onSubmit={handleSubmit}>
         <div className="settings-form-section">

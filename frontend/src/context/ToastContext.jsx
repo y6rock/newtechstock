@@ -14,7 +14,21 @@ export const useToast = () => {
 export const ToastProvider = ({ children }) => {
   const [toasts, setToasts] = useState([]);
 
+  const removeToast = useCallback((id) => {
+    setToasts(prev => prev.filter(toast => toast.id !== id));
+  }, []);
+
   const showToast = useCallback((message, type = 'success', duration = 4000) => {
+    // Check if a toast with the same message and type already exists
+    const existingToast = toasts.find(toast => 
+      toast.message === message && toast.type === type
+    );
+    
+    if (existingToast) {
+      // If duplicate exists, don't add a new one
+      return existingToast.id;
+    }
+    
     const id = Date.now() + Math.random();
     const newToast = {
       id,
@@ -34,11 +48,7 @@ export const ToastProvider = ({ children }) => {
     }
 
     return id;
-  }, []);
-
-  const removeToast = useCallback((id) => {
-    setToasts(prev => prev.filter(toast => toast.id !== id));
-  }, []);
+  }, [toasts, removeToast]);
 
   const showSuccess = useCallback((message, duration) => {
     return showToast(message, 'success', duration);
@@ -52,6 +62,38 @@ export const ToastProvider = ({ children }) => {
     return showToast(message, 'info', duration);
   }, [showToast]);
 
+  const showConfirm = useCallback((message, onConfirm, onCancel) => {
+    // Check if a confirm toast with the same message already exists
+    const existingToast = toasts.find(toast => 
+      toast.message === message && toast.type === 'confirm'
+    );
+    
+    if (existingToast) {
+      // If duplicate exists, don't add a new one
+      return existingToast.id;
+    }
+    
+    const id = Date.now() + Math.random();
+    const newToast = {
+      id,
+      message,
+      type: 'confirm',
+      duration: 0, // Don't auto-remove confirmation toasts
+      isOpen: true,
+      onConfirm: () => {
+        removeToast(id);
+        if (onConfirm) onConfirm();
+      },
+      onCancel: () => {
+        removeToast(id);
+        if (onCancel) onCancel();
+      }
+    };
+
+    setToasts(prev => [...prev, newToast]);
+    return id;
+  }, [toasts, removeToast]);
+
   const clearAllToasts = useCallback(() => {
     setToasts([]);
   }, []);
@@ -61,6 +103,7 @@ export const ToastProvider = ({ children }) => {
     showSuccess,
     showError,
     showInfo,
+    showConfirm,
     removeToast,
     clearAllToasts,
     toasts
@@ -78,6 +121,8 @@ export const ToastProvider = ({ children }) => {
             message={toast.message}
             type={toast.type}
             onClose={() => removeToast(toast.id)}
+            onConfirm={toast.onConfirm}
+            onCancel={toast.onCancel}
             duration={0} // Duration is handled by the context
             style={{
               bottom: `${20 + (index * 80)}px` // Stack toasts vertically
