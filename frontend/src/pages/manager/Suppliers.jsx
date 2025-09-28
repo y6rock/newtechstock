@@ -16,6 +16,8 @@ const Suppliers = () => {
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [sortField, setSortField] = useState('supplier_id');
+  const [sortDirection, setSortDirection] = useState('asc');
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
@@ -40,7 +42,41 @@ const Suppliers = () => {
     fetchSuppliers();
   }, [isUserAdmin, loadingSettings, navigate]);
 
-  // Filter suppliers based on status and search term
+  // Sorting function
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort suppliers
+  const sortSuppliers = (suppliersToSort) => {
+    return [...suppliersToSort].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Handle different data types
+      if (sortField === 'supplier_id') {
+        aValue = parseInt(aValue) || 0;
+        bValue = parseInt(bValue) || 0;
+      } else if (sortField === 'isActive') {
+        aValue = a.isActive ? 1 : 0;
+        bValue = b.isActive ? 1 : 0;
+      } else if (typeof aValue === 'string') {
+        aValue = (aValue || '').toLowerCase();
+        bValue = (bValue || '').toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Filter and sort suppliers based on status, search term, and sorting
   useEffect(() => {
     let filtered = suppliers;
     
@@ -59,8 +95,10 @@ const Suppliers = () => {
       );
     }
     
-    setFilteredSuppliers(filtered);
-  }, [suppliers, statusFilter, searchTerm]);
+    // Apply sorting
+    const sortedFiltered = sortSuppliers(filtered);
+    setFilteredSuppliers(sortedFiltered);
+  }, [suppliers, statusFilter, searchTerm, sortField, sortDirection]);
 
   const fetchSuppliers = async () => {
     try {
@@ -277,12 +315,60 @@ const Suppliers = () => {
         <table className="suppliers-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Phone</th>
-              <th>Address</th>
-              <th>Status</th>
+              <th 
+                className={`sortable ${sortField === 'supplier_id' ? 'active' : ''}`}
+                onClick={() => handleSort('supplier_id')}
+              >
+                ID
+                <span className="sort-arrow">
+                  {sortField === 'supplier_id' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'name' ? 'active' : ''}`}
+                onClick={() => handleSort('name')}
+              >
+                Name
+                <span className="sort-arrow">
+                  {sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'email' ? 'active' : ''}`}
+                onClick={() => handleSort('email')}
+              >
+                Email
+                <span className="sort-arrow">
+                  {sortField === 'email' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'phone' ? 'active' : ''}`}
+                onClick={() => handleSort('phone')}
+              >
+                Phone
+                <span className="sort-arrow">
+                  {sortField === 'phone' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'address' ? 'active' : ''}`}
+                onClick={() => handleSort('address')}
+              >
+                Address
+                <span className="sort-arrow">
+                  {sortField === 'address' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'isActive' ? 'active' : ''}`}
+                onClick={() => handleSort('isActive')}
+              >
+                Status
+                <span className="sort-arrow">
+                  {sortField === 'isActive' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>

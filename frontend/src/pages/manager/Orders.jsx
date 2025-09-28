@@ -16,6 +16,8 @@ const Orders = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [userFilter, setUserFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortField, setSortField] = useState('order_date');
+  const [sortDirection, setSortDirection] = useState('desc');
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
@@ -50,6 +52,43 @@ const Orders = () => {
     return Array.from(userMap.values());
   };
 
+  // Sorting function
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort orders
+  const sortOrders = useCallback((ordersToSort) => {
+    return [...ordersToSort].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Handle different data types
+      if (sortField === 'order_date') {
+        aValue = new Date(aValue);
+        bValue = new Date(bValue);
+      } else if (sortField === 'total_amount') {
+        aValue = parseFloat(aValue) || 0;
+        bValue = parseFloat(bValue) || 0;
+      } else if (sortField === 'customer_name') {
+        aValue = (a.customer_name || a.customer_email || '').toLowerCase();
+        bValue = (b.customer_name || b.customer_email || '').toLowerCase();
+      } else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  }, [sortField, sortDirection]);
+
   // Filter orders based on status and user
   const filterOrders = useCallback(() => {
     // Don't filter if orders array is empty
@@ -80,8 +119,10 @@ const Orders = () => {
       });
     }
 
-    setFilteredOrders(filtered);
-  }, [orders, statusFilter, userFilter, searchTerm]);
+    // Apply sorting
+    const sortedFiltered = sortOrders(filtered);
+    setFilteredOrders(sortedFiltered);
+  }, [orders, statusFilter, userFilter, searchTerm, sortOrders]);
 
   const fetchOrdersAndStats = useCallback(async () => {
     setLoading(true);
@@ -206,7 +247,8 @@ const Orders = () => {
       </div>
 
       <div className="orders-filters">
-        <div className="filter-row">
+        {/* Main filters row */}
+        <div className="filter-row main-filters">
           <div className="filter-group">
             <label htmlFor="status-filter">Filter by Status:</label>
             <select
@@ -239,10 +281,27 @@ const Orders = () => {
               ))}
             </select>
           </div>
+          
+          <div className="filter-info">
+            <span>Showing {filteredOrders.length} of {orders.length} orders</span>
+            {(statusFilter !== 'all' || userFilter !== 'all' || searchTerm) && (
+              <button 
+                onClick={() => {
+                  setStatusFilter('all');
+                  setUserFilter('all');
+                  setSearchTerm('');
+                }}
+                className="clear-filter-btn"
+              >
+                Clear All Filters
+              </button>
+            )}
+          </div>
         </div>
         
-        <div className="filter-row">
-          <div className="filter-group">
+        {/* Search row */}
+        <div className="filter-row search-row">
+          <div className="filter-group search-group">
             <label htmlFor="search-term">Search by Name/Email:</label>
             <input
               id="search-term"
@@ -254,33 +313,57 @@ const Orders = () => {
             />
           </div>
         </div>
-        
-        <div className="filter-info">
-          <span>Showing {filteredOrders.length} of {orders.length} orders</span>
-          {(statusFilter !== 'all' || userFilter !== 'all' || searchTerm) && (
-            <button 
-              onClick={() => {
-                setStatusFilter('all');
-                setUserFilter('all');
-                setSearchTerm('');
-              }}
-              className="clear-filter-btn"
-            >
-              Clear All Filters
-            </button>
-          )}
-        </div>
       </div>
 
       <div className="orders-table-container">
         <table className="orders-table">
           <thead>
             <tr>
-              <th>Order ID</th>
-              <th>Date</th>
-              <th>Customer</th>
-              <th>Total</th>
-              <th>Status</th>
+              <th 
+                className={`sortable ${sortField === 'order_id' ? 'active' : ''}`}
+                onClick={() => handleSort('order_id')}
+              >
+                Order ID
+                <span className="sort-arrow">
+                  {sortField === 'order_id' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'order_date' ? 'active' : ''}`}
+                onClick={() => handleSort('order_date')}
+              >
+                Date
+                <span className="sort-arrow">
+                  {sortField === 'order_date' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'customer_name' ? 'active' : ''}`}
+                onClick={() => handleSort('customer_name')}
+              >
+                Customer
+                <span className="sort-arrow">
+                  {sortField === 'customer_name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'total_amount' ? 'active' : ''}`}
+                onClick={() => handleSort('total_amount')}
+              >
+                Total
+                <span className="sort-arrow">
+                  {sortField === 'total_amount' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'status' ? 'active' : ''}`}
+                onClick={() => handleSort('status')}
+              >
+                Status
+                <span className="sort-arrow">
+                  {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>

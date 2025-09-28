@@ -21,6 +21,8 @@ const Categories = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [searchTerm, setSearchTerm] = useState(''); // Search functionality
+  const [sortField, setSortField] = useState('category_id');
+  const [sortDirection, setSortDirection] = useState('asc');
 
   useEffect(() => {
     if (loadingSettings) {
@@ -34,7 +36,38 @@ const Categories = () => {
     fetchCategories();
   }, [isUserAdmin, loadingSettings, navigate]);
 
-  // Filter categories based on status and search term
+  // Sorting function
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  // Sort categories
+  const sortCategories = (categoriesToSort) => {
+    return [...categoriesToSort].sort((a, b) => {
+      let aValue = a[sortField];
+      let bValue = b[sortField];
+      
+      // Handle different data types
+      if (sortField === 'category_id') {
+        aValue = parseInt(aValue) || 0;
+        bValue = parseInt(bValue) || 0;
+      } else if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+      return 0;
+    });
+  };
+
+  // Filter and sort categories based on status, search term, and sorting
   useEffect(() => {
     let filtered = categories;
     
@@ -52,8 +85,10 @@ const Categories = () => {
       );
     }
     
-    setFilteredCategories(filtered);
-  }, [categories, statusFilter, searchTerm]);
+    // Apply sorting
+    const sortedFiltered = sortCategories(filtered);
+    setFilteredCategories(sortedFiltered);
+  }, [categories, statusFilter, searchTerm, sortField, sortDirection]);
 
   const fetchCategories = async () => {
     try {
@@ -272,9 +307,33 @@ const Categories = () => {
         <table className="categories-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th className="status-cell">Status</th>
+              <th 
+                className={`sortable ${sortField === 'category_id' ? 'active' : ''}`}
+                onClick={() => handleSort('category_id')}
+              >
+                ID
+                <span className="sort-arrow">
+                  {sortField === 'category_id' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortField === 'name' ? 'active' : ''}`}
+                onClick={() => handleSort('name')}
+              >
+                Name
+                <span className="sort-arrow">
+                  {sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`status-cell sortable ${sortField === 'status' ? 'active' : ''}`}
+                onClick={() => handleSort('status')}
+              >
+                Status
+                <span className="sort-arrow">
+                  {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
               <th className="actions-cell">Actions</th>
             </tr>
           </thead>

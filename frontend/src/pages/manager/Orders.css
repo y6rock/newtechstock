@@ -20,10 +20,32 @@
 }
 
 .stats-container {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    display: flex;
     gap: 1.5rem;
     margin-bottom: 2rem;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 768px) {
+    .stats-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    }
+    
+    .main-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1rem;
+    }
+    
+    .filter-info {
+        margin-left: 0;
+        justify-content: space-between;
+    }
+    
+    .search-group {
+        max-width: none;
+    }
 }
 
 .stat-card {
@@ -31,6 +53,8 @@
     padding: 1.5rem;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    flex: 1;
+    min-width: 200px;
 }
 
 .stat-card h3 {
@@ -54,7 +78,7 @@
 
 .filter-row {
     display: flex;
-    gap: 1rem;
+    gap: 1.5rem;
     margin-bottom: 1rem;
     align-items: end;
     flex-wrap: wrap;
@@ -62,6 +86,24 @@
 
 .filter-row:last-of-type {
     margin-bottom: 0;
+}
+
+/* Main filters row - all filters in one line */
+.main-filters {
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Search row - separate row for search */
+.search-row {
+    border-top: 1px solid #e9ecef;
+    padding-top: 1rem;
+    margin-top: 1rem;
+}
+
+.search-group {
+    flex: 1;
+    max-width: 400px;
 }
 
 .filter-group {
@@ -115,6 +157,7 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    margin-left: auto;
 }
 
 .clear-filter-btn {
@@ -187,6 +230,40 @@
 .orders-table thead th {
     font-weight: 600;
     background-color: #f8f9fa;
+}
+
+/* Sortable column styles */
+.orders-table th.sortable {
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+.orders-table th.sortable:hover {
+    background-color: #e9ecef;
+}
+
+.orders-table th.sortable.active {
+    background-color: #e3f2fd;
+    color: #1976d2;
+}
+
+.sort-arrow {
+    margin-left: 8px;
+    font-size: 12px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease;
+}
+
+.orders-table th.sortable:hover .sort-arrow {
+    opacity: 1;
+}
+
+.orders-table th.sortable.active .sort-arrow {
+    opacity: 1;
+    color: #1976d2;
+    font-weight: bold;
 }
 
 .status-dropdown {
