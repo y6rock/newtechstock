@@ -6,6 +6,7 @@ import reportWebVitals from './reportWebVitals';
 import { BrowserRouter as Router, useLocation } from 'react-router-dom';
 import { SettingsProvider } from './context/SettingsContext';
 import { CartProvider } from './context/CartContext';
+import { ToastProvider } from './context/ToastContext';
 import { PayPalScriptProvider } from '@paypal/react-paypal-js';
 
 // New component to handle useLocation within Router context and pass down props
@@ -24,9 +25,11 @@ function RootWrapper() {
       intent: "capture"
     }}>
       <SettingsProvider>
-        <CartProvider>
-          <App isManagerRoute={isManagerRoute} />
-        </CartProvider>
+        <ToastProvider>
+          <CartProvider>
+            <App isManagerRoute={isManagerRoute} />
+          </CartProvider>
+        </ToastProvider>
       </SettingsProvider>
     </PayPalScriptProvider>
   );

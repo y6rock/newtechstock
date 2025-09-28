@@ -49,31 +49,48 @@
 .tab-button {
   padding: 16px 36px;
   border: none;
-  font-weight: bold;
-  font-size: 1.1em;
+  background: transparent;
   cursor: pointer;
-  outline: none;
+  font-size: 1.1em;
+  font-weight: 600;
+  transition: all 0.3s ease;
   border-radius: 8px 8px 0 0;
-  margin-right: 2px;
-  min-width: 120px;
-  transition: all 0.2s;
+  position: relative;
+  min-width: 140px;
+  outline: none;
+}
+
+.tab-button:focus {
+  outline: none;
+  box-shadow: none;
 }
 
 .tab-button.active {
-  background: #fff;
-  border-bottom: 3px solid #007bff;
-  color: #007bff;
-  cursor: default;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.tab-button.active:focus {
+  outline: none;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
 }
 
 .tab-button.inactive {
-  background: transparent;
-  border-bottom: 3px solid transparent;
-  color: #333;
+  background: #e9ecef;
+  color: #6c757d;
 }
 
 .tab-button.inactive:hover {
-  background-color: #f0f0f0;
+  background: #dee2e6;
+  color: #495057;
+  transform: translateY(-1px);
+}
+
+.tab-button.inactive:focus {
+  outline: none;
+  background: #dee2e6;
+  color: #495057;
 }
 
 /* Profile Content */

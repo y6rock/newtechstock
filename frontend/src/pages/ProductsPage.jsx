@@ -33,9 +33,9 @@ const formatPriceWithCommas = (price, currency) => {
 };
 
 const ProductsPage = () => {
-  const { currency } = useSettings();
+  const { currency, username, user_id } = useSettings();
   const location = useLocation();
-  const { addToCart } = useCart();
+  const { addToCart, validateCart } = useCart();
   const navigate = useNavigate();
 
   const getInitialCategory = () => {
@@ -184,6 +184,22 @@ const ProductsPage = () => {
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     // Search is handled by the filteredProducts logic
+  };
+
+  const handleAddToCart = (product) => {
+    if (!username || !user_id) {
+      // User is not logged in, redirect to login page
+      navigate('/login');
+      return;
+    }
+    
+    // User is logged in, proceed with adding to cart
+    addToCart(product);
+    
+    // Validate cart after adding item (with a small delay)
+    setTimeout(() => {
+      validateCart(false); // Don't show notifications for this validation
+    }, 500);
   };
 
   // Filter products by category, search term, price range, and manufacturer
@@ -398,9 +414,9 @@ const ProductsPage = () => {
                         <button className="details-button" onClick={() => navigate(`/products/${product.product_id}`)}>For details</button>
                         <button 
                           className={`add-to-cart-button ${isOutOfStock ? 'disabled' : ''}`} 
-                          onClick={() => !isOutOfStock && addToCart(product)}
+                          onClick={() => !isOutOfStock && handleAddToCart(product)}
                           disabled={isOutOfStock}
-                          title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : 'Add to cart'}
+                          title={!hasValidStock ? 'Invalid stock data' : product.stock === 0 ? 'Out of stock' : username ? 'Add to cart' : 'Login to add to cart'}
                         >
                           <BsCart />
                         </button>

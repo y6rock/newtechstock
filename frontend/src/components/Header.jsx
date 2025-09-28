@@ -49,9 +49,6 @@ export default function Header() {
               )}
             </Link>
           )}
-          {username && (
-            <Link to="/order-history" onClick={closeMenu}>Order History</Link>
-          )}
           <Link to="/contact" onClick={closeMenu}>Contact</Link>
           <Link to="/about" onClick={closeMenu}>About</Link>
         </div>

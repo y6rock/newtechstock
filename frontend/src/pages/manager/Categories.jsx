@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import './Categories.css';
 
 const Categories = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState([]);
@@ -75,9 +77,10 @@ const Categories = () => {
       setShowAddModal(false);
       setError(null);
       fetchCategories();
+      showSuccess('Category added successfully!');
     } catch (err) {
       console.error('Error adding category:', err);
-      setError(err.response?.data?.message || 'Failed to add category.');
+      showError(err.response?.data?.message || 'Failed to add category.');
     }
   };
 

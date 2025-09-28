@@ -10,18 +10,28 @@ const PromotionsBanner = () => {
   const [isVisible, setIsVisible] = useState(true);
   const { currency } = useSettings();
   const [currentPromotionIndex, setCurrentPromotionIndex] = useState(0);
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
 
   useEffect(() => {
-    const fetchActivePromotions = async () => {
+    const fetchData = async () => {
       try {
-        const response = await axios.get('/api/promotions/active');
-        setPromotions(response.data);
+        // Fetch promotions, categories, and products in parallel
+        const [promotionsRes, categoriesRes, productsRes] = await Promise.all([
+          axios.get('/api/promotions/active'),
+          axios.get('/api/categories/public'),
+          axios.get('/api/products')
+        ]);
+        
+        setPromotions(promotionsRes.data);
+        setCategories(categoriesRes.data);
+        setProducts(productsRes.data);
       } catch (error) {
-        console.error('Error fetching promotions:', error);
+        console.error('Error fetching data:', error);
       }
     };
 
-    fetchActivePromotions();
+    fetchData();
   }, []);
 
   if (!isVisible || promotions.length === 0) {
@@ -42,6 +52,60 @@ const PromotionsBanner = () => {
     }
   };
 
+  const getApplicableItems = (promotion) => {
+    const applicableItems = [];
+    
+    try {
+      // Parse applicable products
+      if (promotion.applicable_products) {
+        const productIds = JSON.parse(promotion.applicable_products);
+        if (Array.isArray(productIds) && productIds.length > 0) {
+          const applicableProducts = products.filter(product => 
+            productIds.includes(product.product_id) || productIds.includes(product.product_id.toString())
+          );
+          applicableItems.push(...applicableProducts.map(p => p.name));
+        }
+      }
+      
+      // Parse applicable categories
+      if (promotion.applicable_categories) {
+        const categoryIds = JSON.parse(promotion.applicable_categories);
+        if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+          const applicableCategories = categories.filter(category => 
+            categoryIds.includes(category.category_id) || categoryIds.includes(category.category_id.toString())
+          );
+          applicableItems.push(...applicableCategories.map(c => c.name));
+        }
+      }
+    } catch (error) {
+      console.error('Error parsing applicable items:', error);
+    }
+    
+    return applicableItems;
+  };
+
+  const formatApplicableItems = (promotion) => {
+    const items = getApplicableItems(promotion);
+    
+    if (items.length === 0) {
+      return 'All items';
+    }
+    
+    if (items.length === 1) {
+      return items[0];
+    }
+    
+    if (items.length === 2) {
+      return `${items[0]} & ${items[1]}`;
+    }
+    
+    if (items.length <= 3) {
+      return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`;
+    }
+    
+    return `${items.slice(0, 2).join(', ')} & ${items.length - 2} more`;
+  };
+
   return (
     <div className="promotions-banner">
       <button
@@ -57,9 +121,14 @@ const PromotionsBanner = () => {
         
         {promotions.slice(0, 3).map((promotion, index) => (
           <div key={promotion.promotion_id} className="promotion-item">
-            <span className="promotion-value">
-              {formatValue(promotion.type, promotion.value)}
-            </span>
+            <div className="promotion-details">
+              <span className="promotion-value">
+                {formatValue(promotion.type, promotion.value)}
+              </span>
+              <span className="promotion-applies-to">
+                on {formatApplicableItems(promotion)}
+              </span>
+            </div>
             {promotion.code && (
               <span className="promotion-code">
                 {promotion.code}

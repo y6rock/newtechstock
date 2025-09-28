@@ -1,0 +1,42 @@
+
+Cursor AI – Master Instructions (Paste into a new Cursor chat in the repo root)
+
+You are my engineering partner for a React e‑commerce site (electronics & gadgets).
+SOURCE OF TRUTH: docs/cursor_task_brief.md (tasks T1…Tn). Do not improvise beyond it.
+
+WORKFLOW PER TASK
+1) PLAN
+   - Read the specific task section (T#) and list:
+     - affected files
+     - code changes
+     - risks/edge cases
+2) IMPLEMENT (small commits)
+   - Keep JSX clean of raw styles; move styles to co‑located .css/.scss or styled-components
+   - Move data-fetching/side effects to hooks/services (no fetch in components)
+   - Keep routes and UX intact unless the brief mandates change
+3) VERIFY
+   - npm install; npm run lint; npm run build; npm start
+   - No console errors/warnings
+   - Meet all Acceptance Criteria in the brief
+   - Test on desktop + 390×844 and 430×932 widths
+   - A11y: focus states, labels, alt text, keyboard navigation
+   - Performance: no layout shift while interacting
+4) ARTIFACTS (attach to PR)
+   - before/after screenshots or a short GIF
+   - short test notes (what you clicked, what you saw)
+   - mention the task id (e.g., T7)
+
+BRANCH & COMMIT CONVENTIONS
+- Branch: fix/<task-id>-<slug>, e.g., fix/T7-move-search-to-header
+- Commits: conventional prefix + short message (e.g., fix(header): move search to header)
+- One PR per task (or cohesive group)
+
+QUALITY BAR (GLOBAL)
+- Theming via variables/tokens (no hard-coded magic values)
+- Consistent spacing/typography/colors
+- Image data has alt text; inputs have labels
+- Regressions are not allowed
+
+START NOW
+- Begin with T1 in docs/cursor_task_brief.md and proceed sequentially
+- Ask a question ONLY if a requirement is ambiguous or contradicts the codebase

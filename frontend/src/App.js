@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
+import { ToastProvider } from './context/ToastContext';
 import Header from './components/Header';
 import ScrollToTop from './components/ScrollToTop';
 import Home from './pages/Home';
@@ -90,7 +91,7 @@ function App({ isManagerRoute }) {
   );
 
   return (
-    <>
+    <ToastProvider>
       <Header />
 
       {isManagerRoute ? (
@@ -113,7 +114,7 @@ function App({ isManagerRoute }) {
 
       <FloatingCart />
       <Footer />
-    </>
+    </ToastProvider>
   );
 }
 

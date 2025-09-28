@@ -82,59 +82,80 @@ const OrderHistory = ({ userId }) => {
   const isStandalonePage = !userId;
 
   return (
-    <div className={isStandalonePage ? "order-history-page" : ""}>
+    <div className={isStandalonePage ? "order-history-container" : ""}>
       {isStandalonePage ? (
-        <div className="order-history-header">
-          <h1 className="order-history-title">Your Order History</h1>
-          <p className="order-history-subtitle">Track all your past orders and their status</p>
-        </div>
+        <>
+          {/* Tab Navigation */}
+          <div className="tab-navigation">
+            <div className="tab-container">
+              <button
+                onClick={() => navigate('/profile')}
+                className="tab-button inactive"
+              >
+                Profile
+              </button>
+              <button className="tab-button active">
+                Order History
+              </button>
+            </div>
+          </div>
+          {/* Order History Content */}
+          <div className="order-history-content">
+            <div className="order-history-header">
+              <h1 className="order-history-title">Your Order History</h1>
+              <p className="order-history-subtitle">Track all your past orders and their status</p>
+            </div>
+          </div>
+        </>
       ) : (
         <h2 className="order-history-embedded-title">Your Order History</h2>
       )}
 
-      {orders.length === 0 ? (
-        <div className="no-orders">
-          <div className="no-orders-icon">📦</div>
-          <h2 className="no-orders-title">No Orders Yet</h2>
-          <p className="no-orders-text">You haven't placed any orders yet. Start shopping to see your order history here!</p>
-          <Link to="/products" className="shop-now-btn">Start Shopping</Link>
-        </div>
-      ) : (
-        <div>
-          {orders.map(order => (
-            <div key={order.order_id} className="order-card">
-              <div className="order-header">
-                <h2 className="order-number">Order #{order.order_id}</h2>
-                <span className="order-total">Total: {formatPrice(order.total_amount, currency)}</span>
-              </div>
-              <div className="order-details">
-                <p className="order-detail">Date: {formatDateTimeFull(order.order_date)}</p>
-                <p className="order-detail">Status: <span className={`order-status ${order.status}`}>{order.status}</span></p>
-              </div>
+      <div className={isStandalonePage ? "order-history-content" : ""}>
+        {orders.length === 0 ? (
+          <div className="no-orders">
+            <div className="no-orders-icon">📦</div>
+            <h2 className="no-orders-title">No Orders Yet</h2>
+            <p className="no-orders-text">You haven't placed any orders yet. Start shopping to see your order history here!</p>
+            <Link to="/products" className="shop-now-btn">Start Shopping</Link>
+          </div>
+        ) : (
+          <div>
+            {orders.map(order => (
+              <div key={order.order_id} className="order-card">
+                <div className="order-header">
+                  <h2 className="order-number">Order #{order.order_id}</h2>
+                  <span className="order-total">Total: {formatPrice(order.total_amount, currency)}</span>
+                </div>
+                <div className="order-details">
+                  <p className="order-detail">Date: {formatDateTimeFull(order.order_date)}</p>
+                  <p className="order-detail">Status: <span className={`order-status ${order.status}`}>{order.status}</span></p>
+                </div>
 
-              <div className="items-section">
-                <h3 className="items-title">Items:</h3>
-                <div className="items-list">
-                  {(Array.isArray(order.items) ? order.items : []).map(item => (
-                    <div key={item.product_id} className="item-card">
-                      <img 
-                        src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} 
-                        alt={item.product_name} 
-                        className="item-image"
-                      />
-                      <div className="item-details">
-                        <p className="item-name">{item.product_name}</p>
-                        <p className="item-quantity">Quantity: {item.quantity}</p>
-                        <p className="item-price">{formatPrice(item.price * item.quantity, currency)}</p>
+                <div className="items-section">
+                  <h3 className="items-title">Items:</h3>
+                  <div className="items-list">
+                    {(Array.isArray(order.items) ? order.items : []).map(item => (
+                      <div key={item.product_id} className="item-card">
+                        <img 
+                          src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} 
+                          alt={item.product_name} 
+                          className="item-image"
+                        />
+                        <div className="item-details">
+                          <p className="item-name">{item.product_name}</p>
+                          <p className="item-quantity">Quantity: {item.quantity}</p>
+                          <p className="item-price">{formatPrice(item.price * item.quantity, currency)}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

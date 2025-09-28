@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../context/SettingsContext';
+import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
 import axios from 'axios';
-import NotificationModal from '../components/NotificationModal';
 import './Profile.css';
 
 const Profile = () => {
   const { user_id, username, loadingSettings, updateUsername } = useSettings();
+  const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState({
     name: username || '',
@@ -20,31 +21,6 @@ const Profile = () => {
   const [profileError, setProfileError] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
-  
-  // Notification modal state
-  const [notification, setNotification] = useState({
-    isOpen: false,
-    message: '',
-    type: 'success'
-  });
-
-  // Function to show notification
-  const showNotification = (message, type = 'success') => {
-    setNotification({
-      isOpen: true,
-      message,
-      type
-    });
-  };
-
-  // Function to close notification
-  const closeNotification = () => {
-    setNotification({
-      isOpen: false,
-      message: '',
-      type: 'success'
-    });
-  };
 
   // Function to generate initials from user's name
   const generateInitials = (name) => {
@@ -148,7 +124,7 @@ const Profile = () => {
     try {
       // Validate name length
       if (profileData.name && profileData.name.length > 70) {
-        showNotification('Name must be 70 characters or less', 'error');
+        showError('Name must be 70 characters or less');
         return;
       }
       
@@ -185,15 +161,10 @@ const Profile = () => {
         updateUsername(profileData.name);
       }
       
-      showNotification('Profile updated successfully!', 'success');
-      
-      // Reload page after showing notification
-      setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+      showSuccess('Profile updated successfully!');
     } catch (error) {
       console.error('Error updating profile:', error);
-      showNotification(`Error updating profile: ${error.response?.data?.message || error.message}`, 'error');
+      showError(`Error updating profile: ${error.response?.data?.message || error.message}`);
     }
   };
 
@@ -307,13 +278,6 @@ const Profile = () => {
           </div>
         </div>
       
-      {/* Notification Modal */}
-      <NotificationModal
-        isOpen={notification.isOpen}
-        message={notification.message}
-        type={notification.type}
-        onClose={closeNotification}
-      />
     </div>
   );
 };

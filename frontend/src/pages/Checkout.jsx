@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
+import { useToast } from '../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { formatPrice } from '../utils/currency';
@@ -10,6 +11,7 @@ import './Checkout.css';
 const Checkout = () => {
     const { cartItems, clearCart, appliedPromotion, total, subtotal, subtotalAfterDiscount, vatAmount, netAmount, vat_rate, discountAmount } = useCart();
     const { user_id, currency } = useSettings();
+    const { showSuccess, showError } = useToast();
     const navigate = useNavigate();
 
     const [shippingAddress, setShippingAddress] = useState('');
@@ -60,7 +62,7 @@ const Checkout = () => {
             const orderId = response.data.orderId;
             console.log('Order created with ID:', orderId);
 
-            alert('Order placed successfully!');
+            showSuccess('Order placed successfully!');
             clearCart();
             console.log(`Navigating to /order-confirmation/${orderId}`);
             navigate(`/order-confirmation/${orderId}`);
@@ -70,14 +72,14 @@ const Checkout = () => {
             
             // Handle token expiration specifically
             if (error.response?.status === 403 && error.response?.data?.message === 'Invalid token') {
-                alert('Your session has expired. Please log in again to continue.');
+                showError('Your session has expired. Please log in again to continue.');
                 localStorage.removeItem('token');
                 navigate('/login');
                 return;
             }
             
             setOrderError(message);
-            alert(`Error: ${message}`);
+            showError(`Error: ${message}`);
         } finally {
             setIsPlacingOrder(false);
         }
@@ -123,7 +125,7 @@ const Checkout = () => {
             const orderId = response.data.orderId;
             console.log('Order created with PayPal payment, ID:', orderId);
 
-            alert('Order placed successfully with PayPal!');
+            showSuccess('Order placed successfully with PayPal!');
             clearCart();
             navigate(`/order-confirmation/${orderId}`);
         } catch (error) {
@@ -132,14 +134,14 @@ const Checkout = () => {
             
             // Handle token expiration specifically
             if (error.response?.status === 403 && error.response?.data?.message === 'Invalid token') {
-                alert('Your session has expired. Please log in again to continue.');
+                showError('Your session has expired. Please log in again to continue.');
                 localStorage.removeItem('token');
                 navigate('/login');
                 return;
             }
             
             setOrderError(message);
-            alert(`Error: ${message}`);
+            showError(`Error: ${message}`);
         } finally {
             setIsPlacingOrder(false);
         }
