@@ -3,29 +3,19 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../context/CartContext';
 import { useSettings } from '../context/SettingsContext';
 import { formatPrice } from '../utils/currency';
-import { FaArrowLeft, FaStar, FaTruck, FaShieldAlt, FaUndo, FaHeart, FaShare, FaEye, FaShoppingCart } from 'react-icons/fa';
+import { FaArrowLeft, FaHeart, FaShare, FaShoppingCart } from 'react-icons/fa';
 import './ProductDetails.css';
 
-// Helper to get currency symbol
-const getCurrencySymbol = (currencyCode) => {
-  const symbols = {
-    'ILS': '₪',
-    'USD': '$',
-    'EUR': '€',
-  };
-  return symbols[currencyCode] || '$';
-};
 
 export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { user_id, username, currency } = useSettings();
+  const { user_id, currency } = useSettings();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cartMsg, setCartMsg] = useState('');
-  const [selectedImage, setSelectedImage] = useState(0);
   const [isWishlisted, setIsWishlisted] = useState(false);
 
   useEffect(() => {
@@ -95,15 +85,10 @@ export default function ProductDetails() {
   const stockStatus = !hasValidStock ? 'Invalid Stock Data' : product.stock === 0 ? 'Out of Stock' : `In Stock (${product.stock} available)`;
   const stockColor = !hasValidStock ? '#ff6b35' : product.stock === 0 ? '#dc3545' : '#28a745';
 
-  // Mock product images for demonstration (you can replace with actual product images)
-  const productImages = [
-    product.image && product.image.startsWith('/uploads') 
-      ? `http://localhost:3001${product.image}` 
-      : product.image || 'https://via.placeholder.com/500x500?text=Product+Image',
-    'https://via.placeholder.com/500x500?text=Image+2',
-    'https://via.placeholder.com/500x500?text=Image+3',
-    'https://via.placeholder.com/500x500?text=Image+4'
-  ];
+  // Product image handling
+  const productImage = product.image && product.image.startsWith('/uploads') 
+    ? `http://localhost:3001${product.image}` 
+    : product.image || 'https://via.placeholder.com/500x500?text=Product+Image';
 
   return (
     <div className="product-details-container">
@@ -127,7 +112,7 @@ export default function ProductDetails() {
           {/* Main Image */}
           <div className="main-image-container">
             <img
-              src={productImages[selectedImage]}
+              src={productImage}
               alt={product.name}
               className="main-product-image"
             />
@@ -140,17 +125,11 @@ export default function ProductDetails() {
           {/* Product Header */}
           <div className="product-header-section">
             <div className="product-meta">
-              <span className="category-badge">
-                {product.category_id || 'Electronics'}
-              </span>
-              <div className="rating-stars">
-                <FaStar />
-                <FaStar />
-                <FaStar />
-                <FaStar />
-                <FaStar />
-                <span className="rating-text">(4.8)</span>
-              </div>
+              {product.category_name && (
+                <span className="category-badge">
+                  {product.category_name}
+                </span>
+              )}
             </div>
 
             <h1 className="product-title-main">
@@ -258,43 +237,21 @@ export default function ProductDetails() {
             )}
           </div>
 
-          {/* Product Features */}
-          <div className="product-features-section">
-            <h3 className="features-title">
-              Product Features
-            </h3>
-            <div className="features-grid">
-              <div className="feature-item">
-                <FaTruck className="feature-icon feature-icon-truck" />
-                <span className="feature-text">Free Shipping</span>
-              </div>
-              <div className="feature-item">
-                <FaShieldAlt className="feature-icon feature-icon-shield" />
-                <span className="feature-text">1 Year Warranty</span>
-              </div>
-              <div className="feature-item">
-                <FaUndo className="feature-icon feature-icon-undo" />
-                <span className="feature-text">30 Day Returns</span>
-              </div>
-              <div className="feature-item">
-                <FaEye className="feature-icon feature-icon-eye" />
-                <span className="feature-text">Premium Quality</span>
-              </div>
-            </div>
-          </div>
 
           {/* Product Specifications */}
           <div className="specifications-section">
             <h3 className="specifications-title">
-              Specifications
+              Product Information
             </h3>
             <div className="specifications-grid">
+              {product.category_name && (
+                <div className="spec-item">
+                  <span className="spec-label">Category:</span>
+                  <div className="spec-value">{product.category_name}</div>
+                </div>
+              )}
               <div className="spec-item">
-                <span className="spec-label">Category:</span>
-                <div className="spec-value">{product.category_id || 'Electronics'}</div>
-              </div>
-              <div className="spec-item">
-                <span className="spec-label">SKU:</span>
+                <span className="spec-label">Product ID:</span>
                 <div className="spec-value">#{product.product_id}</div>
               </div>
               <div className="spec-item">
@@ -305,10 +262,12 @@ export default function ProductDetails() {
                   'stock-in-stock'
                 }`}>{stockStatus}</div>
               </div>
-              <div className="spec-item">
-                <span className="spec-label">Condition:</span>
-                <div className="spec-value">New</div>
-              </div>
+              {product.supplier_name && (
+                <div className="spec-item">
+                  <span className="spec-label">Supplier:</span>
+                  <div className="spec-value">{product.supplier_name}</div>
+                </div>
+              )}
             </div>
           </div>
         </div>

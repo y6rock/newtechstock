@@ -32,7 +32,17 @@ exports.getPriceStats = async (req, res) => {
 exports.getProductById = async (req, res) => {
     const { id } = req.params;
     try {
-        const [products] = await db.query('SELECT * FROM products WHERE product_id = ? AND is_active = 1', [id]);
+        const [products] = await db.query(`
+            SELECT 
+                p.*,
+                c.name as category_name,
+                s.name as supplier_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            WHERE p.product_id = ? AND p.is_active = 1
+        `, [id]);
+        
         if (products.length === 0) {
             return res.status(404).json({ message: 'Product not found' });
         }
