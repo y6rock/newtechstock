@@ -30,7 +30,9 @@ class LoginLimiter {
         if (userAttempts.count >= this.maxAttempts) {
             // Block user for 1 minute
             userAttempts.blockedUntil = new Date(Date.now() + this.blockDuration);
-            console.log(`User ${email} blocked for 1 minute due to ${this.maxAttempts} failed login attempts`);
+            console.log(`🚨 SECURITY: User ${email} blocked for ${this.blockDuration/1000} seconds due to ${this.maxAttempts} failed login attempts`);
+        } else {
+            console.log(`⚠️  Failed login attempt ${userAttempts.count}/${this.maxAttempts} for user: ${email}`);
         }
 
         this.failedAttempts.set(email, userAttempts);
@@ -38,6 +40,10 @@ class LoginLimiter {
 
     recordSuccessfulAttempt(email) {
         // Reset failed attempts on successful login
+        const hadFailedAttempts = this.failedAttempts.has(email);
+        if (hadFailedAttempts) {
+            console.log(`✅ Successful login for ${email} - failed attempts reset`);
+        }
         this.failedAttempts.delete(email);
     }
 
@@ -53,6 +59,27 @@ class LoginLimiter {
         const userAttempts = this.failedAttempts.get(email);
         if (!userAttempts) return this.maxAttempts;
         return Math.max(0, this.maxAttempts - userAttempts.count);
+    }
+
+    // Get comprehensive status for an email
+    getStatus(email) {
+        const userAttempts = this.failedAttempts.get(email);
+        if (!userAttempts) {
+            return {
+                isBlocked: false,
+                failedAttempts: 0,
+                remainingAttempts: this.maxAttempts,
+                remainingBlockTime: 0
+            };
+        }
+
+        const isBlocked = this.isBlocked(email);
+        return {
+            isBlocked: isBlocked,
+            failedAttempts: userAttempts.count,
+            remainingAttempts: this.getRemainingAttempts(email),
+            remainingBlockTime: isBlocked ? this.getRemainingBlockTime(email) : 0
+        };
     }
 
     // Clean up old entries periodically

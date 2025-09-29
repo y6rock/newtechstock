@@ -93,10 +93,26 @@ exports.login = async (req, res) => {
     }
     
     try {
+        // Check if user is blocked due to too many failed attempts
+        if (loginLimiter.isBlocked(email)) {
+            const remainingTime = loginLimiter.getRemainingBlockTime(email);
+            return res.status(429).json({ 
+                message: `Too many failed login attempts. Please try again in ${remainingTime} seconds.`,
+                remainingTime: remainingTime,
+                isBlocked: true
+            });
+        }
+        
         // Check if user exists
         const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
         if (users.length === 0) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            // Record failed attempt for non-existent user (security measure)
+            loginLimiter.recordFailedAttempt(email);
+            const remainingAttempts = loginLimiter.getRemainingAttempts(email);
+            return res.status(401).json({ 
+                message: 'Invalid credentials',
+                remainingAttempts: remainingAttempts
+            });
         }
         
         const user = users[0];
@@ -109,8 +125,28 @@ exports.login = async (req, res) => {
         // Verify password
         const isValidPassword = await bcrypt.compare(password, user.password);
         if (!isValidPassword) {
-            return res.status(401).json({ message: 'Invalid credentials' });
+            // Record failed attempt for wrong password
+            loginLimiter.recordFailedAttempt(email);
+            const remainingAttempts = loginLimiter.getRemainingAttempts(email);
+            
+            // Check if user is now blocked after this attempt
+            if (loginLimiter.isBlocked(email)) {
+                const remainingTime = loginLimiter.getRemainingBlockTime(email);
+                return res.status(429).json({ 
+                    message: `Too many failed login attempts. Account temporarily blocked for ${remainingTime} seconds.`,
+                    remainingTime: remainingTime,
+                    isBlocked: true
+                });
+            }
+            
+            return res.status(401).json({ 
+                message: 'Invalid credentials',
+                remainingAttempts: remainingAttempts
+            });
         }
+        
+        // Successful login - reset failed attempts
+        loginLimiter.recordSuccessfulAttempt(email);
         
         // Generate JWT token
         const token = jwt.sign(
