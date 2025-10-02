@@ -40,14 +40,46 @@ async function deactivateExpiredPromotions() {
     }
 }
 
-// Get all promotions (admin only)
+// Get all promotions (admin only) with pagination
 exports.getAllPromotions = async (req, res) => {
     try {
+        const { page = 1, limit = 10, search = '' } = req.query;
+        const offset = (page - 1) * limit;
+        
         // First, automatically deactivate expired promotions
         await deactivateExpiredPromotions();
         
-        const [promotions] = await db.query("SELECT * FROM promotions ORDER BY start_date DESC");
-        res.json(promotions);
+        let whereConditions = [];
+        let params = [];
+        
+        if (search) {
+            whereConditions.push('(name LIKE ? OR description LIKE ? OR code LIKE ?)');
+            const searchPattern = `%${search}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        // Get total count
+        const countSql = `SELECT COUNT(*) as total FROM promotions ${whereClause}`;
+        const [countResult] = await db.query(countSql, params);
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / limit);
+        
+        // Get paginated promotions
+        const sql = `SELECT * FROM promotions ${whereClause} ORDER BY start_date DESC LIMIT ? OFFSET ?`;
+        params.push(parseInt(limit), parseInt(offset));
+        const [promotions] = await db.query(sql, params);
+        
+        res.json({
+            promotions,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit)
+            }
+        });
     } catch (error) {
         console.error('Error fetching promotions:', error);
         res.status(500).json({ message: 'Internal server error' });

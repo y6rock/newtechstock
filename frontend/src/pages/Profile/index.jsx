@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useSettings } from '../context/SettingsContext';
-import { useToast } from '../context/ToastContext';
+import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import { FaUser, FaPhone, FaMapMarkerAlt, FaCamera } from 'react-icons/fa'; // Import icons
 import axios from 'axios';

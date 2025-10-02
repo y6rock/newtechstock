@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useCart } from '../context/CartContext';
-import { useSettings } from '../context/SettingsContext';
-import { useToast } from '../context/ToastContext';
+import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatPrice } from '../utils/currency';
+import { formatPrice } from '../../utils/currency';
 import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
 

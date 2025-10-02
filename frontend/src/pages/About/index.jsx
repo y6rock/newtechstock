@@ -1,7 +1,7 @@
 import React from 'react';
-import './shared.css'; // Import shared styles
+import '../shared.css'; // Import shared styles
 import './About.css'; // Import About styles
-import aboutImage from '../assets/images/desktops.jpeg'; // Professional tech image
+import aboutImage from '../../assets/images/desktops.jpeg'; // Professional tech image
 import { FaShieldAlt, FaDollarSign } from 'react-icons/fa'; // Assuming you have react-icons installed
 
 const About = () => {

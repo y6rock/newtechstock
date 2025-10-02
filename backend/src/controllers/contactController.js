@@ -1,7 +1,5 @@
-const dbSingleton = require('../../dbSingleton.js');
 const EmailService = require('../../utils/emailService.js');
 
-const db = dbSingleton.getConnection();
 const emailService = new EmailService();
 
 // Handle contact form submission
@@ -20,22 +18,17 @@ exports.submitContactForm = async (req, res) => {
     }
 
     try {
-        // Store contact message in database
-        const [result] = await db.query(
-            'INSERT INTO contact_messages (name, email, message) VALUES (?, ?, ?)',
-            [name, email, message]
-        );
-
         // Send notification email to admin (if email service is configured)
         try {
             await emailService.sendContactNotification(name, email, message);
+            console.log(`Contact form submission from ${name} (${email}) sent via email`);
         } catch (emailError) {
             console.log('Contact notification email not sent (email service not configured)');
+            console.log('Contact form submission details:', { name, email, message: message.substring(0, 100) + '...' });
         }
 
         res.json({ 
-            message: 'Thank you for your message! We will get back to you soon.',
-            contactId: result.insertId 
+            message: 'Thank you for your message! We will get back to you soon.'
         });
 
     } catch (error) {
@@ -44,15 +37,3 @@ exports.submitContactForm = async (req, res) => {
     }
 };
 
-// Get all contact messages (admin only)
-exports.getContactMessages = async (req, res) => {
-    try {
-        const [messages] = await db.query(
-            'SELECT * FROM contact_messages ORDER BY created_at DESC'
-        );
-        res.json(messages);
-    } catch (error) {
-        console.error('Error fetching contact messages:', error);
-        res.status(500).json({ message: 'Failed to fetch messages' });
-    }
-};

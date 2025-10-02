@@ -144,11 +144,40 @@ exports.getTopProducts = async (req, res) => {
     }
 };
 
-// Get all orders with optional user filter
+// Get all orders with optional user filter and pagination
 exports.getOrders = async (req, res) => {
     try {
-        const { userId } = req.query;
+        const { userId, page = 1, limit = 10, search = '' } = req.query;
+        const offset = (page - 1) * limit;
         
+        let whereConditions = [];
+        let params = [];
+        
+        if (userId) {
+            whereConditions.push('o.user_id = ?');
+            params.push(userId);
+        }
+        
+        if (search) {
+            whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR o.order_id LIKE ?)');
+            const searchPattern = `%${search}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        // Get total count
+        const countSql = `
+            SELECT COUNT(*) as total
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.user_id
+            ${whereClause}
+        `;
+        const [countResult] = await db.query(countSql, params);
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / limit);
+        
+        // Get paginated orders
         let sql = `
             SELECT 
                 o.order_id,
@@ -161,19 +190,23 @@ exports.getOrders = async (req, res) => {
                 o.shipping_address
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.user_id
+            ${whereClause}
+            ORDER BY o.order_date DESC
+            LIMIT ? OFFSET ?
         `;
         
-        let params = [];
-        
-        if (userId) {
-            sql += ' WHERE o.user_id = ?';
-            params.push(userId);
-        }
-        
-        sql += ' ORDER BY o.order_date DESC';
-        
+        params.push(parseInt(limit), parseInt(offset));
         const [orders] = await db.query(sql, params);
-        res.json(orders);
+        
+        res.json({
+            orders,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit)
+            }
+        });
     } catch (error) {
         console.error('Error fetching orders:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -202,6 +235,31 @@ exports.getOrderStatusDistribution = async (req, res) => {
 // Get all customers (non-admin users) with their order stats
 exports.getCustomers = async (req, res) => {
     try {
+        const { q, page = 1, limit = 10 } = req.query; // Search query and pagination parameters
+        
+        let whereClause = "WHERE u.role != 'admin'";
+        let params = [];
+        
+        // Add search functionality if query parameter is provided
+        if (q && q.trim()) {
+            whereClause += " AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
+            const searchTerm = `%${q.trim()}%`;
+            params = [searchTerm, searchTerm, searchTerm];
+        }
+        
+        // Get total count for pagination
+        const [countResult] = await db.query(`
+            SELECT COUNT(DISTINCT u.user_id) as total
+            FROM users u
+            LEFT JOIN orders o ON u.user_id = o.user_id
+            ${whereClause}
+        `, params);
+        
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / parseInt(limit));
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Get paginated customers
         const [customers] = await db.query(`
             SELECT 
                 u.user_id,
@@ -214,11 +272,23 @@ exports.getCustomers = async (req, res) => {
                 CASE WHEN u.isActive = TRUE THEN "Active" ELSE "Inactive" END as status
             FROM users u
             LEFT JOIN orders o ON u.user_id = o.user_id
-            WHERE u.role != 'admin'
+            ${whereClause}
             GROUP BY u.user_id, u.name, u.email, u.phone, u.isActive
             ORDER BY u.isActive DESC, u.name
-        `);
-        res.json(customers);
+            LIMIT ? OFFSET ?
+        `, [...params, parseInt(limit), offset]);
+        
+        res.json({
+            customers,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit),
+                hasNextPage: parseInt(page) < totalPages,
+                hasPreviousPage: parseInt(page) > 1
+            }
+        });
     } catch (error) {
         console.error('Error fetching customers:', error);
         res.status(500).json({ message: 'Internal server error' });

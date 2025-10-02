@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import './shared.css'; // Import shared styles
+import '../shared.css'; // Import shared styles
 import './Contact.css';
 
 const Contact = () => {

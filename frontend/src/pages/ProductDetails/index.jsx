@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { useSettings } from '../context/SettingsContext';
-import { formatPrice } from '../utils/currency';
+import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
+import { formatPrice } from '../../utils/currency';
 import { FaArrowLeft, FaHeart, FaShare, FaShoppingCart } from 'react-icons/fa';
 import './ProductDetails.css';
 

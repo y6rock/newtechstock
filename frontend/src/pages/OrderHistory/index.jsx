@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { useSettings } from '../context/SettingsContext';
+import { useSettings } from '../../context/SettingsContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { formatPrice } from '../utils/currency';
-import { formatDateTimeFull } from '../utils/dateFormat';
+import { formatPrice } from '../../utils/currency';
+import { formatDateTimeFull } from '../../utils/dateFormat';
 import './OrderHistory.css';
 
 const OrderHistory = ({ userId }) => {

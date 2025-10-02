@@ -28,6 +28,49 @@ exports.getPriceStats = async (req, res) => {
     }
 };
 
+// Search products (public) - returns name, image, price for dropdown
+exports.searchProducts = async (req, res) => {
+    const { q: query } = req.query;
+    
+    if (!query || query.trim().length === 0) {
+        return res.json([]);
+    }
+
+    try {
+        const searchTerm = `%${query.trim()}%`;
+        const [products] = await db.query(`
+            SELECT 
+                p.product_id,
+                p.name,
+                p.price,
+                p.image,
+                c.name as category_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            WHERE p.is_active = 1 
+            AND (
+                p.name LIKE ? 
+                OR p.description LIKE ?
+                OR c.name LIKE ?
+            )
+            ORDER BY 
+                CASE 
+                    WHEN p.name LIKE ? THEN 1
+                    WHEN p.description LIKE ? THEN 2
+                    WHEN c.name LIKE ? THEN 3
+                    ELSE 4
+                END,
+                p.name
+            LIMIT 8
+        `, [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]);
+        
+        res.json(products);
+    } catch (err) {
+        console.error('Error searching products:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
 // Get a single product by ID (public) - only active products
 exports.getProductById = async (req, res) => {
     const { id } = req.params;
@@ -49,6 +92,34 @@ exports.getProductById = async (req, res) => {
         res.json(products[0]);
     } catch (err) {
         console.error(`Error fetching product ${id}:`, err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
+// Get products by multiple IDs (public) - only active products
+exports.getProductsByIds = async (req, res) => {
+    const { ids } = req.query;
+    if (!ids) {
+        return res.status(400).json({ message: 'Product IDs are required.' });
+    }
+
+    try {
+        const idArray = ids.split(',').map(id => parseInt(id.trim())).filter(id => !isNaN(id));
+        if (idArray.length === 0) {
+            return res.status(400).json({ message: 'Valid product IDs are required.' });
+        }
+
+        const placeholders = idArray.map(() => '?').join(',');
+        const [products] = await db.query(`
+            SELECT product_id, name, price, image
+            FROM products
+            WHERE product_id IN (${placeholders}) AND is_active = 1
+            ORDER BY FIELD(product_id, ${placeholders})
+        `, [...idArray, ...idArray]);
+
+        res.json(products);
+    } catch (err) {
+        console.error('Error fetching products by IDs:', err);
         res.status(500).json({ message: 'Database error' });
     }
 };
@@ -140,6 +211,32 @@ exports.deleteProduct = async (req, res) => {
 // Get all products including inactive (admin only)
 exports.getAllProductsAdmin = async (req, res) => {
     try {
+        const { page = 1, limit = 10, search = '' } = req.query;
+        
+        let whereClause = '';
+        let params = [];
+        
+        // Add search functionality if search parameter is provided
+        if (search && search.trim()) {
+            whereClause = 'WHERE (p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ? OR s.name LIKE ?)';
+            const searchTerm = `%${search.trim()}%`;
+            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+        }
+        
+        // Get total count for pagination
+        const [countResult] = await db.query(`
+            SELECT COUNT(*) as total
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${whereClause}
+        `, params);
+        
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / parseInt(limit));
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Get paginated products
         const [products] = await db.query(`
             SELECT 
                 p.*,
@@ -148,9 +245,22 @@ exports.getAllProductsAdmin = async (req, res) => {
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${whereClause}
             ORDER BY p.name
-        `);
-        res.json(products);
+            LIMIT ? OFFSET ?
+        `, [...params, parseInt(limit), offset]);
+        
+        res.json({
+            products,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit),
+                hasNextPage: parseInt(page) < totalPages,
+                hasPreviousPage: parseInt(page) > 1
+            }
+        });
     } catch (err) {
         console.error('Error fetching all products:', err);
         res.status(500).json({ message: 'Database error' });

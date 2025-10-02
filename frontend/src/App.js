@@ -13,7 +13,7 @@ import Sidebar from './components/Sidebar';
 import ProductsPage from './pages/ProductsPage';
 import Footer from './components/Footer';
 import ForgotPassword from './pages/ForgotPassword';
-import ResetPassword from './pages/ResetPassword';
+import ResetPassword from './pages/ResetPassword/index.jsx';
 import Checkout from './pages/Checkout';
 import Profile from './pages/Profile';
 import NotFound from './pages/NotFound';

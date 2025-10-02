@@ -5,7 +5,9 @@ const { authenticateToken, requireAdmin } = require('../middleware/auth.js');
 const {
     getAllProducts,
     getPriceStats,
+    searchProducts,
     getProductById,
+    getProductsByIds,
     createProduct,
     updateProduct,
     deleteProduct,
@@ -32,8 +34,14 @@ router.get('/', getAllProducts);
 // Get price statistics for slider (min, max prices)
 router.get('/price-stats', getPriceStats);
 
+// Search products (public) - returns name, image, price for dropdown
+router.get('/search', searchProducts);
+
 // Get a single product by ID (public) - only active products
 router.get('/:id', getProductById);
+
+// Get products by multiple IDs (public) - only active products
+router.get('/by-ids', getProductsByIds);
 
 // Create a new product (admin only)
 router.post('/', authenticateToken, requireAdmin, upload.single('image'), createProduct);

@@ -16,8 +16,55 @@ exports.getPublicSuppliers = async (req, res) => {
 // Get all suppliers (admin only) - shows both active and inactive
 exports.getAllSuppliers = async (req, res) => {
     try {
-        const [suppliers] = await db.query('SELECT supplier_id, name, email, phone, contact, address, isActive, CASE WHEN isActive = 1 THEN "Active" ELSE "Inactive" END as status FROM suppliers ORDER BY isActive DESC, name');
-        res.json(suppliers);
+        const { page = 1, limit = 10, search = '' } = req.query;
+        
+        let whereClause = '';
+        let params = [];
+        
+        // Add search functionality if search parameter is provided
+        if (search && search.trim()) {
+            whereClause = 'WHERE (name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?)';
+            const searchTerm = `%${search.trim()}%`;
+            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+        }
+        
+        // Get total count for pagination
+        const [countResult] = await db.query(`
+            SELECT COUNT(*) as total FROM suppliers ${whereClause}
+        `, params);
+        
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / parseInt(limit));
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Get paginated suppliers
+        const [suppliers] = await db.query(`
+            SELECT 
+                supplier_id, 
+                name, 
+                email, 
+                phone, 
+                contact, 
+                address, 
+                isActive, 
+                CASE WHEN isActive = 1 THEN "Active" ELSE "Inactive" END as status 
+            FROM suppliers 
+            ${whereClause}
+            ORDER BY isActive DESC, name
+            LIMIT ? OFFSET ?
+        `, [...params, parseInt(limit), offset]);
+        
+        res.json({
+            suppliers,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit),
+                hasNextPage: parseInt(page) < totalPages,
+                hasPreviousPage: parseInt(page) > 1
+            }
+        });
     } catch (err) {
         console.error("Error fetching suppliers:", err);
         res.status(500).json({ message: "Database error" });

@@ -18,7 +18,7 @@ export default function Promotions() {
   const [editingPromotion, setEditingPromotion] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
-  const [statusFilter, setStatusFilter] = useState('all'); // Filter state
+  const [statusFilter, setStatusFilter] = useState('active'); // Filter state - default to active
   const [searchTerm, setSearchTerm] = useState('');
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const [searchParams, setSearchParams] = useSearchParams();
@@ -428,6 +428,17 @@ export default function Promotions() {
               return !promotion.is_active;
             }
             return status.status === statusFilter;
+          }).sort((a, b) => {
+            // Sort active promotions first, then by start date
+            const statusA = getPromotionStatus(a);
+            const statusB = getPromotionStatus(b);
+            
+            // Active promotions first
+            if (statusA.status === 'active' && statusB.status !== 'active') return -1;
+            if (statusA.status !== 'active' && statusB.status === 'active') return 1;
+            
+            // If both are active or both are not active, sort by start date (newest first)
+            return new Date(b.start_date) - new Date(a.start_date);
           }).map((promotion) => {
             const status = getPromotionStatus(promotion);
             return (

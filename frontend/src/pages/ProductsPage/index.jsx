@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { useCart } from '../context/CartContext';
-import { useSettings } from '../context/SettingsContext';
+import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
-import { formatNumberWithCommas, formatPriceWithTax } from '../utils/currency';
+import { formatNumberWithCommas, formatPriceWithTax } from '../../utils/currency';
 
 import './ProductsPage.css';
 

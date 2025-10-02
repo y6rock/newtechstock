@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { useCart } from '../context/CartContext';
-import { useSettings } from '../context/SettingsContext';
+import { useCart } from '../../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaTag, FaTimes, FaSync } from 'react-icons/fa';
-import { formatPrice } from '../utils/currency';
+import { formatPrice } from '../../utils/currency';
 import './Cart.css';
 
 const Cart = () => {
