@@ -1,11 +1,11 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useSettings } from '../context/SettingsContext';
-import { useCart } from '../context/CartContext';
+import { useSettings } from '../../context/SettingsContext';
+import { useCart } from '../../context/CartContext';
 import { FaUser } from 'react-icons/fa';
-import Logo from './Logo';
-import HeaderSearch from './HeaderSearch';
-import './Header.css'; // Import the new CSS file
+import Logo from '../Logo';
+import HeaderSearch from '../HeaderSearch';
+import './Header.css';
 
 export default function Header() {
   const { isUserAdmin, username, reEvaluateToken } = useSettings();

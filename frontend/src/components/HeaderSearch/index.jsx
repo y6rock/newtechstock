@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
-import { formatPrice } from '../utils/currency';
-import { useSettings } from '../context/SettingsContext';
+import { formatPrice } from '../../utils/currency';
+import { useSettings } from '../../context/SettingsContext';
 import './HeaderSearch.css';
 
 const HeaderSearch = () => {
@@ -43,16 +43,8 @@ const HeaderSearch = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.get('/api/products');
-      const filteredProducts = response.data
-        .filter(product => 
-          product.name.toLowerCase().includes(query.toLowerCase()) ||
-          (product.description && product.description.toLowerCase().includes(query.toLowerCase())) ||
-          (product.short_description && product.short_description.toLowerCase().includes(query.toLowerCase()))
-        )
-        .slice(0, 8); // Limit to 8 results
-
-      setSearchResults(filteredProducts);
+      const response = await axios.get(`/api/products/search?q=${encodeURIComponent(query)}`);
+      setSearchResults(response.data);
       setShowDropdown(true);
       setSelectedIndex(-1);
     } catch (error) {

@@ -1,0 +1,167 @@
+/* Pagination Component Styles */
+
+.pagination-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
+  padding: 16px;
+}
+
+.pagination-info {
+  font-size: 14px;
+  color: #6b7280;
+  font-weight: 500;
+  text-align: center;
+}
+
+.pagination-nav {
+  display: flex;
+  justify-content: center;
+}
+
+.pagination-list {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pagination-item {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  background-color: #ffffff;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  gap: 6px;
+}
+
+.pagination-btn:hover:not(.disabled) {
+  background-color: #f9fafb;
+  border-color: #d1d5db;
+  color: #111827;
+}
+
+.pagination-btn:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+  border-color: #3b82f6;
+}
+
+.pagination-btn.active {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.pagination-btn.active:hover {
+  background-color: #2563eb;
+  border-color: #2563eb;
+}
+
+.pagination-btn.disabled {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.pagination-btn.disabled:hover {
+  background-color: #f9fafb;
+  border-color: #e5e7eb;
+  color: #9ca3af;
+}
+
+.pagination-prev,
+.pagination-next {
+  font-weight: 500;
+}
+
+.pagination-number {
+  min-width: 40px;
+}
+
+.pagination-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 40px;
+  height: 40px;
+  color: #9ca3af;
+  font-weight: 500;
+  user-select: none;
+}
+
+.pagination-btn-text {
+  font-size: 14px;
+}
+
+/* Responsive Design */
+@media (max-width: 640px) {
+  .pagination-container {
+    gap: 12px;
+    margin: 16px 0;
+    padding: 12px;
+  }
+
+  .pagination-btn {
+    min-width: 36px;
+    height: 36px;
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+  .pagination-btn-text {
+    display: none; /* Hide "Previous" and "Next" text on mobile */
+  }
+
+  .pagination-number {
+    min-width: 36px;
+  }
+
+  .pagination-dots {
+    min-width: 36px;
+    height: 36px;
+  }
+
+  .pagination-info {
+    font-size: 13px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .pagination-btn {
+    border-width: 2px;
+  }
+
+  .pagination-btn:focus {
+    box-shadow: 0 0 0 3px rgba(0, 0, 0, 0.3);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .pagination-btn {
+    transition: none;
+  }
+}

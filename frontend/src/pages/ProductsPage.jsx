@@ -118,9 +118,10 @@ const ProductsPage = () => {
     axios.get('/api/categories/public')
       .then(res => {
         console.log('ProductsPage: Categories fetched from backend:', res.data);
+        const categoriesData = Array.isArray(res.data) ? res.data : [];
         setCategories([
           { category_id: 'All Products', name: 'All Products' },
-          ...res.data
+          ...categoriesData
         ]);
       })
       .catch(err => console.error('ProductsPage: Error fetching categories:', err));

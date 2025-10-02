@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { FaTag, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
-import { useSettings } from '../context/SettingsContext';
-import { formatPrice } from '../utils/currency';
+import { useSettings } from '../../context/SettingsContext';
+import { formatPrice } from '../../utils/currency';
+import PromoDetailsModal from '../PromoDetailsModal';
 import './PromotionsBanner.css';
 
 const PromotionsBanner = () => {
@@ -12,6 +13,8 @@ const PromotionsBanner = () => {
   const [currentPromotionIndex, setCurrentPromotionIndex] = useState(0);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
+  const [selectedPromotion, setSelectedPromotion] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -24,7 +27,7 @@ const PromotionsBanner = () => {
         ]);
         
         setPromotions(promotionsRes.data);
-        setCategories(categoriesRes.data);
+        setCategories(Array.isArray(categoriesRes.data) ? categoriesRes.data : []);
         setProducts(productsRes.data);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -70,7 +73,7 @@ const PromotionsBanner = () => {
       // Parse applicable categories
       if (promotion.applicable_categories) {
         const categoryIds = JSON.parse(promotion.applicable_categories);
-        if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+        if (Array.isArray(categoryIds) && categoryIds.length > 0 && Array.isArray(categories)) {
           const applicableCategories = categories.filter(category => 
             categoryIds.includes(category.category_id) || categoryIds.includes(category.category_id.toString())
           );
@@ -86,24 +89,34 @@ const PromotionsBanner = () => {
 
   const formatApplicableItems = (promotion) => {
     const items = getApplicableItems(promotion);
-    
+
     if (items.length === 0) {
       return 'All items';
     }
-    
+
     if (items.length === 1) {
       return items[0];
     }
-    
+
     if (items.length === 2) {
       return `${items[0]} & ${items[1]}`;
     }
-    
+
     if (items.length <= 3) {
       return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`;
     }
-    
+
     return `${items.slice(0, 2).join(', ')} & ${items.length - 2} more`;
+  };
+
+  const handlePromotionCodeClick = (promotion) => {
+    setSelectedPromotion(promotion);
+    setIsModalOpen(true);
+  };
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false);
+    setSelectedPromotion(null);
   };
 
   return (
@@ -130,13 +143,24 @@ const PromotionsBanner = () => {
               </span>
             </div>
             {promotion.code && (
-              <span className="promotion-code">
+              <button
+                className="promotion-code-clickable"
+                onClick={() => handlePromotionCodeClick(promotion)}
+                title="Click to view promotion details"
+              >
                 {promotion.code}
-              </span>
+              </button>
             )}
           </div>
         ))}
       </div>
+
+      {/* Promotion Details Modal */}
+      <PromoDetailsModal
+        isOpen={isModalOpen}
+        promotion={selectedPromotion}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 };

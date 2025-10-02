@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import Pagination from '../../components/Pagination';
 import './Suppliers.css';
 
 const Suppliers = () => {
@@ -18,6 +19,8 @@ const Suppliers = () => {
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [sortField, setSortField] = useState('supplier_id');
   const [sortDirection, setSortDirection] = useState('asc');
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [searchParams, setSearchParams] = useSearchParams();
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
@@ -30,6 +33,49 @@ const Suppliers = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
+  // Fetch suppliers function
+  const fetchSuppliers = useCallback(async (searchQuery = '', page = 1) => {
+    try {
+      setLoadingSuppliers(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
+      }
+      
+      const response = await fetch(`/api/suppliers?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setSuppliers(data.suppliers || data);
+      
+      if (data.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      setError('Failed to fetch suppliers');
+    } finally {
+      setLoadingSuppliers(false);
+    }
+  }, []);
+
+  // Initial load
   useEffect(() => {
     if (loadingSettings) {
       return; // Wait for settings to load
@@ -39,8 +85,45 @@ const Suppliers = () => {
       return;
     }
 
-    fetchSuppliers();
-  }, [isUserAdmin, loadingSettings, navigate]);
+    const page = parseInt(searchParams.get('page')) || 1;
+    const search = searchParams.get('search') || '';
+    setSearchTerm(search);
+    fetchSuppliers(search, page);
+  }, [isUserAdmin, loadingSettings, navigate, fetchSuppliers]);
+
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    setSearchParams(params);
+    fetchSuppliers(searchTerm, newPage);
+  }, [searchParams, setSearchParams, searchTerm, fetchSuppliers]);
+
+  // Handle search changes with debouncing
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    setSearchTerm(newSearchTerm);
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        fetchSuppliers(searchTerm, 1);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams, fetchSuppliers]);
 
   // Sorting function
   const handleSort = (field) => {
@@ -76,45 +159,29 @@ const Suppliers = () => {
     });
   };
 
-  // Filter and sort suppliers based on status, search term, and sorting
-  useEffect(() => {
-    let filtered = suppliers;
-    
-    // Apply status filter
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(supplier => supplier.isActive === true);
-    } else if (statusFilter === 'inactive') {
-      filtered = filtered.filter(supplier => supplier.isActive === false);
-    }
-    
-    // Apply search filter
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(supplier =>
-        supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()))
-      );
-    }
-    
-    // Apply sorting
-    const sortedFiltered = sortSuppliers(filtered);
-    setFilteredSuppliers(sortedFiltered);
-  }, [suppliers, statusFilter, searchTerm, sortField, sortDirection]);
-
-  const fetchSuppliers = async () => {
-    try {
-      setLoadingSuppliers(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/suppliers', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setSuppliers(response.data);
-    } catch (err) {
-      console.error('Error fetching suppliers:', err);
-      setError('Failed to fetch suppliers.');
-    } finally {
-      setLoadingSuppliers(false);
-    }
-  };
+  // Client-side filtering disabled - using server-side pagination instead
+  // useEffect(() => {
+  //   let filtered = suppliers;
+  //   
+  //   // Apply status filter
+  //   if (statusFilter === 'active') {
+  //     filtered = filtered.filter(supplier => supplier.isActive === true);
+  //   } else if (statusFilter === 'inactive') {
+  //     filtered = filtered.filter(supplier => supplier.isActive === false);
+  //   }
+  //   
+  //   // Apply search filter
+  //   if (searchTerm.trim()) {
+  //     filtered = filtered.filter(supplier =>
+  //       supplier.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //       (supplier.email && supplier.email.toLowerCase().includes(searchTerm.toLowerCase()))
+  //     );
+  //   }
+  //   
+  //   // Apply sorting
+  //   const sortedFiltered = sortSuppliers(filtered);
+  //   setFilteredSuppliers(sortedFiltered);
+  // }, [suppliers, statusFilter, searchTerm, sortField, sortDirection]);
 
   const handleAddSupplier = async (e) => {
     e.preventDefault();
@@ -138,7 +205,9 @@ const Suppliers = () => {
       setNewSupplierAddress('');
       setShowAddModal(false);
       setError(null);
-      fetchSuppliers();
+      const currentPage = searchParams.get('page') || 1;
+      const currentSearch = searchParams.get('search') || '';
+      fetchSuppliers(currentSearch, currentPage);
       showSuccess('Supplier added successfully!');
     } catch (err) {
       console.error('Error adding supplier:', err);
@@ -180,7 +249,9 @@ const Suppliers = () => {
       setEditedSupplierAddress('');
       setShowEditModal(false);
       setError(null);
-      fetchSuppliers();
+      const currentPage = searchParams.get('page') || 1;
+      const currentSearch = searchParams.get('search') || '';
+      fetchSuppliers(currentSearch, currentPage);
       showSuccess('Supplier updated successfully!');
     } catch (err) {
       console.error('Error updating supplier:', err);
@@ -217,7 +288,9 @@ const Suppliers = () => {
           await axios.delete(`/api/suppliers/${supplierId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          fetchSuppliers();
+          const currentPage = searchParams.get('page') || 1;
+          const currentSearch = searchParams.get('search') || '';
+          fetchSuppliers(currentSearch, currentPage);
           showSuccess('Supplier deactivated successfully!');
         } catch (err) {
           console.error('Error deleting supplier:', err);
@@ -237,7 +310,9 @@ const Suppliers = () => {
           await axios.patch(`/api/suppliers/${supplierId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          fetchSuppliers();
+          const currentPage = searchParams.get('page') || 1;
+          const currentSearch = searchParams.get('search') || '';
+          fetchSuppliers(currentSearch, currentPage);
           showSuccess('Supplier restored successfully!');
         } catch (err) {
           console.error('Error restoring supplier:', err);
@@ -289,7 +364,7 @@ const Suppliers = () => {
             </div>
             {searchTerm && (
               <div className="search-results-count">
-                {filteredSuppliers.length} supplier{filteredSuppliers.length !== 1 ? 's' : ''} found
+                {pagination.totalItems} supplier{pagination.totalItems !== 1 ? 's' : ''} found
               </div>
             )}
           </div>
@@ -373,12 +448,12 @@ const Suppliers = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredSuppliers.length === 0 ? (
+            {suppliers.length === 0 ? (
               <tr>
                 <td colSpan="7" className="no-suppliers">No suppliers found.</td>
               </tr>
             ) : (
-              filteredSuppliers.map((supplier) => (
+              suppliers.map((supplier) => (
                 <tr key={supplier.supplier_id} className={supplier.isActive === 0 ? 'inactive-row' : ''}>
                   <td>{supplier.supplier_id}</td>
                   <td>{supplier.name}</td>
@@ -550,6 +625,13 @@ const Suppliers = () => {
           </div>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 };

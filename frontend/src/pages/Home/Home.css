@@ -123,6 +123,13 @@
   background-color: #e68a00;
 }
 
+.no-categories {
+  text-align: center;
+  padding: 60px 20px;
+  color: #666;
+  font-size: 1.1em;
+}
+
 
 /* --- Desktop Responsive Styles --- */
 @media (min-width: 992px) {

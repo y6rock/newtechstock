@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import Pagination from '../../components/Pagination';
 import './Categories.css';
 
 const Categories = () => {
@@ -11,19 +12,68 @@ const Categories = () => {
   const navigate = useNavigate();
 
   const [categories, setCategories] = useState([]);
-  const [filteredCategories, setFilteredCategories] = useState([]);
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryDescription, setNewCategoryDescription] = useState('');
+  const [newCategoryImage, setNewCategoryImage] = useState(null);
+  const [newCategoryImagePreview, setNewCategoryImagePreview] = useState(null);
   const [editingCategory, setEditingCategory] = useState(null); // category object being edited
   const [editedCategoryName, setEditedCategoryName] = useState('');
+  const [editedCategoryDescription, setEditedCategoryDescription] = useState('');
+  const [editedCategoryImage, setEditedCategoryImage] = useState(null);
+  const [editedCategoryImagePreview, setEditedCategoryImagePreview] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
-  const [searchTerm, setSearchTerm] = useState(''); // Search functionality
-  const [sortField, setSortField] = useState('category_id');
-  const [sortDirection, setSortDirection] = useState('asc');
 
+  // Fetch categories function
+  const fetchCategories = useCallback(async (searchQuery = '', page = 1) => {
+    try {
+      setLoadingCategories(true);
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+      
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      
+      if (searchQuery.trim()) {
+        params.append('search', searchQuery.trim());
+      }
+      
+      const response = await fetch(`/api/categories?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const categoriesData = data.categories || data;
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+      
+      if (data.pagination) {
+        setPagination(data.pagination);
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setError('Failed to fetch categories');
+    } finally {
+      setLoadingCategories(false);
+    }
+  }, []);
+
+  // Initial load
   useEffect(() => {
     if (loadingSettings) {
       return; // Wait for settings to load
@@ -33,78 +83,69 @@ const Categories = () => {
       return;
     }
 
-    fetchCategories();
-  }, [isUserAdmin, loadingSettings, navigate]);
+    const page = parseInt(searchParams.get('page')) || 1;
+    const search = searchParams.get('search') || '';
+    setSearchTerm(search);
+    fetchCategories(search, page);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams, fetchCategories]);
 
-  // Sorting function
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
     } else {
-      setSortField(field);
-      setSortDirection('asc');
+      params.delete('search');
     }
-  };
+    setSearchParams(params);
+    fetchCategories(searchTerm, newPage);
+  }, [searchParams, setSearchParams, searchTerm, fetchCategories]);
 
-  // Sort categories
-  const sortCategories = (categoriesToSort) => {
-    return [...categoriesToSort].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Handle different data types
-      if (sortField === 'category_id') {
-        aValue = parseInt(aValue) || 0;
-        bValue = parseInt(bValue) || 0;
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
+  // Handle search changes with debouncing
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    setSearchTerm(newSearchTerm);
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
 
-  // Filter and sort categories based on status, search term, and sorting
+  // Debounced search effect
   useEffect(() => {
-    let filtered = categories;
-    
-    // Apply status filter
-    if (statusFilter === 'active') {
-      filtered = filtered.filter(category => category.status === 'Active');
-    } else if (statusFilter === 'inactive') {
-      filtered = filtered.filter(category => category.status === 'Inactive');
-    }
-    
-    // Apply search filter
-    if (searchTerm.trim()) {
-      filtered = filtered.filter(category =>
-        category.name.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    
-    // Apply sorting
-    const sortedFiltered = sortCategories(filtered);
-    setFilteredCategories(sortedFiltered);
-  }, [categories, statusFilter, searchTerm, sortField, sortDirection]);
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        fetchCategories(searchTerm, 1);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams]); // eslint-disable-next-line react-hooks/exhaustive-deps
 
-  const fetchCategories = async () => {
-    try {
-      setLoadingCategories(true);
-      const token = localStorage.getItem('token');
-      const response = await axios.get('/api/categories', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      setCategories(response.data);
-    } catch (err) {
-      console.error('Error fetching categories:', err);
-      setError('Failed to fetch categories.');
-    } finally {
-      setLoadingCategories(false);
-    }
-  };
+
+  // Client-side filtering disabled - using server-side pagination instead
+  // useEffect(() => {
+  //   let filtered = categories;
+  //   
+  //   // Apply status filter
+  //   if (statusFilter === 'active') {
+  //     filtered = filtered.filter(category => category.status === 'Active');
+  //   } else if (statusFilter === 'inactive') {
+  //     filtered = filtered.filter(category => category.status === 'Inactive');
+  //   }
+  //   
+  //   // Apply search filter
+  //   if (searchTerm.trim()) {
+  //     filtered = filtered.filter(category =>
+  //       category.name.toLowerCase().includes(searchTerm.toLowerCase())
+  //     );
+  //   }
+  //   
+  //   // Apply sorting
+  //   const sortedFiltered = sortCategories(filtered);
+  //   setFilteredCategories(sortedFiltered);
+  // }, [categories, statusFilter, searchTerm, sortField, sortDirection]);
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
@@ -114,13 +155,29 @@ const Categories = () => {
     }
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/api/categories', { name: newCategoryName }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('name', newCategoryName);
+      formData.append('description', newCategoryDescription);
+      if (newCategoryImage) {
+        formData.append('image', newCategoryImage);
+      }
+      
+      await axios.post('/api/categories', formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
+      
       setNewCategoryName('');
+      setNewCategoryDescription('');
+      setNewCategoryImage(null);
+      setNewCategoryImagePreview(null);
       setShowAddModal(false);
       setError(null);
-      fetchCategories();
+      const currentPage = searchParams.get('page') || 1;
+      const currentSearch = searchParams.get('search') || '';
+      fetchCategories(currentSearch, currentPage);
       showSuccess('Category added successfully!');
     } catch (err) {
       console.error('Error adding category:', err);
@@ -131,6 +188,9 @@ const Categories = () => {
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setEditedCategoryName(category.name);
+    setEditedCategoryDescription(category.description || '');
+    setEditedCategoryImage(null);
+    setEditedCategoryImagePreview(category.image || null);
     setShowEditModal(true);
   };
 
@@ -144,15 +204,34 @@ const Categories = () => {
 
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/categories/${editingCategory.category_id}`, { name: editedCategoryName }, {
-        headers: { Authorization: `Bearer ${token}` }
+      const formData = new FormData();
+      formData.append('name', editedCategoryName);
+      formData.append('description', editedCategoryDescription);
+      if (editedCategoryImage) {
+        formData.append('image', editedCategoryImage);
+      } else if (editedCategoryImagePreview && !editedCategoryImage) {
+        // Keep existing image
+        formData.append('image', editedCategoryImagePreview);
+      }
+      
+      await axios.put(`/api/categories/${editingCategory.category_id}`, formData, {
+        headers: { 
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'multipart/form-data'
+        }
       });
+      
       setEditingCategory(null);
       setEditedCategoryName('');
+      setEditedCategoryDescription('');
+      setEditedCategoryImage(null);
+      setEditedCategoryImagePreview(null);
       setShowEditModal(false);
       setError(null);
       showSuccess('Category updated successfully!');
-      fetchCategories();
+      const currentPage = searchParams.get('page') || 1;
+      const currentSearch = searchParams.get('search') || '';
+      fetchCategories(currentSearch, currentPage);
     } catch (err) {
       console.error('Error updating category:', err);
       showError(err.response?.data?.message || 'Failed to update category.');
@@ -162,14 +241,40 @@ const Categories = () => {
   const handleCloseEditModal = () => {
     setEditingCategory(null);
     setEditedCategoryName('');
+    setEditedCategoryDescription('');
+    setEditedCategoryImage(null);
+    setEditedCategoryImagePreview(null);
     setShowEditModal(false);
     setError(null);
   };
 
   const handleCloseAddModal = () => {
     setNewCategoryName('');
+    setNewCategoryDescription('');
+    setNewCategoryImage(null);
+    setNewCategoryImagePreview(null);
     setShowAddModal(false);
     setError(null);
+  };
+
+  const handleNewImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNewCategoryImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setNewCategoryImagePreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleEditImageChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setEditedCategoryImage(file);
+      const reader = new FileReader();
+      reader.onload = (e) => setEditedCategoryImagePreview(e.target.result);
+      reader.readAsDataURL(file);
+    }
   };
 
   const handleDeleteCategory = async (categoryId) => {
@@ -181,7 +286,9 @@ const Categories = () => {
           await axios.delete(`/api/categories/${categoryId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          fetchCategories();
+          const currentPage = searchParams.get('page') || 1;
+          const currentSearch = searchParams.get('search') || '';
+          fetchCategories(currentPage, currentSearch);
           showSuccess('Category deactivated successfully!');
         } catch (err) {
           console.error('Error deactivating category:', err);
@@ -203,7 +310,9 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          fetchCategories();
+          const currentPage = searchParams.get('page') || 1;
+          const currentSearch = searchParams.get('search') || '';
+          fetchCategories(currentPage, currentSearch);
           showSuccess('Category restored successfully!');
         } catch (err) {
           console.error('Error restoring category:', err);
@@ -226,7 +335,9 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          fetchCategories();
+          const currentPage = searchParams.get('page') || 1;
+          const currentSearch = searchParams.get('search') || '';
+          fetchCategories(currentPage, currentSearch);
           showSuccess(`Category ${action}d successfully!`);
         } catch (err) {
           console.error('Error toggling category status:', err);
@@ -263,14 +374,14 @@ const Categories = () => {
                   type="text"
                   placeholder="Search categories by name..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleSearchChange(e.target.value)}
                   className="search-input"
                 />
                 <span className="search-icon">🔍</span>
               </div>
               {searchTerm && (
                 <div className="search-results-count">
-                  {filteredCategories.length} categor{filteredCategories.length !== 1 ? 'ies' : 'y'} found
+                  {pagination.totalItems} categor{pagination.totalItems !== 1 ? 'ies' : 'y'} found
                 </div>
               )}
             </div>
@@ -283,7 +394,7 @@ const Categories = () => {
                 onChange={(e) => setStatusFilter(e.target.value)}
                 className="filter-select"
               >
-                <option value="all">All Categories ({categories.length})</option>
+                <option value="all">All Categories ({pagination.totalItems})</option>
                 <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
                 <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
               </select>
@@ -307,43 +418,19 @@ const Categories = () => {
         <table className="categories-table">
           <thead>
             <tr>
-              <th 
-                className={`sortable ${sortField === 'category_id' ? 'active' : ''}`}
-                onClick={() => handleSort('category_id')}
-              >
-                ID
-                <span className="sort-arrow">
-                  {sortField === 'category_id' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-                </span>
-              </th>
-              <th 
-                className={`sortable ${sortField === 'name' ? 'active' : ''}`}
-                onClick={() => handleSort('name')}
-              >
-                Name
-                <span className="sort-arrow">
-                  {sortField === 'name' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-                </span>
-              </th>
-              <th 
-                className={`status-cell sortable ${sortField === 'status' ? 'active' : ''}`}
-                onClick={() => handleSort('status')}
-              >
-                Status
-                <span className="sort-arrow">
-                  {sortField === 'status' ? (sortDirection === 'asc' ? '↑' : '↓') : '↕'}
-                </span>
-              </th>
+              <th>ID</th>
+              <th>Name</th>
+              <th className="status-cell">Status</th>
               <th className="actions-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filteredCategories.length === 0 ? (
+            {categories.length === 0 ? (
               <tr>
                 <td colSpan="4" className="no-categories">No categories found.</td>
               </tr>
             ) : (
-              filteredCategories.map((category) => (
+              categories.map((category) => (
                 <tr key={category.category_id}>
                   <td>{category.category_id}</td>
                   <td>{category.name}</td>
@@ -369,6 +456,14 @@ const Categories = () => {
           </tbody>
         </table>
       </div>
+      
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        onPageChange={handlePageChange}
+      />
         </div>
       </div>
 
@@ -391,6 +486,32 @@ const Categories = () => {
                   className="form-input"
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description:</label>
+                <textarea
+                  placeholder="Enter category description (optional)"
+                  value={newCategoryDescription}
+                  onChange={(e) => setNewCategoryDescription(e.target.value)}
+                  className="form-input form-textarea"
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Category Image:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleNewImageChange}
+                  className="form-input file-input"
+                />
+                {newCategoryImagePreview && (
+                  <div className="image-preview-container">
+                    <img src={newCategoryImagePreview} alt="Category Preview" className="image-preview" />
+                  </div>
+                )}
               </div>
               
               <div className="form-buttons">
@@ -431,6 +552,32 @@ const Categories = () => {
                   className="form-input"
                   required
                 />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Description:</label>
+                <textarea
+                  placeholder="Enter category description (optional)"
+                  value={editedCategoryDescription}
+                  onChange={(e) => setEditedCategoryDescription(e.target.value)}
+                  className="form-input form-textarea"
+                  rows="3"
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">Category Image:</label>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleEditImageChange}
+                  className="form-input file-input"
+                />
+                {editedCategoryImagePreview && (
+                  <div className="image-preview-container">
+                    <img src={editedCategoryImagePreview} alt="Category Preview" className="image-preview" />
+                  </div>
+                )}
               </div>
               
               <div className="form-buttons">

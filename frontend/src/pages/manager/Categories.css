@@ -429,6 +429,29 @@
   box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
+.form-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.file-input {
+  padding: 8px;
+  background-color: #f8f9fa;
+}
+
+.image-preview-container {
+  margin-top: 10px;
+  text-align: center;
+}
+
+.image-preview {
+  max-width: 200px;
+  max-height: 150px;
+  border-radius: 8px;
+  border: 2px solid #e9ecef;
+  object-fit: cover;
+}
+
 /* Form Buttons */
 .form-buttons {
   display: flex;

@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { formatPrice } from '../../utils/currency';
 import { formatDate, formatDateTime } from '../../utils/dateFormat';
+import Pagination from '../../components/Pagination';
 import './Orders.css';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
-  const [filteredOrders, setFilteredOrders] = useState([]);
   const [stats, setStats] = useState({ total_orders: 0, pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -18,6 +18,8 @@ const Orders = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortField, setSortField] = useState('order_date');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [searchParams, setSearchParams] = useSearchParams();
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
@@ -89,42 +91,8 @@ const Orders = () => {
     });
   }, [sortField, sortDirection]);
 
-  // Filter orders based on status and user
-  const filterOrders = useCallback(() => {
-    // Don't filter if orders array is empty
-    if (orders.length === 0) {
-      setFilteredOrders([]);
-      return;
-    }
-    
-    let filtered = orders;
 
-    // Filter by status
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(order => order.status.toLowerCase() === statusFilter.toLowerCase());
-    }
-
-    // Filter by user
-    if (userFilter !== 'all') {
-      filtered = filtered.filter(order => order.user_id == userFilter);
-    }
-
-    // Filter by search term (name or email)
-    if (searchTerm) {
-      filtered = filtered.filter(order => {
-        const userName = order.customer_name || '';
-        const userEmail = order.customer_email || '';
-        return userName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-               userEmail.toLowerCase().includes(searchTerm.toLowerCase());
-      });
-    }
-
-    // Apply sorting
-    const sortedFiltered = sortOrders(filtered);
-    setFilteredOrders(sortedFiltered);
-  }, [orders, statusFilter, userFilter, searchTerm, sortOrders]);
-
-  const fetchOrdersAndStats = useCallback(async () => {
+  const fetchOrdersAndStats = useCallback(async (searchQuery = '', page = 1) => {
     setLoading(true);
     setError(null);
     try {
@@ -134,8 +102,9 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
 
+      const ordersUrl = `/api/admin/orders?page=${page}&limit=10${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`;
       const [ordersRes, distributionRes] = await Promise.all([
-        fetch('/api/admin/orders', { headers }),
+        fetch(ordersUrl, { headers }),
         fetch('/api/admin/order-status-distribution', { headers })
       ]);
 
@@ -146,8 +115,12 @@ const Orders = () => {
       const ordersData = await ordersRes.json();
       const distributionData = await distributionRes.json();
 
-      setOrders(ordersData);
-      setFilteredOrders(ordersData); // Set initial filtered orders
+      // Handle both old format (array) and new format (object with orders array)
+      const orders = ordersData.orders || ordersData;
+      const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
+      
+      setOrders(orders);
+      setPagination(paginationData);
       const processedStats = processStats(distributionData);
       setStats(processedStats);
 
@@ -158,20 +131,54 @@ const Orders = () => {
     }
   }, []);
 
+  // Initial load
   useEffect(() => {
     if (!loadingSettings) {
       if (isUserAdmin) {
-        fetchOrdersAndStats();
+        const page = parseInt(searchParams.get('page')) || 1;
+        const search = searchParams.get('search') || '';
+        setSearchTerm(search);
+        fetchOrdersAndStats(search, page);
       } else {
         navigate('/');
       }
     }
-  }, [isUserAdmin, loadingSettings, navigate, fetchOrdersAndStats]);
+  }, [isUserAdmin, loadingSettings, navigate]);
 
-  // Apply filtering when orders or statusFilter changes
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    setSearchParams(params);
+    fetchOrdersAndStats(searchTerm, newPage);
+  }, [searchParams, setSearchParams, searchTerm, fetchOrdersAndStats]);
+
+  // Handle search changes with debouncing
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    setSearchTerm(newSearchTerm);
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
+
+  // Debounced search effect
   useEffect(() => {
-    filterOrders();
-  }, [filterOrders]);
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        fetchOrdersAndStats(searchTerm, 1);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams, fetchOrdersAndStats]);
+
 
   const handleStatusChange = async (orderId, newStatus) => {
     setError(null);
@@ -188,7 +195,9 @@ const Orders = () => {
       if (!response.ok) {
         throw new Error('Failed to update status');
       }
-      fetchOrdersAndStats();
+      const currentPage = searchParams.get('page') || 1;
+      const currentSearch = searchParams.get('search') || '';
+      fetchOrdersAndStats(currentSearch, currentPage);
     } catch (err) {
       setError(err.message || 'Failed to update order status.');
     }
@@ -283,7 +292,7 @@ const Orders = () => {
           </div>
           
           <div className="filter-info">
-            <span>Showing {filteredOrders.length} of {orders.length} orders</span>
+            <span>Showing {pagination.totalItems} orders</span>
             {(statusFilter !== 'all' || userFilter !== 'all' || searchTerm) && (
               <button 
                 onClick={() => {
@@ -302,11 +311,11 @@ const Orders = () => {
         {/* Search row */}
         <div className="filter-row search-row">
           <div className="filter-group search-group">
-            <label htmlFor="search-term">Search by Name/Email:</label>
+            <label htmlFor="search-term">Search by Name/Email/Order ID:</label>
             <input
               id="search-term"
               type="text"
-              placeholder="Enter name or email..."
+              placeholder="Enter name, email, or order ID..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
@@ -368,7 +377,7 @@ const Orders = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredOrders.map(order => (
+            {orders.map(order => (
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
                 <td>{formatDate(order.order_date)}</td>
@@ -394,6 +403,14 @@ const Orders = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        onPageChange={handlePageChange}
+      />
 
       {showModal && selectedOrder && (
         <div className="modal-overlay" onClick={closeModal}>

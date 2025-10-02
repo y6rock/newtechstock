@@ -1,6 +1,5 @@
 import React from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaTimes } from 'react-icons/fa';
-import './Modal.css';
 import './NotificationModal.css';
 
 const NotificationModal = ({ isOpen, message, type, onClose }) => {

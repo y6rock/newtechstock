@@ -16,39 +16,39 @@ export const CartProvider = ({ children }) => {
   const isInitialMount = useRef(true);
   const lastValidationTime = useRef(0);
 
-  // Load cart from server when user_id changes
+  // Load cart from sessionStorage when user_id changes
   useEffect(() => {
     if (user_id && !isInitialMount.current) {
-      loadCartFromServer();
+      loadCartFromSession();
     }
     isInitialMount.current = false;
   }, [user_id]);
 
-  // Load cart from server
-  const loadCartFromServer = async () => {
+  // Load cart from sessionStorage
+  const loadCartFromSession = () => {
     if (!user_id) return;
-    
-    const token = localStorage.getItem('token');
-    if (!token) return;
 
     setIsLoading(true);
     try {
-      const response = await axios.get('/api/cart', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const cartData = sessionStorage.getItem(`cart_${user_id}`);
+      if (cartData) {
+        const { cartItems: sessionCartItems, appliedPromotion: sessionPromotion, discountAmount: sessionDiscount } = JSON.parse(cartData);
 
-      const { cartItems: serverCartItems, appliedPromotion: serverPromotion, discountAmount: serverDiscount } = response.data;
-      
-      setCartItems(serverCartItems || []);
-      setAppliedPromotion(serverPromotion);
-      setDiscountAmount(serverDiscount || 0);
-
-    } catch (error) {
-      console.error('Error loading cart from server:', error);
-      // Don't show error for auth issues during initial load
-      if (error.response?.status !== 401 && error.response?.status !== 403) {
-        console.error('Failed to load cart:', error.response?.data?.message || error.message);
+        setCartItems(sessionCartItems || []);
+        setAppliedPromotion(sessionPromotion);
+        setDiscountAmount(sessionDiscount || 0);
+      } else {
+        // Initialize empty cart for new user
+        setCartItems([]);
+        setAppliedPromotion(null);
+        setDiscountAmount(0);
       }
+    } catch (error) {
+      console.error('Error loading cart from session:', error);
+      // Reset to empty cart on error
+      setCartItems([]);
+      setAppliedPromotion(null);
+      setDiscountAmount(0);
     } finally {
       setIsLoading(false);
     }
@@ -162,130 +162,143 @@ export const CartProvider = ({ children }) => {
       showError('Please log in to add items to your cart.');
       return;
     }
-    
+
     if (!product.stock || product.stock < 0) {
       showError('This product has invalid inventory data and cannot be added to cart.');
       return;
     }
-    
+
     if (product.stock === 0) {
       showError('This product is out of stock and cannot be added to cart.');
       return;
     }
-    
+
     if (!quantity || quantity <= 0) {
       showError('Please select a valid quantity.');
       return;
     }
-    
+
     if (quantity > product.stock) {
       showError(`Only ${product.stock} unit${product.stock === 1 ? '' : 's'} available. Cannot add ${quantity} to cart.`);
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showError('Please log in to add items to your cart.');
-      return;
-    }
-
     try {
-      await axios.post('/api/cart/add', {
-        product_id: product.product_id,
-        quantity: quantity,
-        price: product.price
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Update cart in memory
+      const existingItemIndex = cartItems.findIndex(item => item.product_id === product.product_id);
 
-      // Reload cart from server to get updated state
-      await loadCartFromServer();
-      
+      let updatedCartItems;
+      if (existingItemIndex >= 0) {
+        // Update existing item quantity
+        updatedCartItems = [...cartItems];
+        updatedCartItems[existingItemIndex] = {
+          ...updatedCartItems[existingItemIndex],
+          quantity: updatedCartItems[existingItemIndex].quantity + quantity,
+          price: product.price // Update price in case it changed
+        };
+      } else {
+        // Add new item
+        updatedCartItems = [...cartItems, {
+          product_id: product.product_id,
+          name: product.name,
+          price: product.price,
+          image: product.image,
+          quantity: quantity,
+          category_name: product.category_name,
+          supplier_name: product.supplier_name
+        }];
+      }
+
+      setCartItems(updatedCartItems);
+
+      // Save to sessionStorage
+      const cartData = {
+        cartItems: updatedCartItems,
+        appliedPromotion,
+        discountAmount
+      };
+      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+
+      showSuccess(`Added ${quantity} ${product.name} to cart!`);
+
     } catch (error) {
       console.error('Error adding to cart:', error);
-      const message = error.response?.data?.message || 'Failed to add item to cart';
-      showError(message);
+      showError('Failed to add item to cart');
     }
   };
 
-  // Remove from cart - now uses server API
+  // Remove from cart - now uses sessionStorage only
   const removeFromCart = async (productId) => {
     if (!user_id) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
-
     try {
-      await axios.delete('/api/cart/remove', {
-        data: { product_id: productId },
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      // Update cart in memory
+      const updatedCartItems = cartItems.filter(item => item.product_id !== productId);
+      setCartItems(updatedCartItems);
 
-      // Update local state immediately for better UX
-      setCartItems(prevItems => prevItems.filter(item => item.product_id !== productId));
-      
+      // Save to sessionStorage
+      const cartData = {
+        cartItems: updatedCartItems,
+        appliedPromotion,
+        discountAmount
+      };
+      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+
+      showSuccess('Item removed from cart');
+
     } catch (error) {
       console.error('Error removing from cart:', error);
-      const message = error.response?.data?.message || 'Failed to remove item from cart';
-      showError(message);
-      
-      // Reload cart from server on error to sync state
-      await loadCartFromServer();
+      showError('Failed to remove item from cart');
     }
   };
 
-  // Update quantity - now uses server API
+  // Update quantity - now uses sessionStorage only
   const updateQuantity = async (productId, newQuantity) => {
     const quantity = parseInt(newQuantity);
     if (isNaN(quantity) || quantity < 1) {
       showError('Please enter a valid quantity (minimum 1).');
       return;
     }
-    
-    if (!user_id) return;
 
-    const token = localStorage.getItem('token');
-    if (!token) return;
+    if (!user_id) return;
 
     const item = cartItems.find(item => item.product_id === productId);
     if (!item) return;
-    
+
     if (!item.stock || item.stock < 0) {
       showError('This product has invalid inventory data.');
       return;
     }
-    
+
     if (quantity > item.stock) {
       showError(`Only ${item.stock} unit${item.stock === 1 ? '' : 's'} available. Cannot set quantity to ${quantity}.`);
       return;
     }
 
     try {
-      await axios.put('/api/cart/update', {
-        product_id: productId,
-        quantity: quantity
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // Update local state immediately for better UX
-      setCartItems(prevItems =>
-        prevItems.map(item =>
-          item.product_id === productId ? { ...item, quantity: quantity } : item
-        )
+      // Update cart in memory
+      const updatedCartItems = cartItems.map(item =>
+        item.product_id === productId ? { ...item, quantity: quantity } : item
       );
-      
+      setCartItems(updatedCartItems);
+
+      // Save to sessionStorage
+      const cartData = {
+        cartItems: updatedCartItems,
+        appliedPromotion,
+        discountAmount
+      };
+      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+
+      showSuccess('Quantity updated');
+
     } catch (error) {
       console.error('Error updating cart:', error);
-      const message = error.response?.data?.message || 'Failed to update cart item';
-      showError(message);
-      
-      // Reload cart from server on error to sync state
-      await loadCartFromServer();
+      showError('Failed to update cart item');
     }
   };
 
-  // Clear cart - now uses server API
+  // Clear cart - now uses sessionStorage only
   const clearCart = async () => {
     if (!user_id) {
       setCartItems([]);
@@ -294,69 +307,54 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      setCartItems([]);
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
-      return;
-    }
-
     try {
-      await axios.delete('/api/cart/clear', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // Update local state immediately
+      // Clear cart in memory
       setCartItems([]);
       setAppliedPromotion(null);
       setDiscountAmount(0);
-      
+
+      // Clear from sessionStorage
+      sessionStorage.removeItem(`cart_${user_id}`);
+
+      showSuccess('Cart cleared');
+
     } catch (error) {
       console.error('Error clearing cart:', error);
-      // Still clear local state even if server call fails
-      setCartItems([]);
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
+      showError('Failed to clear cart');
     }
   };
 
-  // Apply promotion - now uses server API
+  // Apply promotion - now uses sessionStorage only
   const applyPromotion = async (promotion, calculatedDiscount) => {
     if (!user_id) {
       showError('Please log in to apply promotions.');
       return false;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
-      showError('Please log in to apply promotions.');
-      return false;
-    }
-
     try {
-      await axios.post('/api/cart/promotion/apply', {
-        promotion_id: promotion.promotion_id,
-        discount_amount: calculatedDiscount
-      }, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // Update local state
+      // Update cart in memory
       setAppliedPromotion(promotion);
       setDiscountAmount(calculatedDiscount);
-      
+
+      // Save to sessionStorage
+      const cartData = {
+        cartItems,
+        appliedPromotion: promotion,
+        discountAmount: calculatedDiscount
+      };
+      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+
+      showSuccess(`Applied promotion: ${promotion.name}`);
       return true;
-      
+
     } catch (error) {
       console.error('Error applying promotion:', error);
-      const message = error.response?.data?.message || 'Failed to apply promotion';
-      showError(message);
+      showError('Failed to apply promotion');
       return false;
     }
   };
 
-  // Remove promotion - now uses server API
+  // Remove promotion - now uses sessionStorage only
   const removePromotion = async () => {
     if (!user_id) {
       setAppliedPromotion(null);
@@ -364,29 +362,49 @@ export const CartProvider = ({ children }) => {
       return;
     }
 
-    const token = localStorage.getItem('token');
-    if (!token) {
+    try {
+      // Update cart in memory
       setAppliedPromotion(null);
       setDiscountAmount(0);
+
+      // Save to sessionStorage
+      const cartData = {
+        cartItems,
+        appliedPromotion: null,
+        discountAmount: 0
+      };
+      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+
+      showSuccess('Promotion removed');
+
+    } catch (error) {
+      console.error('Error removing promotion:', error);
+      showError('Failed to remove promotion');
+    }
+  };
+
+  // Clear cart from sessionStorage (for logout)
+  const clearCartSession = () => {
+    if (user_id) {
+      sessionStorage.removeItem(`cart_${user_id}`);
+    }
+    setCartItems([]);
+    setAppliedPromotion(null);
+    setDiscountAmount(0);
+  };
+
+  // Clear cart when user logs out (when user_id becomes null)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
       return;
     }
 
-    try {
-      await axios.delete('/api/cart/promotion/remove', {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      // Update local state
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
-      
-    } catch (error) {
-      console.error('Error removing promotion:', error);
-      // Still update local state even if server call fails
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
+    if (!user_id) {
+      // User logged out, clear cart
+      clearCartSession();
     }
-  };
+  }, [user_id]);
 
   // Calculate totals
   const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
@@ -404,6 +422,7 @@ export const CartProvider = ({ children }) => {
         removeFromCart,
         updateQuantity,
         clearCart,
+        clearCartSession,
         appliedPromotion,
         discountAmount,
         applyPromotion,
@@ -411,7 +430,6 @@ export const CartProvider = ({ children }) => {
         validateCart,
         isValidating,
         isLoading,
-        loadCartFromServer,
         subtotal,
         subtotalAfterDiscount,
         vatAmount,

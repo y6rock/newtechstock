@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import ProductModal from './ProductModal';
-import { useSettings } from '../context/SettingsContext';
-import { useToast } from '../context/ToastContext';
-import { formatPrice, formatPriceWithTax, formatBasePrice } from '../utils/currency';
+import ProductModal from '../ProductModal';
+import Pagination from '../Pagination';
+import { useSettings } from '../../context/SettingsContext';
+import { useToast } from '../../context/ToastContext';
+import { formatPrice, formatPriceWithTax, formatBasePrice } from '../../utils/currency';
 import './ProductManager.css';
 
 function ProductManager() {
@@ -29,7 +30,15 @@ function ProductManager() {
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const token = localStorage.getItem('token');
+  
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 10
+  });
 
   // Stock level indicator function
   const getStockLevel = (stock) => {
@@ -49,7 +58,7 @@ function ProductManager() {
     }
   };
 
-  const fetchProductData = useCallback(async () => {
+  const fetchProductData = useCallback(async (page = 1, search = '') => {
     if (loadingSettings || !isUserAdmin) {
       if (!loadingSettings && !isUserAdmin) navigate('/');
       return;
@@ -59,9 +68,18 @@ function ProductManager() {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
       
+      const params = new URLSearchParams({
+        page: page.toString(),
+        limit: '10'
+      });
+      
+      if (search.trim()) {
+        params.append('search', search.trim());
+      }
+      
       const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-        fetch('/api/products/admin/all', { headers }), // Get all products including inactive
-        fetch('/api/suppliers', { headers }), // Assuming this exists and requires auth
+        fetch(`/api/products/admin/all?${params}`, { headers }),
+        fetch('/api/suppliers', { headers }),
         fetch('/api/categories', { headers })
       ]);
 
@@ -73,9 +91,13 @@ function ProductManager() {
       const suppliersData = await suppliersRes.json();
       const categoriesData = await categoriesRes.json();
 
-      setProducts(productsData);
-      setSuppliers(suppliersData);
-      setCategories(categoriesData);
+      setProducts(productsData.products || productsData);
+      setSuppliers(suppliersData.suppliers || suppliersData);
+      setCategories(categoriesData.categories || categoriesData);
+      
+      if (productsData.pagination) {
+        setPagination(productsData.pagination);
+      }
 
     } catch (err) {
       console.error('Error fetching initial product data:', err);
@@ -83,9 +105,36 @@ function ProductManager() {
     }
   }, [isUserAdmin, loadingSettings, navigate]);
 
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    setSearchParams(params);
+    fetchProductData(newPage, searchTerm);
+  }, [searchParams, setSearchParams, searchTerm, fetchProductData]);
+
+  // Handle search term changes
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    setSearchTerm(newSearchTerm);
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
+
   useEffect(() => {
-    fetchProductData();
-  }, [fetchProductData]);
+    const currentPage = parseInt(searchParams.get('page')) || 1;
+    const currentSearch = searchParams.get('search') || '';
+    setSearchTerm(currentSearch);
+    fetchProductData(currentPage, currentSearch);
+  }, [fetchProductData, searchParams]);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -367,77 +416,55 @@ function ProductManager() {
         axios.get('/api/suppliers', { headers }),
         axios.get('/api/categories', { headers })
       ]);
-      setProducts(productsRes.data);
-      setSuppliers(suppliersRes.data);
-      setCategories(categoriesRes.data);
+      setProducts(productsRes.data.products || productsRes.data);
+      setSuppliers(suppliersRes.data.suppliers || suppliersRes.data);
+      setCategories(categoriesRes.data.categories || categoriesRes.data);
     } catch (err) {
       console.error('Error fetching product data after success:', err);
       setMessage('Product was added, but failed to refresh the list.');
     }
   };
 
-  // Filter and sort products
-  const filteredProducts = products
-    .filter(product => {
-      // Search term filter
-      const matchesSearch = !searchTerm || 
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase()));
-      
-      // Status filter
-      const matchesStatus = statusFilter === 'all' || 
-        (statusFilter === 'active' && product.is_active === 1) ||
-        (statusFilter === 'inactive' && product.is_active === 0);
-      
-      // Category filter
-      const matchesCategory = categoryFilter === 'all' || 
-        product.category_id === parseInt(categoryFilter);
-      
-      // Supplier filter
-      const matchesSupplier = supplierFilter === 'all' || 
-        product.supplier_id === parseInt(supplierFilter);
-      
-      return matchesSearch && matchesStatus && matchesCategory && matchesSupplier;
-    })
-    .sort((a, b) => {
-      let aValue, bValue;
-      
-      switch (sortField) {
-        case 'name':
-          aValue = a.name || '';
-          bValue = b.name || '';
-          break;
-        case 'category':
-          aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
-          bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
-          break;
-        case 'price':
-          aValue = parseFloat(a.price) || 0;
-          bValue = parseFloat(b.price) || 0;
-          break;
-        case 'stock':
-          aValue = parseInt(a.stock) || 0;
-          bValue = parseInt(b.stock) || 0;
-          break;
-        case 'supplier':
-          aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
-          bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
-          break;
-        default:
-          aValue = a.stock || 0;
-          bValue = b.stock || 0;
-      }
-      
-      if (typeof aValue === 'string') {
-        return sortDirection === 'asc' 
-          ? aValue.localeCompare(bValue)
-          : bValue.localeCompare(aValue);
-      } else {
-        return sortDirection === 'asc' 
-          ? aValue - bValue
-          : bValue - aValue;
-      }
-    });
+  // Client-side sorting only (search handled by backend)
+  const sortedProducts = [...products].sort((a, b) => {
+    let aValue, bValue;
+    
+    switch (sortField) {
+      case 'name':
+        aValue = a.name || '';
+        bValue = b.name || '';
+        break;
+      case 'category':
+        aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
+        bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
+        break;
+      case 'price':
+        aValue = parseFloat(a.price) || 0;
+        bValue = parseFloat(b.price) || 0;
+        break;
+      case 'stock':
+        aValue = parseInt(a.stock) || 0;
+        bValue = parseInt(b.stock) || 0;
+        break;
+      case 'supplier':
+        aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
+        bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
+        break;
+      default:
+        aValue = a.stock || 0;
+        bValue = b.stock || 0;
+    }
+    
+    if (typeof aValue === 'string') {
+      return sortDirection === 'asc' 
+        ? aValue.localeCompare(bValue)
+        : bValue.localeCompare(aValue);
+    } else {
+      return sortDirection === 'asc' 
+        ? aValue - bValue
+        : bValue - aValue;
+    }
+  });
 
   return (
     <div className="product-manager-main-container">
@@ -452,7 +479,7 @@ function ProductManager() {
             type="text"
             placeholder="Search products..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => handleSearchChange(e.target.value)}
             className="search-input-field"
           />
           <span className="search-icon">
@@ -507,7 +534,7 @@ function ProductManager() {
         
         {/* Filter Info */}
         <div className="filter-info-container">
-          <span>Showing {filteredProducts.length} of {products.length} products</span>
+          <span>Showing {sortedProducts.length} of {products.length} products</span>
           {(statusFilter !== 'all' || categoryFilter !== 'all' || supplierFilter !== 'all' || searchTerm) && (
             <button 
               onClick={() => {
@@ -596,7 +623,7 @@ function ProductManager() {
             </tr>
           </thead>
           <tbody>
-            {filteredProducts.map(p => (
+            {sortedProducts.map(p => (
               <tr key={p.product_id} className="table-body-row">
                 <td className="table-body-cell">
                   {p.image ? (
@@ -654,7 +681,7 @@ function ProductManager() {
                 </td>
               </tr>
             ))}
-            {filteredProducts.length === 0 && (
+            {sortedProducts.length === 0 && (
               <tr>
                 <td colSpan="7" className="table-body-cell no-products-message">No products found.</td>
               </tr>
@@ -662,6 +689,14 @@ function ProductManager() {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
+        onPageChange={handlePageChange}
+      />
 
       <ProductModal
         isOpen={isModalOpen}

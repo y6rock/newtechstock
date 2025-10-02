@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { FaLock, FaEye, FaEyeSlash } from 'react-icons/fa';
 import axios from 'axios';
-import './AuthForm.css';
+import './ResetPassword.css';
 
 const ResetPassword = () => {
   const { token } = useParams();

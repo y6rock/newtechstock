@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
+import Pagination from '../../components/Pagination';
 import './Promotions.css';
 import { formatPrice } from '../../utils/currency';
 import { formatDate } from '../../utils/dateFormat';
@@ -18,6 +19,9 @@ export default function Promotions() {
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all'); // Filter state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [formData, setFormData] = useState({
     name: '',
@@ -35,36 +39,81 @@ export default function Promotions() {
   });
   const [applyType, setApplyType] = useState('products'); // 'products' or 'categories'
 
-  useEffect(() => {
-    if (!loadingSettings && !isUserAdmin) {
-      navigate('/');
-    }
-  }, [isUserAdmin, loadingSettings, navigate]);
-
-  useEffect(() => {
-    if (isUserAdmin) {
-      fetchPromotions();
-      fetchCategories();
-      fetchProducts();
-    }
-  }, [isUserAdmin]);
-
-  const fetchPromotions = async () => {
+  // Fetch promotions function
+  const fetchPromotions = useCallback(async (searchQuery = '', page = 1) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/promotions', {
+      const url = `/api/promotions?page=${page}&limit=10${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`;
+      const response = await fetch(url, {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (response.ok) {
         const data = await response.json();
-        setPromotions(data);
+        // Handle both old format (array) and new format (object with promotions array)
+        const promotionsData = data.promotions || data;
+        const paginationData = data.pagination || { currentPage: 1, totalPages: 1, totalItems: promotionsData.length, itemsPerPage: 10 };
+        
+        setPromotions(Array.isArray(promotionsData) ? promotionsData : []);
+        setPagination(paginationData);
       }
     } catch (error) {
       console.error('Error fetching promotions:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (!loadingSettings && !isUserAdmin) {
+      navigate('/');
+    }
+  }, [isUserAdmin, loadingSettings, navigate]);
+
+  // Initial load
+  useEffect(() => {
+    if (isUserAdmin) {
+      const page = parseInt(searchParams.get('page')) || 1;
+      const search = searchParams.get('search') || '';
+      setSearchTerm(search);
+      fetchPromotions(search, page);
+      fetchCategories();
+      fetchProducts();
+    }
+  }, [isUserAdmin, fetchPromotions]);
+
+  // Handle page changes
+  const handlePageChange = useCallback((newPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    setSearchParams(params);
+    fetchPromotions(searchTerm, newPage);
+  }, [searchParams, setSearchParams, searchTerm, fetchPromotions]);
+
+  // Handle search changes with debouncing
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    setSearchTerm(newSearchTerm);
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
+
+  // Debounced search effect
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        fetchPromotions(searchTerm, 1);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams, fetchPromotions]);
 
   const fetchCategories = async () => {
     try {
@@ -75,7 +124,9 @@ export default function Promotions() {
       if (response.ok) {
         const data = await response.json();
         console.log('Categories fetched:', data);
-        setCategories(data);
+        // Handle both old format (array) and new format (object with categories array)
+        const categoriesData = data.categories || data;
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       } else {
         console.error('Failed to fetch categories:', response.status, response.statusText);
       }
@@ -146,7 +197,9 @@ export default function Promotions() {
         setShowModal(false);
         setEditingPromotion(null);
         resetForm();
-        fetchPromotions();
+        const currentPage = searchParams.get('page') || 1;
+        const currentSearch = searchParams.get('search') || '';
+        fetchPromotions(currentSearch, currentPage);
       } else {
         const error = await response.json();
         showError(error.message || 'Error saving promotion');
@@ -168,7 +221,9 @@ export default function Promotions() {
             headers: { Authorization: `Bearer ${token}` }
           });
           if (response.ok) {
-            fetchPromotions();
+            const currentPage = searchParams.get('page') || 1;
+            const currentSearch = searchParams.get('search') || '';
+            fetchPromotions(currentSearch, currentPage);
             showSuccess('Promotion deleted successfully!');
           } else {
             showError('Failed to delete promotion.');
@@ -317,14 +372,24 @@ export default function Promotions() {
         </div>
       </div>
 
-      {/* Status Filter Buttons */}
+      {/* Search and Status Filter */}
       <div className="promotions-filters">
-        <button 
-          className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('all')}
-        >
-          All
-        </button>
+        <div className="search-container">
+          <input
+            type="text"
+            placeholder="Search promotions by name, description, or code..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="search-input"
+          />
+        </div>
+        <div className="status-filters">
+          <button 
+            className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('all')}
+          >
+            All
+          </button>
         <button 
           className={`filter-btn ${statusFilter === 'pending' ? 'active' : ''}`}
           onClick={() => setStatusFilter('pending')}
@@ -343,12 +408,13 @@ export default function Promotions() {
         >
           Inactive
         </button>
-        <button 
-          className={`filter-btn ${statusFilter === 'expired' ? 'active' : ''}`}
-          onClick={() => setStatusFilter('expired')}
-        >
-          Expired
-        </button>
+          <button 
+            className={`filter-btn ${statusFilter === 'expired' ? 'active' : ''}`}
+            onClick={() => setStatusFilter('expired')}
+          >
+            Expired
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -768,6 +834,14 @@ export default function Promotions() {
           </div>
         </div>
       )}
+
+      {/* Pagination */}
+      <Pagination
+        currentPage={pagination.currentPage}
+        totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        onPageChange={handlePageChange}
+      />
     </div>
   );
 } 

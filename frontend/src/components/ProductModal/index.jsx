@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import './Modal.css'; // We will create this file next
+import './ProductModal.css';
 
 const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSuccess }) => {
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
