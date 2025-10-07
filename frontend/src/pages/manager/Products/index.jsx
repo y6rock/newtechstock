@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import ProductManager from '../../components/ProductManager';
-import { useSettings } from '../../context/SettingsContext';
+import ProductManager from '../../../components/ProductManager';
+import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import './Products.css';
 
@@ -34,3 +34,5 @@ export default function Products() {
     </div>
   );
 }
+
+

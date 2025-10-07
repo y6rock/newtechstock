@@ -1,0 +1,155 @@
+/* Improved Slider Styles */
+.price-range-slider {
+  width: 100%;
+  margin: 15px 0;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #667eea, #e2e8f0);
+  outline: none;
+  cursor: pointer;
+  transition: height 0.2s ease;
+  border: none;
+  box-sizing: border-box;
+  /* Ensure proper touch handling */
+  touch-action: pan-y;
+}
+
+.price-range-slider:hover {
+  height: 10px;
+}
+
+.price-range-slider:focus {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+/* Webkit Thumb Styles */
+.price-range-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: grab;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.2s ease;
+  position: relative;
+  /* Prevent text selection during drag */
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.price-range-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  cursor: grab;
+}
+
+.price-range-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+  transition: none;
+}
+
+/* Firefox Thumb Styles */
+.price-range-slider::-moz-range-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: grab;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  transition: all 0.2s ease;
+  -moz-appearance: none;
+  /* Prevent text selection during drag */
+  user-select: none;
+}
+
+.price-range-slider::-moz-range-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  cursor: grab;
+}
+
+.price-range-slider::-moz-range-thumb:active {
+  cursor: grabbing;
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.price-range-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 4px;
+  background: linear-gradient(to right, #667eea, #e2e8f0);
+  border: none;
+}
+
+/* IE & Edge Styles */
+.price-range-slider::-ms-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: grab;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.price-range-slider::-ms-thumb:active {
+  cursor: grabbing;
+}
+
+.price-range-slider::-ms-track {
+  height: 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: transparent;
+}
+
+.price-range-slider::-ms-fill-lower {
+  background: linear-gradient(to right, #667eea, #e2e8f0);
+  border-radius: 4px;
+}
+
+.price-range-slider::-ms-fill-upper {
+  background: #e2e8f0;
+  border-radius: 4px;
+}
+
+/* Ensure the slider container doesn't interfere with dragging */
+.price-range-container {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  /* Prevent text selection during drag */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+}
+
+/* Mobile touch improvements */
+@media (max-width: 768px) {
+  .price-range-slider {
+    height: 12px;
+    margin: 20px 0;
+  }
+  
+  .price-range-slider::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .price-range-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
+  }
+}

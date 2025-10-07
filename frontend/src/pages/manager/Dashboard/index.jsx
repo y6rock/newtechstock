@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useSettings } from '../../context/SettingsContext';
+import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import { Line, Bar, Pie } from 'react-chartjs-2';
-import { formatDate, formatDateShort } from '../../utils/dateFormat';
+import { formatDate, formatDateShort } from '../../../utils/dateFormat';
 import './Dashboard.css';
 import {
   Chart as ChartJS,
@@ -17,7 +17,7 @@ import {
   Title
 } from 'chart.js';
 import axios from 'axios';
-import { formatPrice } from '../../utils/currency';
+import { formatPrice } from '../../../utils/currency';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Title);
 

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useSettings } from '../../context/SettingsContext';
-import { useToast } from '../../context/ToastContext';
+import { useSettings } from '../../../context/SettingsContext';
+import { useToast } from '../../../context/ToastContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
-import Pagination from '../../components/Pagination';
+import Pagination from '../../../components/Pagination';
 import './Promotions.css';
-import { formatPrice } from '../../utils/currency';
-import { formatDate } from '../../utils/dateFormat';
+import { formatPrice } from '../../../utils/currency';
+import { formatDate } from '../../../utils/dateFormat';
 
 export default function Promotions() {
   const { isUserAdmin, loadingSettings, currency } = useSettings();
@@ -855,4 +855,4 @@ export default function Promotions() {
       />
     </div>
   );
-} 
+}

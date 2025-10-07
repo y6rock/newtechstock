@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import axios from 'axios';
-import { useSettings } from '../../context/SettingsContext';
-import { useToast } from '../../context/ToastContext';
+import { useSettings } from '../../../context/SettingsContext';
+import { useToast } from '../../../context/ToastContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import Pagination from '../../components/Pagination';
+import Pagination from '../../../components/Pagination';
 import './Suppliers.css';
 
 const Suppliers = () => {
@@ -636,4 +636,4 @@ const Suppliers = () => {
   );
 };
 
-export default Suppliers; 
+export default Suppliers;

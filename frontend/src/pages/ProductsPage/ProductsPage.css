@@ -38,8 +38,8 @@
   border-radius: 16px;
   padding: 30px;
   height: fit-content;
-  position: sticky;
-  top: 20px;
+  /* position: sticky; */
+  /* top: 20px; */
   box-shadow: 0 8px 30px rgba(0,0,0,0.08);
   border: 1px solid #e8ecf0;
 }
@@ -55,10 +55,10 @@
   font-weight: 700;
   padding-bottom: 12px;
   border-bottom: 3px solid #667eea;
-  position: relative;
+  /* position: relative; */
 }
 
-.filter-group h3::after {
+/* .filter-group h3::after {
   content: '';
   position: absolute;
   bottom: -3px;
@@ -67,13 +67,45 @@
   height: 3px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border-radius: 2px;
-}
+} */
 
 /* Price Range Styles */
 .price-range-container {
   display: flex;
   flex-direction: column;
   gap: 15px;
+}
+
+/* Themed range slider to match site gradient (#667eea → #764ba2) */
+.theme-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 8px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  outline: none;
+  cursor: pointer;
+}
+
+.theme-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+}
+
+.theme-range::-moz-range-thumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  border: 3px solid #667eea;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
 }
 
 .price-range-display {
@@ -108,7 +140,6 @@
   background: linear-gradient(to right, #667eea, #e2e8f0);
   outline: none;
   cursor: pointer;
-  transition: height 0.2s ease;
   border: none;
   box-sizing: border-box;
 }
@@ -132,18 +163,23 @@
   cursor: grab;
   border: 3px solid #fff;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
   position: relative;
+  /* Prevent text selection during drag */
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .price-range-slider::-webkit-slider-thumb:hover {
   transform: scale(1.1);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  cursor: grab;
 }
 
 .price-range-slider::-webkit-slider-thumb:active {
   cursor: grabbing;
   transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
   transition: none;
 }
 
@@ -155,18 +191,22 @@
   cursor: grab;
   border: 3px solid #fff;
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: all 0.2s ease;
   -moz-appearance: none;
+  /* Prevent text selection during drag */
+  user-select: none;
 }
 
 .price-range-slider::-moz-range-thumb:hover {
   transform: scale(1.1);
   box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+  cursor: grab;
 }
 
 .price-range-slider::-moz-range-thumb:active {
   cursor: grabbing;
   transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
 }
 
 .price-range-slider::-moz-range-track {
@@ -174,6 +214,39 @@
   border-radius: 4px;
   background: linear-gradient(to right, #667eea, #e2e8f0);
   border: none;
+}
+
+/* IE & Edge Styles */
+.price-range-slider::-ms-thumb {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  cursor: grab;
+  border: 3px solid #fff;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+}
+
+.price-range-slider::-ms-thumb:active {
+  cursor: grabbing;
+}
+
+.price-range-slider::-ms-track {
+  height: 8px;
+  border-radius: 4px;
+  background: transparent;
+  border: none;
+  color: transparent;
+}
+
+.price-range-slider::-ms-fill-lower {
+  background: linear-gradient(to right, #667eea, #e2e8f0);
+  border-radius: 4px;
+}
+
+.price-range-slider::-ms-fill-upper {
+  background: #e2e8f0;
+  border-radius: 4px;
 }
 
 .price-range-labels {
@@ -453,7 +526,7 @@
 .product-card {
   border: none;
   border-radius: 16px;
-  padding: 25px;
+  padding: 8px 20px 20px; /* tighter top padding to remove container gap */
   text-align: center;
   box-shadow: 0 8px 30px rgba(0,0,0,0.08);
   background-color: white;
@@ -506,11 +579,11 @@
   z-index: 10;
 }
 .product-image-container {
-  height: 300px;
+  height: 190px; /* slightly smaller */
   display: flex;
   justify-content: center;
   align-items: center;
-  margin-bottom: 15px;
+  margin-bottom: 12px; /* tighter gap under image */
 }
 .product-card .product-image {
   width: 100% !important;
@@ -532,14 +605,23 @@
   margin-bottom: 5px;
 }
 .product-card .product-name {
-  font-size: 1.2em;
+  font-size: 1.1em;
+  line-height: 1.3;
   font-weight: bold;
-  margin-bottom: 5px;
+  margin: 8px 0 6px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* clamp long names to 2 lines */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .product-card .product-info {
   font-size: 0.9em;
   color: #666;
   margin-bottom: 15px;
+  display: -webkit-box;
+  -webkit-line-clamp: 2; /* limit description height */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .product-card .product-price {
   font-size: 1.3em;
@@ -551,6 +633,20 @@
   display: flex;
   justify-content: center;
   gap: 10px;
+}
+
+/* Ensure text area has room even when images are tall on some cards */
+.product-card {
+  min-height: 520px; /* give consistent card height to avoid clipping */
+}
+
+/* Remove any top margin from the first child inside cards */
+.product-card > :first-child {
+  margin-top: 0 !important;
+}
+
+.product-image-container {
+  margin-top: 0; /* explicitly remove top margin if any */
 }
 .details-button, .add-to-cart-button {
   flex-grow: 1;
@@ -759,5 +855,21 @@
 
   .products-hero-section p {
     font-size: 1.1em;
+  }
+
+  /* Mobile touch improvements for slider */
+  .price-range-slider {
+    height: 12px;
+    margin: 20px 0;
+  }
+  
+  .price-range-slider::-webkit-slider-thumb {
+    width: 28px;
+    height: 28px;
+  }
+  
+  .price-range-slider::-moz-range-thumb {
+    width: 28px;
+    height: 28px;
   }
 } 

@@ -194,7 +194,8 @@ export const CartProvider = ({ children }) => {
         updatedCartItems[existingItemIndex] = {
           ...updatedCartItems[existingItemIndex],
           quantity: updatedCartItems[existingItemIndex].quantity + quantity,
-          price: product.price // Update price in case it changed
+          price: product.price, // Update price in case it changed
+          stock: product.stock // Keep latest stock snapshot for client-side checks
         };
       } else {
         // Add new item
@@ -204,6 +205,7 @@ export const CartProvider = ({ children }) => {
           price: product.price,
           image: product.image,
           quantity: quantity,
+          stock: product.stock,
           category_name: product.category_name,
           supplier_name: product.supplier_name
         }];
@@ -265,7 +267,7 @@ export const CartProvider = ({ children }) => {
     const item = cartItems.find(item => item.product_id === productId);
     if (!item) return;
 
-    if (!item.stock || item.stock < 0) {
+    if (item.stock === undefined || item.stock === null || Number.isNaN(Number(item.stock))) {
       showError('This product has invalid inventory data.');
       return;
     }

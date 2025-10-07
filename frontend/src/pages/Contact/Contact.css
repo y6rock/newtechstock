@@ -7,7 +7,7 @@
 
 /* Header Section */
 .contact-header {
-  background: linear-gradient(135deg, #1e40af 0%, #2563eb 100%);
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   padding: 80px 20px;
   text-align: center;
@@ -77,7 +77,7 @@
   left: 0;
   right: 0;
   height: 4px;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   transform: scaleX(0);
   transition: transform 0.3s ease;
 }
@@ -89,14 +89,14 @@
 .contact-info-card:hover {
   transform: translateY(-8px);
   box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
-  border-color: #3b82f6;
+  border-color: #667eea;
 }
 
 .contact-icon {
   font-size: 3em;
   display: block;
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+  background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15));
   width: 80px;
   height: 80px;
   border-radius: 50%;
@@ -108,7 +108,7 @@
 }
 
 .contact-info-card:hover .contact-icon {
-  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   transform: scale(1.1);
 }
 
@@ -145,7 +145,7 @@
   left: 0;
   right: 0;
   height: 6px;
-  background: linear-gradient(90deg, #2563eb, #3b82f6, #8b5cf6);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   border-radius: 20px 20px 0 0;
 }
 
@@ -162,7 +162,7 @@
   display: block;
   width: 60px;
   height: 3px;
-  background: linear-gradient(90deg, #2563eb, #3b82f6);
+  background: linear-gradient(135deg, #667eea, #764ba2);
   margin: 15px auto 0 auto;
   border-radius: 2px;
 }
@@ -202,9 +202,9 @@
 .form-input:focus,
 .form-textarea:focus {
   outline: none;
-  border-color: #3b82f6;
+  border-color: #667eea;
   background: #ffffff;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+  box-shadow: 0 0 0 4px rgba(102, 126, 234, 0.1);
   transform: translateY(-1px);
 }
 

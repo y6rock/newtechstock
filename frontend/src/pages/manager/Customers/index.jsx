@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useSettings } from '../../context/SettingsContext';
-import { useToast } from '../../context/ToastContext';
-import { formatPrice } from '../../utils/currency';
-import { formatDate } from '../../utils/dateFormat';
-import Pagination from '../../components/Pagination';
+import { useSettings } from '../../../context/SettingsContext';
+import { useToast } from '../../../context/ToastContext';
+import { formatPrice } from '../../../utils/currency';
+import { formatDate } from '../../../utils/dateFormat';
+import Pagination from '../../../components/Pagination';
 import './Customers.css';
 
 const Customers = () => {
@@ -446,15 +446,6 @@ const Customers = () => {
                 borderRadius: '8px',
                 border: '1px solid #e9ecef'
             }}>
-                <label style={{
-                    display: 'block',
-                    fontSize: '14px',
-                    fontWeight: '600',
-                    color: '#374151',
-                    marginBottom: '8px'
-                }}>
-                    🔍 Search Customers
-                </label>
                 <div style={{ position: 'relative' }}>
                     <input
                         type="text"
@@ -686,3 +677,5 @@ const Customers = () => {
 };
 
 export default Customers;
+
+
