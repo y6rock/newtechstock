@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
@@ -30,14 +30,6 @@ const ProductsPage = () => {
   const { addToCart, validateCart } = useCart();
   const navigate = useNavigate();
 
-  const getInitialCategory = () => {
-    const params = new URLSearchParams(location.search);
-    const categoryName = params.get('category');
-    if (categoryName) {
-      return categoryName;
-    }
-    return 'All Products';
-  };
 
   const getInitialSearchTerm = () => {
     const params = new URLSearchParams(location.search);
@@ -52,11 +44,13 @@ const ProductsPage = () => {
 
   const [selectedCategory, setSelectedCategory] = useState('All Products');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
-  const [selectedMaxPrice, setSelectedMaxPrice] = useState(1000);
-  const [tempMaxPrice, setTempMaxPrice] = useState(1000);
+  const [maxPrice, setMaxPrice] = useState(1000);
   const [priceStats, setPriceStats] = useState({ minPrice: 0, maxPrice: 1000 });
   const [manufacturers, setManufacturers] = useState([]);
   const [selectedManufacturers, setSelectedManufacturers] = useState([]);
+  
+  // Use ref for slider to avoid controlled input issues
+  const sliderRef = useRef(null);
   
   // Handle URL parameter changes
   useEffect(() => {
@@ -72,14 +66,7 @@ const ProductsPage = () => {
     }
   }, [location.search]);
 
-  // Debounced price filter update
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setSelectedMaxPrice(tempMaxPrice);
-    }, 300); // 300ms delay after user stops dragging
-
-    return () => clearTimeout(timeoutId);
-  }, [tempMaxPrice]);
+  // Removed debounced effect for better responsiveness
 
   // Clean up duplicates on component mount
   useEffect(() => {
@@ -105,8 +92,7 @@ const ProductsPage = () => {
           const minPrice = Math.min(...prices);
           const maxPrice = Math.max(...prices);
           setPriceRange({ min: minPrice, max: maxPrice });
-          setSelectedMaxPrice(maxPrice);
-          setTempMaxPrice(maxPrice);
+          setMaxPrice(maxPrice);
           setPriceStats({ minPrice, maxPrice });
         }
 
@@ -130,8 +116,9 @@ const ProductsPage = () => {
     axios.get('/api/suppliers/public')
       .then(res => {
         const manufacturerList = res.data.map(supplier => ({
-          id: supplier.name,  // Store name as ID for text searching
-          name: supplier.name
+          // Use the numeric supplier_id for filtering and the name for display
+          id: String(supplier.supplier_id ?? supplier.id ?? supplier.ID ?? supplier.SupplierID),
+          name: supplier.name || supplier.supplier_name || supplier.Name
         }));
         setManufacturers(manufacturerList);
       })
@@ -142,29 +129,23 @@ const ProductsPage = () => {
     setSelectedCategory(category);
   };
 
-  const handleTempPriceChange = (e) => {
-    const value = parseFloat(e.target.value);
-    setTempMaxPrice(value);
-  };
-
+  // Use ref-based handler to avoid React state update conflicts
   const handlePriceChange = (e) => {
     const value = parseFloat(e.target.value);
-    setSelectedMaxPrice(value);
-    setTempMaxPrice(value);
+    console.log('Slider value changed to:', value);
+    setMaxPrice(value);
   };
 
   const handleManufacturerChange = (e) => {
     const { value, checked } = e.target;
-    
+
+    // value holds the supplier_id (string)
     setSelectedManufacturers(prev => {
       if (checked) {
-        if (prev.includes(value)) {
-          return prev;
-        }
+        if (prev.includes(value)) return prev;
         return [...prev, value];
-      } else {
-        return prev.filter(m => m !== value);
       }
+      return prev.filter(id => id !== value);
     });
   };
 
@@ -203,14 +184,12 @@ const ProductsPage = () => {
       const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
       
       const productPrice = parseFloat(product.price);
-      const matchesPrice = productPrice <= selectedMaxPrice;
-      
-      const matchesManufacturer = selectedManufacturers.length === 0 || 
-        selectedManufacturers.some(manufacturerText => 
-          product.name.toLowerCase().includes(manufacturerText.toLowerCase()) ||
-          (product.description && product.description.toLowerCase().includes(manufacturerText.toLowerCase())) ||
-          (product.short_description && product.short_description.toLowerCase().includes(manufacturerText.toLowerCase()))
-        );
+      const matchesPrice = productPrice <= maxPrice;
+
+      // Match by supplier_id using selected manufacturer IDs
+      const matchesManufacturer =
+        selectedManufacturers.length === 0 ||
+        selectedManufacturers.includes(String(product.supplier_id));
       
       const matchesSearch = searchTerm === '' || 
         product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -220,7 +199,7 @@ const ProductsPage = () => {
       
       return matchesCategory && matchesPrice && matchesManufacturer && matchesSearch;
     });
-  }, [products, categories, selectedCategory, searchTerm, selectedMaxPrice, selectedManufacturers]);
+  }, [products, categories, selectedCategory, searchTerm, maxPrice, selectedManufacturers]);
 
   const FilterSidebar = () => (
     <div className="filters-sidebar">
@@ -229,7 +208,7 @@ const ProductsPage = () => {
         <div className="price-range-container">
           <div className="price-range-display">
             <span className="current-price">
-              Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(tempMaxPrice)}
+              Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(maxPrice)}
             </span>
           </div>
           <input
@@ -238,10 +217,19 @@ const ProductsPage = () => {
             min={priceRange.min}
             max={priceRange.max}
             step="0.01"
-            value={tempMaxPrice}
-            onInput={handleTempPriceChange}
-            onChange={handleTempPriceChange}
-            className="price-range-slider"
+            defaultValue={maxPrice}
+            onChange={handlePriceChange}
+            ref={sliderRef}
+            style={{
+              width: '100%',
+              margin: '15px 0',
+              height: '20px',
+              background: 'transparent',
+              outline: 'none',
+              cursor: 'pointer',
+              WebkitAppearance: 'none',
+              appearance: 'none'
+            }}
           />
           <div className="price-range-labels">
             <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.min)}</span>
@@ -332,7 +320,115 @@ const ProductsPage = () => {
 
       {/* Main Content Layout */}
       <div className="products-page-layout">
-        <FilterSidebar />
+        {/* Left Sidebar with Filters */}
+        <div style={{
+          width: '320px',
+          flexShrink: 0,
+          background: '#fff',
+          borderRadius: '16px',
+          padding: '20px',
+          height: 'fit-content',
+          boxShadow: '0 8px 30px rgba(0,0,0,0.08)',
+          border: '1px solid #e8ecf0',
+          marginRight: '30px'
+        }}>
+          {/* Price Range Filter */}
+          <div style={{ marginBottom: '30px' }}>
+            <h3 style={{ 
+              margin: '0 0 15px 0', 
+              color: '#2d3748', 
+              fontSize: '1.2em', 
+              fontWeight: '700',
+              paddingBottom: '8px',
+              borderBottom: '2px solid #667eea'
+            }}>
+              Price Range
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <div style={{ textAlign: 'center', marginBottom: '5px' }}>
+                <span style={{ 
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                  fontWeight: '700',
+                  fontSize: '1em'
+                }}>
+                  Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(maxPrice)}
+                </span>
+              </div>
+              <input
+                type="range"
+                id="priceRange"
+                min={priceRange.min}
+                max={priceRange.max}
+                step="0.01"
+                defaultValue={maxPrice}
+                onChange={handlePriceChange}
+                className="theme-range"
+              />
+              <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666', fontSize: '0.8em', fontWeight: '500' }}>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.min)}</span>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.max)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Manufacturer Filter */}
+          <div>
+            <h3 style={{ 
+              margin: '0 0 15px 0', 
+              color: '#2d3748', 
+              fontSize: '1.2em', 
+              fontWeight: '700',
+              paddingBottom: '8px',
+              borderBottom: '2px solid #667eea'
+            }}>
+              Manufacturer
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {manufacturers.map(manufacturer => {
+                const isChecked = selectedManufacturers.includes(String(manufacturer.id));
+                return (
+                  <div key={manufacturer.id} style={{ display: 'flex', alignItems: 'center' }}>
+                    <label style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px', 
+                      cursor: 'pointer', 
+                      fontSize: '0.9em', 
+                      color: '#333',
+                      transition: 'color 0.2s ease'
+                    }}>
+                      <input
+                        type="checkbox"
+                        value={manufacturer.id}
+                        checked={isChecked}
+                        onChange={handleManufacturerChange}
+                        style={{
+                          width: '18px',
+                          height: '18px',
+                          cursor: 'pointer',
+                          marginRight: '8px',
+                          appearance: 'none',
+                          WebkitAppearance: 'none',
+                          MozAppearance: 'none',
+                          border: '2px solid #ccc',
+                          borderRadius: '3px',
+                          backgroundColor: isChecked ? '#4a90e2' : 'white',
+                          position: 'relative',
+                          transition: 'all 0.2s ease'
+                        }}
+                      />
+                      <span>{manufacturer.name}</span>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+
         <div className="product-grid-container">
           <div className="product-grid">
             {filteredProducts.length === 0 ? (
@@ -360,8 +456,7 @@ const ProductsPage = () => {
                   onClick={() => {
                     setSearchTerm('');
                     setSelectedCategory('All Products');
-                    setSelectedMaxPrice(priceStats.maxPrice);
-                    setTempMaxPrice(priceStats.maxPrice);
+                    setMaxPrice(priceStats.maxPrice);
                     setSelectedManufacturers([]);
                   }}
                 >

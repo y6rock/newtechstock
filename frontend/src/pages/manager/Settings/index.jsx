@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useSettings as useLocalSettings } from '../../context/SettingsContext';
-import { useToast } from '../../context/ToastContext';
+import { useSettings as useLocalSettings } from '../../../context/SettingsContext';
+import { useToast } from '../../../context/ToastContext';
 import './Settings.css';
 
 const Settings = () => {

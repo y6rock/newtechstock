@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useSettings } from '../../context/SettingsContext';
+import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { formatPrice } from '../../utils/currency';
-import { formatDate, formatDateTime } from '../../utils/dateFormat';
-import Pagination from '../../components/Pagination';
+import { formatPrice } from '../../../utils/currency';
+import { formatDate, formatDateTime } from '../../../utils/dateFormat';
+import Pagination from '../../../components/Pagination';
 import './Orders.css';
 
 const Orders = () => {
@@ -439,4 +439,4 @@ const Orders = () => {
   );
 };
 
-export default Orders; 
+export default Orders;
