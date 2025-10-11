@@ -3,7 +3,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
-import Pagination from '../../../components/Pagination';
+import Pagination from '../../../components/Pagination/Pagination';
 import './Promotions.css';
 import { formatPrice } from '../../../utils/currency';
 import { formatDate } from '../../../utils/dateFormat';

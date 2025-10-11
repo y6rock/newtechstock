@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
-import ProductModal from '../ProductModal';
-import Pagination from '../Pagination';
+import ProductModal from '../ProductModal/ProductModal';
+import Pagination from '../Pagination/Pagination';
 import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
 import { formatPrice, formatPriceWithTax, formatBasePrice } from '../../utils/currency';

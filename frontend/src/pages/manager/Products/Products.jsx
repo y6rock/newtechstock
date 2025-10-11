@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ProductManager from '../../../components/ProductManager';
+import ProductManager from '../../../components/ProductManager/ProductManager';
 import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate } from 'react-router-dom';
 import './Products.css';

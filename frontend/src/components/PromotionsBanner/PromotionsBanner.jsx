@@ -3,7 +3,7 @@ import { FaTag, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/currency';
-import PromoDetailsModal from '../PromoDetailsModal';
+import PromoDetailsModal from '../PromoDetailsModal/PromoDetailsModal';
 import './PromotionsBanner.css';
 
 const PromotionsBanner = () => {

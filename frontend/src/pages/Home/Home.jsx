@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
-import PromotionsBanner from '../../components/PromotionsBanner';
+import PromotionsBanner from '../../components/PromotionsBanner/PromotionsBanner';
 import './Home.css';
 
 // Import fallback category images

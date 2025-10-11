@@ -3,7 +3,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { formatPrice } from '../../../utils/currency';
 import { formatDate, formatDateTime } from '../../../utils/dateFormat';
-import Pagination from '../../../components/Pagination';
+import Pagination from '../../../components/Pagination/Pagination';
 import './Orders.css';
 
 const Orders = () => {
