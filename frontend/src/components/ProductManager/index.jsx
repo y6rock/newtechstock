@@ -24,8 +24,6 @@ function ProductManager() {
   const [editingProduct, setEditingProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
-  const [sortField, setSortField] = useState('stock');
-  const [sortDirection, setSortDirection] = useState('asc');
   
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const { showSuccess, showError } = useToast();
@@ -48,19 +46,10 @@ function ProductManager() {
     return { level: 'high', class: 'stock-high-stock', text: 'HIGH STOCK' };
   };
 
-  // Sorting function
-  const handleSort = (field) => {
-    if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
-    }
-  };
 
   const fetchProductData = useCallback(async (page = 1, search = '') => {
     if (loadingSettings || !isUserAdmin) {
-      if (!loadingSettings && !isUserAdmin) navigate('/');
+if (!loadingSettings && !isUserAdmin) navigate('/');
       return;
     }
 
@@ -76,6 +65,21 @@ function ProductManager() {
       if (search.trim()) {
         params.append('search', search.trim());
       }
+      
+      // Add filter parameters
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      
+      if (categoryFilter && categoryFilter !== 'all') {
+        params.append('category', categoryFilter);
+      }
+      
+      if (supplierFilter && supplierFilter !== 'all') {
+        params.append('supplier', supplierFilter);
+      }
+      
+      console.log('Fetching products with params:', params.toString());
       
       const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
         fetch(`/api/products/admin/all?${params}`, { headers }),
@@ -103,7 +107,7 @@ function ProductManager() {
       console.error('Error fetching initial product data:', err);
       setError('Failed to load necessary data. Please try again.');
     }
-  }, [isUserAdmin, loadingSettings, navigate]);
+  }, [isUserAdmin, loadingSettings, navigate, statusFilter, categoryFilter, supplierFilter]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -120,7 +124,6 @@ function ProductManager() {
 
   // Handle search term changes
   const handleSearchChange = useCallback((newSearchTerm) => {
-    setSearchTerm(newSearchTerm);
     const params = new URLSearchParams();
     params.set('page', '1'); // Reset to first page on search
     if (newSearchTerm.trim()) {
@@ -129,12 +132,30 @@ function ProductManager() {
     setSearchParams(params);
   }, [setSearchParams]);
 
+  // Initial load and URL parameter sync
   useEffect(() => {
     const currentPage = parseInt(searchParams.get('page')) || 1;
     const currentSearch = searchParams.get('search') || '';
     setSearchTerm(currentSearch);
     fetchProductData(currentPage, currentSearch);
-  }, [fetchProductData, searchParams]);
+  }, [searchParams, fetchProductData]);
+
+  // Debounced search effect - only calls API, doesn't update URL
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        fetchProductData(1, searchTerm);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams, fetchProductData]);
+
+  // Fetch products when filters change
+  useEffect(() => {
+    console.log('Filters changed, refetching products');
+    const currentSearch = searchParams.get('search') || '';
+    fetchProductData(1, currentSearch);
+  }, [statusFilter, categoryFilter, supplierFilter, fetchProductData, searchParams]);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -426,45 +447,6 @@ function ProductManager() {
   };
 
   // Client-side sorting only (search handled by backend)
-  const sortedProducts = [...products].sort((a, b) => {
-    let aValue, bValue;
-    
-    switch (sortField) {
-      case 'name':
-        aValue = a.name || '';
-        bValue = b.name || '';
-        break;
-      case 'category':
-        aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
-        bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
-        break;
-      case 'price':
-        aValue = parseFloat(a.price) || 0;
-        bValue = parseFloat(b.price) || 0;
-        break;
-      case 'stock':
-        aValue = parseInt(a.stock) || 0;
-        bValue = parseInt(b.stock) || 0;
-        break;
-      case 'supplier':
-        aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
-        bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
-        break;
-      default:
-        aValue = a.stock || 0;
-        bValue = b.stock || 0;
-    }
-    
-    if (typeof aValue === 'string') {
-      return sortDirection === 'asc' 
-        ? aValue.localeCompare(bValue)
-        : bValue.localeCompare(aValue);
-    } else {
-      return sortDirection === 'asc' 
-        ? aValue - bValue
-        : bValue - aValue;
-    }
-  });
 
   return (
     <div className="product-manager-main-container">
@@ -479,7 +461,7 @@ function ProductManager() {
             type="text"
             placeholder="Search products..."
             value={searchTerm}
-            onChange={(e) => handleSearchChange(e.target.value)}
+            onChange={(e) => setSearchTerm(e.target.value)}
             className="search-input-field"
           />
           <span className="search-icon">
@@ -534,7 +516,7 @@ function ProductManager() {
         
         {/* Filter Info */}
         <div className="filter-info-container">
-          <span>Showing {sortedProducts.length} of {products.length} products</span>
+          <span>Showing {products.length} products</span>
           {(statusFilter !== 'all' || categoryFilter !== 'all' || supplierFilter !== 'all' || searchTerm) && (
             <button 
               onClick={() => {
@@ -590,40 +572,16 @@ function ProductManager() {
           <thead>
             <tr className="table-header-row">
               <th className="table-header-cell">Image</th>
-              <th 
-                className={`sortable-header ${sortField === 'name' ? sortDirection : ''}`}
-                onClick={() => handleSort('name')}
-                className="table-header-cell"
-              >
-                Name
-              </th>
-              <th 
-                className={`sortable-header ${sortField === 'category' ? sortDirection : ''}`}
-                onClick={() => handleSort('category')}
-                className="table-header-cell"
-              >
-                Category
-              </th>
-              <th 
-                className={`sortable-header ${sortField === 'price' ? sortDirection : ''}`}
-                onClick={() => handleSort('price')}
-                className="table-header-cell"
-              >
-                Price (Base / Final)
-              </th>
-              <th 
-                className={`sortable-header ${sortField === 'stock' ? sortDirection : ''}`}
-                onClick={() => handleSort('stock')}
-                className="table-header-cell"
-              >
-                Stock
-              </th>
+              <th className="table-header-cell">Name</th>
+              <th className="table-header-cell">Category</th>
+              <th className="table-header-cell">Price (Base / Final)</th>
+              <th className="table-header-cell">Stock</th>
               <th className="table-header-cell">Status</th>
               <th className="table-header-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {sortedProducts.map(p => (
+            {products.map(p => (
               <tr key={p.product_id} className="table-body-row">
                 <td className="table-body-cell">
                   {p.image ? (
@@ -681,7 +639,7 @@ function ProductManager() {
                 </td>
               </tr>
             ))}
-            {sortedProducts.length === 0 && (
+            {products.length === 0 && (
               <tr>
                 <td colSpan="7" className="table-body-cell no-products-message">No products found.</td>
               </tr>

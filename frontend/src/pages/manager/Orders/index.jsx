@@ -143,7 +143,7 @@ const Orders = () => {
         navigate('/');
       }
     }
-  }, [isUserAdmin, loadingSettings, navigate]);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams, fetchOrdersAndStats]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -158,26 +158,26 @@ const Orders = () => {
     fetchOrdersAndStats(searchTerm, newPage);
   }, [searchParams, setSearchParams, searchTerm, fetchOrdersAndStats]);
 
-  // Handle search changes with debouncing
+  // Handle search changes with debouncing - only updates state, not URL
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    const params = new URLSearchParams();
-    params.set('page', '1'); // Reset to first page on search
-    if (newSearchTerm.trim()) {
-      params.set('search', newSearchTerm);
-    }
-    setSearchParams(params);
-  }, [setSearchParams]);
+    // Don't update URL params here - let the debounced effect handle it
+    // This prevents the input from losing focus on every keystroke
+  }, []);
 
-  // Debounced search effect
+  // Debounced search effect - optimized to prevent input focus loss
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== (searchParams.get('search') || '')) {
+      if (isUserAdmin && searchTerm.trim()) {
+        // Only perform search if there's actually a search term
         fetchOrdersAndStats(searchTerm, 1);
+      } else if (isUserAdmin && !searchTerm.trim()) {
+        // Clear search - fetch all orders
+        fetchOrdersAndStats('', 1);
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams, fetchOrdersAndStats]);
+  }, [searchTerm, isUserAdmin, fetchOrdersAndStats]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { FaTimes, FaTag, FaCalendarAlt, FaPercent, FaDollarSign, FaShoppingCart, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { FaTimes, FaTag, FaCalendarAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
 import { formatPrice } from '../../utils/currency';
@@ -121,9 +121,6 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
         return `${value}% OFF`;
       case 'fixed':
         return `${formatPrice(value, currency)} OFF`;
-      case 'buy_x_get_y':
-        const [buyX, getY] = value.split(':');
-        return `BUY ${buyX} GET ${getY} FREE`;
       default:
         return '';
     }
@@ -135,22 +132,6 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
       month: 'long',
       day: 'numeric'
     });
-  };
-
-  const formatApplicableItems = (promotion) => {
-    const allItems = [];
-
-    // Add products if they exist
-    if (applicableProducts.length > 0) {
-      allItems.push(...applicableProducts.map(p => p.name));
-    }
-
-    // Add categories if they exist
-    if (applicableCategories.length > 0) {
-      allItems.push(...applicableCategories.map(c => c.name));
-    }
-
-    return allItems.length > 0 ? allItems : ['All items'];
   };
 
   const renderApplicableItems = (items, type, showAll, setShowAll) => {

@@ -3,11 +3,94 @@ const { isValidPrice, isValidStock } = require('../../utils/validation.js');
 
 const db = dbSingleton.getConnection();
 
-// Get all products (public) - only active products
+// Get all products (public) - only active products with optional filtering
 exports.getAllProducts = async (req, res) => {
     try {
-        const [products] = await db.query('SELECT * FROM products WHERE is_active = 1 ORDER BY name');
-        res.json(products);
+        const { 
+            category, 
+            minPrice, 
+            maxPrice, 
+            manufacturer, 
+            search,
+            page = 1,
+            limit = 50
+        } = req.query;
+        
+        let whereConditions = ['p.is_active = 1'];
+        let params = [];
+        
+        // Category filter
+        if (category && category !== 'All Products') {
+            whereConditions.push('c.name = ?');
+            params.push(category);
+        }
+        
+        // Price range filter
+        if (minPrice && !isNaN(parseFloat(minPrice))) {
+            whereConditions.push('p.price >= ?');
+            params.push(parseFloat(minPrice));
+        }
+        
+        if (maxPrice && !isNaN(parseFloat(maxPrice))) {
+            whereConditions.push('p.price <= ?');
+            params.push(parseFloat(maxPrice));
+        }
+        
+        // Manufacturer filter (supplier)
+        if (manufacturer && manufacturer.length > 0) {
+            const manufacturerIds = Array.isArray(manufacturer) ? manufacturer : [manufacturer];
+            const placeholders = manufacturerIds.map(() => '?').join(',');
+            whereConditions.push(`p.supplier_id IN (${placeholders})`);
+            params.push(...manufacturerIds.map(id => parseInt(id)));
+        }
+        
+        // Search filter
+        if (search && search.trim()) {
+            whereConditions.push('(p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ? OR s.name LIKE ?)');
+            const searchTerm = `%${search.trim()}%`;
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        // Get total count for pagination
+        const [countResult] = await db.query(`
+            SELECT COUNT(*) as total
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${whereClause}
+        `, params);
+        
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / parseInt(limit));
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+        
+        // Get paginated products
+        const [products] = await db.query(`
+            SELECT 
+                p.*,
+                c.name as category_name,
+                s.name as supplier_name
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${whereClause}
+            ORDER BY p.name
+            LIMIT ? OFFSET ?
+        `, [...params, parseInt(limit), offset]);
+        
+        res.json({
+            products,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit),
+                hasNextPage: parseInt(page) < totalPages,
+                hasPreviousPage: parseInt(page) > 1
+            }
+        });
     } catch (err) {
         console.error('Error fetching products:', err);
         res.status(500).json({ message: 'Database error' });
@@ -211,17 +294,47 @@ exports.deleteProduct = async (req, res) => {
 // Get all products including inactive (admin only)
 exports.getAllProductsAdmin = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '' } = req.query;
+        const { 
+            page = 1, 
+            limit = 10, 
+            search = '',
+            category,
+            supplier,
+            status
+        } = req.query;
         
-        let whereClause = '';
+        let whereConditions = [];
         let params = [];
         
         // Add search functionality if search parameter is provided
         if (search && search.trim()) {
-            whereClause = 'WHERE (p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ? OR s.name LIKE ?)';
+            whereConditions.push('(p.name LIKE ? OR p.description LIKE ? OR c.name LIKE ? OR s.name LIKE ?)');
             const searchTerm = `%${search.trim()}%`;
-            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
+        
+        // Add category filter
+        if (category && category !== 'all') {
+            whereConditions.push('p.category_id = ?');
+            params.push(parseInt(category));
+        }
+        
+        // Add supplier filter
+        if (supplier && supplier !== 'all') {
+            whereConditions.push('p.supplier_id = ?');
+            params.push(parseInt(supplier));
+        }
+        
+        // Add status filter
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereConditions.push('p.is_active = 1');
+            } else if (status === 'inactive') {
+                whereConditions.push('p.is_active = 0');
+            }
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await db.query(`

@@ -301,6 +301,7 @@
 }
 
 .modal-header {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -314,19 +315,27 @@
 }
 
 .close-btn {
-  padding: 8px 12px;
-  background-color: #dc3545;
-  color: #fff;
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 30px;
+  height: 30px;
+  background-color: transparent;
+  color: #666;
   border: none;
-  border-radius: 5px;
+  border-radius: 50%;
   cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: background-color 0.2s ease;
+  font-size: 20px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
 }
 
 .close-btn:hover {
-  background-color: #c82333;
+  background-color: #f5f5f5;
+  color: #333;
 }
 
 /* Orders List */

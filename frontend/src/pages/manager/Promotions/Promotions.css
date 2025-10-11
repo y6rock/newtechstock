@@ -564,40 +564,6 @@
   pointer-events: none;
 }
 
-/* Buy X Get Y inputs */
-.buy-x-get-y-inputs {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  background: #f8f9fa;
-  padding: 10px;
-  border-radius: 6px;
-  border: 1px solid #ddd;
-}
-
-.buy-x-get-y-inputs input {
-  width: 80px;
-  text-align: center;
-  background: white;
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 8px;
-  font-weight: 600;
-  color: #2563eb;
-  font-size: 14px;
-}
-
-.buy-x-get-y-inputs input:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
-}
-
-.buy-x-get-y-inputs span {
-  color: #2563eb;
-  font-weight: 600;
-  font-size: 14px;
-}
-
 /* Checkbox group */
 .checkbox-group {
   display: flex;
@@ -700,15 +666,6 @@
   .promotion-type-selector {
     flex-direction: column;
     gap: 8px;
-  }
-
-  .buy-x-get-y-inputs {
-    flex-direction: column;
-    gap: 8px;
-  }
-
-  .buy-x-get-y-inputs input {
-    width: 100%;
   }
 
   .form-actions {

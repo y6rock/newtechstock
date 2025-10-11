@@ -58,6 +58,7 @@ CREATE TABLE `settings` (
 CREATE TABLE `categories` (
   `category_id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(100) COLLATE utf8mb4_general_ci DEFAULT NULL,
+  `image` varchar(255) COLLATE utf8mb4_general_ci DEFAULT NULL,
   `isActive` tinyint(1) DEFAULT '1',
   PRIMARY KEY (`category_id`),
   UNIQUE KEY `unique_category_name` (`name`)
@@ -100,7 +101,7 @@ CREATE TABLE `promotions` (
   `promotion_id` int NOT NULL AUTO_INCREMENT,
   `name` varchar(255) COLLATE utf8mb4_general_ci NOT NULL,
   `description` text COLLATE utf8mb4_general_ci,
-  `type` enum('percentage','fixed','buy_x_get_y') COLLATE utf8mb4_general_ci NOT NULL,
+  `type` enum('percentage','fixed') COLLATE utf8mb4_general_ci NOT NULL,
   `value` varchar(50) COLLATE utf8mb4_general_ci NOT NULL,
   `min_quantity` int DEFAULT '1',
   `max_quantity` int DEFAULT NULL,

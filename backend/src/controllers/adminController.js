@@ -235,7 +235,8 @@ exports.getOrderStatusDistribution = async (req, res) => {
 // Get all customers (non-admin users) with their order stats
 exports.getCustomers = async (req, res) => {
     try {
-        const { q, page = 1, limit = 10 } = req.query; // Search query and pagination parameters
+        const { q, page = 1, limit = 10, status } = req.query; // Search query, pagination parameters, and status filter
+        console.log('getCustomers - Request params:', { q, page, limit, status }); // Debug log
         
         let whereClause = "WHERE u.role != 'admin'";
         let params = [];
@@ -245,6 +246,15 @@ exports.getCustomers = async (req, res) => {
             whereClause += " AND (u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)";
             const searchTerm = `%${q.trim()}%`;
             params = [searchTerm, searchTerm, searchTerm];
+        }
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereClause += " AND u.isActive = TRUE";
+            } else if (status === 'inactive') {
+                whereClause += " AND u.isActive = FALSE";
+            }
         }
         
         // Get total count for pagination
@@ -278,16 +288,20 @@ exports.getCustomers = async (req, res) => {
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
+        const paginationData = {
+            currentPage: parseInt(page),
+            totalPages,
+            totalItems,
+            itemsPerPage: parseInt(limit),
+            hasNextPage: parseInt(page) < totalPages,
+            hasPreviousPage: parseInt(page) > 1
+        };
+        
+        console.log('getCustomers - Pagination data:', paginationData); // Debug log
+        
         res.json({
             customers,
-            pagination: {
-                currentPage: parseInt(page),
-                totalPages,
-                totalItems,
-                itemsPerPage: parseInt(limit),
-                hasNextPage: parseInt(page) < totalPages,
-                hasPreviousPage: parseInt(page) > 1
-            }
+            pagination: paginationData
         });
     } catch (error) {
         console.error('Error fetching customers:', error);

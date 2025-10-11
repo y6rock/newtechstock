@@ -10,7 +10,6 @@ const PromotionsBanner = () => {
   const [promotions, setPromotions] = useState([]);
   const [isVisible, setIsVisible] = useState(true);
   const { currency } = useSettings();
-  const [currentPromotionIndex, setCurrentPromotionIndex] = useState(0);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [selectedPromotion, setSelectedPromotion] = useState(null);
@@ -47,9 +46,6 @@ const PromotionsBanner = () => {
         return `${value}% OFF`;
       case 'fixed':
         return `${formatPrice(value, currency)} OFF`;
-      case 'buy_x_get_y':
-        const [buyX, getY] = value.split(':');
-        return `BUY ${buyX} GET ${getY} FREE`;
       default:
         return '';
     }

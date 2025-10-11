@@ -102,26 +102,26 @@ const Categories = () => {
     fetchCategories(searchTerm, newPage);
   }, [searchParams, setSearchParams, searchTerm, fetchCategories]);
 
-  // Handle search changes with debouncing
+  // Handle search changes with debouncing - only updates state, not URL
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    const params = new URLSearchParams();
-    params.set('page', '1'); // Reset to first page on search
-    if (newSearchTerm.trim()) {
-      params.set('search', newSearchTerm);
-    }
-    setSearchParams(params);
-  }, [setSearchParams]);
+    // Don't update URL params here - let the debounced effect handle it
+    // This prevents the input from losing focus on every keystroke
+  }, []);
 
-  // Debounced search effect
+  // Debounced search effect - optimized to prevent input focus loss
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== (searchParams.get('search') || '')) {
+      if (isUserAdmin && searchTerm.trim()) {
+        // Only perform search if there's actually a search term
         fetchCategories(searchTerm, 1);
+      } else if (isUserAdmin && !searchTerm.trim()) {
+        // Clear search - fetch all categories
+        fetchCategories('', 1);
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams]); // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, isUserAdmin, fetchCategories]);
 
 
   // Client-side filtering disabled - using server-side pagination instead
@@ -374,7 +374,7 @@ const Categories = () => {
                   type="text"
                   placeholder="Search categories by name..."
                   value={searchTerm}
-                  onChange={(e) => handleSearchChange(e.target.value)}
+                  onChange={(e) => setSearchTerm(e.target.value)}
                   className="search-input"
                 />
                 <span className="search-icon">🔍</span>

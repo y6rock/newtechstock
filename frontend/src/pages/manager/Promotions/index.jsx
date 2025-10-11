@@ -94,26 +94,26 @@ export default function Promotions() {
     fetchPromotions(searchTerm, newPage);
   }, [searchParams, setSearchParams, searchTerm, fetchPromotions]);
 
-  // Handle search changes with debouncing
+  // Handle search changes with debouncing - only updates state, not URL
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    const params = new URLSearchParams();
-    params.set('page', '1'); // Reset to first page on search
-    if (newSearchTerm.trim()) {
-      params.set('search', newSearchTerm);
-    }
-    setSearchParams(params);
-  }, [setSearchParams]);
+    // Don't update URL params here - let the debounced effect handle it
+    // This prevents the input from losing focus on every keystroke
+  }, []);
 
-  // Debounced search effect
+  // Debounced search effect - optimized to prevent input focus loss
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== (searchParams.get('search') || '')) {
+      if (isUserAdmin && searchTerm.trim()) {
+        // Only perform search if there's actually a search term
         fetchPromotions(searchTerm, 1);
+      } else if (isUserAdmin && !searchTerm.trim()) {
+        // Clear search - fetch all promotions
+        fetchPromotions('', 1);
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams, fetchPromotions]);
+  }, [searchTerm, isUserAdmin, fetchPromotions]);
 
   const fetchCategories = async () => {
     try {

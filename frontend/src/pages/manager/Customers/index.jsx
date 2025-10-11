@@ -21,6 +21,7 @@ const Customers = () => {
         itemsPerPage: 10
     });
     const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+    const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all');
     const [isSearching, setIsSearching] = useState(false);
     const [selectedCustomer, setSelectedCustomer] = useState(null);
     const [customerOrders, setCustomerOrders] = useState([]);
@@ -30,8 +31,8 @@ const Customers = () => {
     const [sortField, setSortField] = useState('username');
     const [sortDirection, setSortDirection] = useState('asc');
 
-    // Fetch customers with optional search query and pagination
-    const fetchCustomers = useCallback(async (searchQuery = '', page = 1) => {
+    // Fetch customers with optional search query, status filter, and pagination
+    const fetchCustomers = useCallback(async (searchQuery = '', page = 1, status = 'all') => {
         try {
             setIsSearching(true);
             const token = localStorage.getItem('token');
@@ -47,6 +48,10 @@ const Customers = () => {
             if (searchQuery.trim()) {
                 params.append('q', searchQuery.trim());
             }
+            
+            if (status && status !== 'all') {
+                params.append('status', status);
+            }
                 
             const response = await fetch(`/api/admin/customers?${params}`, {
                 headers: {
@@ -58,12 +63,21 @@ const Customers = () => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             
-            const data = await response.json();
-            setCustomers(data.customers || data); // Handle both old and new response format
-            
-            if (data.pagination) {
-                setPagination(data.pagination);
-            }
+                const data = await response.json();
+                console.log('Customers API Response:', data); // Debug log
+                setCustomers(data.customers || data); // Handle both old and new response format
+                
+                if (data.pagination) {
+                    console.log('Setting pagination:', data.pagination); // Debug log
+                    setPagination(data.pagination);
+                } else {
+                    console.log('No pagination data, using fallback'); // Debug log
+                    // Fallback pagination state if backend doesn't provide it
+                    setPagination(prev => ({
+                        ...prev,
+                        currentPage: page
+                    }));
+                }
         } catch (error) {
             console.error('Error fetching customers:', error);
             showError('Failed to fetch customers');
@@ -82,6 +96,11 @@ const Customers = () => {
         } else {
             params.delete('search');
         }
+        if (statusFilter && statusFilter !== 'all') {
+            params.set('status', statusFilter);
+        } else {
+            params.delete('status');
+        }
         setSearchParams(params);
 
         // Inline fetch to avoid dependency issues
@@ -99,6 +118,10 @@ const Customers = () => {
 
                 if (searchTerm.trim()) {
                     pageParams.append('q', searchTerm.trim());
+                }
+                
+                if (statusFilter && statusFilter !== 'all') {
+                    pageParams.append('status', statusFilter);
                 }
 
                 const response = await fetch(`/api/admin/customers?${pageParams}`, {
@@ -124,7 +147,7 @@ const Customers = () => {
         };
 
         loadPage();
-    }, [searchParams, setSearchParams, searchTerm, showError]);
+    }, [searchParams, setSearchParams, searchTerm, statusFilter, showError]);
 
     // Handle search term changes - optimized to prevent input focus loss
     const handleSearchChange = useCallback((newSearchTerm) => {
@@ -133,11 +156,85 @@ const Customers = () => {
         // This prevents the input from losing focus on every keystroke
     }, []);
 
+    // Handle status filter changes
+    const handleStatusFilterChange = useCallback((newStatus) => {
+        setStatusFilter(newStatus);
+        
+        // Update URL parameters
+        const params = new URLSearchParams(searchParams);
+        params.set('page', '1'); // Reset to first page when filtering
+        if (newStatus && newStatus !== 'all') {
+            params.set('status', newStatus);
+        } else {
+            params.delete('status');
+        }
+        if (searchTerm) {
+            params.set('search', searchTerm);
+        } else {
+            params.delete('search');
+        }
+        setSearchParams(params);
+        
+        // Immediately fetch customers with new filter to ensure responsive UI
+        const fetchWithFilter = async () => {
+            try {
+                setIsSearching(true);
+                const token = localStorage.getItem('token');
+                if (!token) {
+                    throw new Error('No token found');
+                }
+
+                const fetchParams = new URLSearchParams({
+                    page: '1',
+                    limit: '10'
+                });
+
+                if (searchTerm.trim()) {
+                    fetchParams.append('q', searchTerm.trim());
+                }
+                
+                if (newStatus && newStatus !== 'all') {
+                    fetchParams.append('status', newStatus);
+                }
+
+                const response = await fetch(`/api/admin/customers?${fetchParams}`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                setCustomers(data.customers || data);
+
+                if (data.pagination) {
+                    setPagination(data.pagination);
+                } else {
+                    setPagination(prev => ({
+                        ...prev,
+                        currentPage: 1
+                    }));
+                }
+            } catch (error) {
+                console.error('Error fetching customers with filter:', error);
+                showError('Failed to fetch customers');
+            } finally {
+                setIsSearching(false);
+            }
+        };
+        
+        fetchWithFilter();
+    }, [searchParams, setSearchParams, searchTerm, showError]);
+
     // Debounced search effect - optimized to prevent input focus loss and infinite loops
     useEffect(() => {
         const timeoutId = setTimeout(() => {
-            if (isUserAdmin && !loadingSettings) {
-                // Fetch customers with current search term - inline the fetch logic to avoid dependency issues
+            if (isUserAdmin && !loadingSettings && searchTerm.trim()) {
+                // Only perform search if there's actually a search term
+                // Don't run if we just changed the status filter (let the filter handler manage that)
                 const performSearch = async () => {
                     try {
                         setIsSearching(true);
@@ -166,10 +263,19 @@ const Customers = () => {
                         }
 
                         const data = await response.json();
+                        console.log('Search API Response:', data); // Debug log
                         setCustomers(data.customers || data);
 
                         if (data.pagination) {
+                            console.log('Setting pagination from search:', data.pagination); // Debug log
                             setPagination(data.pagination);
+                        } else {
+                            console.log('No pagination data from search, using fallback'); // Debug log
+                            // Fallback pagination state if backend doesn't provide it
+                            setPagination(prev => ({
+                                ...prev,
+                                currentPage: 1 // Reset to page 1 when searching
+                            }));
                         }
 
                         // Only update URL if search term is not empty (optional - for bookmarking)
@@ -190,8 +296,59 @@ const Customers = () => {
                         setIsSearching(false);
                     }
                 };
-
+                
                 performSearch();
+            } else if (isUserAdmin && !loadingSettings && !searchTerm.trim()) {
+                // If search term is cleared, reload the current page without search
+                const loadCurrentPage = async () => {
+                    try {
+                        const token = localStorage.getItem('token');
+                        if (!token) {
+                            throw new Error('No token found');
+                        }
+
+                        const page = parseInt(searchParams.get('page')) || 1;
+                        const currentStatus = searchParams.get('status') || 'all';
+                        const params = new URLSearchParams({
+                            page: page.toString(),
+                            limit: '10'
+                        });
+                        
+                        if (currentStatus && currentStatus !== 'all') {
+                            params.append('status', currentStatus);
+                        }
+
+                        const response = await fetch(`/api/admin/customers?${params}`, {
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
+
+                        const data = await response.json();
+                        console.log('Clear search API Response:', data); // Debug log
+                        setCustomers(data.customers || data);
+
+                        if (data.pagination) {
+                            console.log('Setting pagination from clear search:', data.pagination); // Debug log
+                            setPagination(data.pagination);
+                        } else {
+                            console.log('No pagination data from clear search, using fallback'); // Debug log
+                            setPagination(prev => ({
+                                ...prev,
+                                currentPage: page
+                            }));
+                        }
+                    } catch (error) {
+                        console.error('Error clearing search:', error);
+                        showError('Failed to clear search');
+                    }
+                };
+                
+                loadCurrentPage();
             }
         }, 300); // 300ms debounce
 
@@ -217,7 +374,9 @@ const Customers = () => {
 
                 const page = parseInt(searchParams.get('page')) || 1;
                 const search = searchParams.get('search') || '';
+                const status = searchParams.get('status') || 'all';
                 setSearchTerm(search);
+                setStatusFilter(status);
 
                 const params = new URLSearchParams({
                     page: page.toString(),
@@ -226,6 +385,10 @@ const Customers = () => {
 
                 if (search.trim()) {
                     params.append('q', search.trim());
+                }
+                
+                if (status && status !== 'all') {
+                    params.append('status', status);
                 }
 
                 const response = await fetch(`/api/admin/customers?${params}`, {
@@ -239,10 +402,19 @@ const Customers = () => {
                 }
 
                 const data = await response.json();
+                console.log('Load API Response:', data); // Debug log
                 setCustomers(data.customers || data);
 
                 if (data.pagination) {
+                    console.log('Setting pagination from load:', data.pagination); // Debug log
                     setPagination(data.pagination);
+                } else {
+                    console.log('No pagination data from load, using fallback'); // Debug log
+                    // Fallback pagination state if backend doesn't provide it
+                    setPagination(prev => ({
+                        ...prev,
+                        currentPage: page
+                    }));
                 }
             } catch (error) {
                 console.error('Error loading customers:', error);
@@ -275,9 +447,11 @@ const Customers = () => {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             const data = await response.json();
-            setCustomerOrders(data);
+            console.log('Customer orders API response:', data); // Debug log
+            setCustomerOrders(Array.isArray(data) ? data : (data.orders || []));
         } catch (error) {
             console.error('Error fetching customer orders:', error);
+            setCustomerOrders([]); // Ensure it's always an array
         }
     };
 
@@ -476,6 +650,70 @@ const Customers = () => {
                         🔍
                     </span>
                 </div>
+                
+                {/* Status Filter */}
+                <div style={{ marginTop: '15px' }}>
+                    <label style={{
+                        display: 'block',
+                        fontSize: '14px',
+                        fontWeight: '600',
+                        color: '#374151',
+                        marginBottom: '8px',
+                        letterSpacing: '0.025em'
+                    }}>
+                        Filter by Status:
+                    </label>
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                        <button
+                            onClick={() => handleStatusFilterChange('all')}
+                            style={{
+                                padding: '8px 16px',
+                                border: '2px solid #e1e5e9',
+                                borderRadius: '8px',
+                                backgroundColor: statusFilter === 'all' ? '#007bff' : '#ffffff',
+                                color: statusFilter === 'all' ? '#ffffff' : '#374151',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            All Customers
+                        </button>
+                        <button
+                            onClick={() => handleStatusFilterChange('active')}
+                            style={{
+                                padding: '8px 16px',
+                                border: '2px solid #e1e5e9',
+                                borderRadius: '8px',
+                                backgroundColor: statusFilter === 'active' ? '#28a745' : '#ffffff',
+                                color: statusFilter === 'active' ? '#ffffff' : '#374151',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            Active Only
+                        </button>
+                        <button
+                            onClick={() => handleStatusFilterChange('inactive')}
+                            style={{
+                                padding: '8px 16px',
+                                border: '2px solid #e1e5e9',
+                                borderRadius: '8px',
+                                backgroundColor: statusFilter === 'inactive' ? '#dc3545' : '#ffffff',
+                                color: statusFilter === 'inactive' ? '#ffffff' : '#374151',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                fontWeight: '600',
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            Inactive Only
+                        </button>
+                    </div>
+                </div>
                 {isSearching && (
                     <div style={{ marginTop: '10px', color: '#007bff', fontSize: '14px' }}>
                         Searching...
@@ -616,11 +854,11 @@ const Customers = () => {
                                 onClick={() => setShowOrdersModal(false)}
                                 className="close-btn"
                             >
-                                Close
+                                ×
                             </button>
                         </div>
                         
-                        {customerOrders.length === 0 ? (
+                        {!Array.isArray(customerOrders) || customerOrders.length === 0 ? (
                             <p className="no-orders">No orders found for this customer.</p>
                         ) : (
                             <div className="orders-list">

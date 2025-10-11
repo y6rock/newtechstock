@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import axios from 'axios';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
@@ -29,6 +29,7 @@ const ProductsPage = () => {
   const location = useLocation();
   const { addToCart, validateCart } = useCart();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
 
   const getInitialSearchTerm = () => {
@@ -41,6 +42,12 @@ const ProductsPage = () => {
     { category_id: 'All Products', name: 'All Products' }
   ]);
   const [searchTerm, setSearchTerm] = useState(getInitialSearchTerm());
+  const [pagination, setPagination] = useState({
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: 50
+  });
 
   const [selectedCategory, setSelectedCategory] = useState('All Products');
   const [priceRange, setPriceRange] = useState({ min: 0, max: 1000 });
@@ -51,6 +58,50 @@ const ProductsPage = () => {
   
   // Use ref for slider to avoid controlled input issues
   const sliderRef = useRef(null);
+  
+  // Function to fetch products with current filters
+  const fetchProducts = useCallback(async () => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (selectedCategory && selectedCategory !== 'All Products') {
+        params.append('category', selectedCategory);
+        console.log('Adding category filter:', selectedCategory);
+      }
+      
+      if (maxPrice && maxPrice < priceStats.maxPrice) {
+        params.append('maxPrice', maxPrice.toString());
+        console.log('Adding maxPrice filter:', maxPrice);
+      }
+      
+      if (selectedManufacturers.length > 0) {
+        selectedManufacturers.forEach(id => params.append('manufacturer', id));
+        console.log('Adding manufacturer filters:', selectedManufacturers);
+      }
+      
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+        console.log('Adding search filter:', searchTerm);
+      }
+      
+      params.append('page', pagination.currentPage.toString());
+      params.append('limit', '50');
+      
+      console.log('Fetching products with params:', params.toString());
+      const response = await axios.get(`/api/products?${params}`);
+      console.log('ProductsPage: Products fetched with filters:', response.data);
+      
+      if (response.data.products) {
+        setProducts(response.data.products);
+        setPagination(response.data.pagination);
+      } else {
+        // Fallback for old API format
+        setProducts(response.data);
+      }
+    } catch (error) {
+      console.error('ProductsPage: Error fetching products:', error);
+    }
+  }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, priceStats.maxPrice, searchTerm]);
   
   // Handle URL parameter changes
   useEffect(() => {
@@ -80,25 +131,15 @@ const ProductsPage = () => {
   }, []);
 
   useEffect(() => {
-    // Fetch products
-    axios.get('/api/products')
+    // Fetch price statistics first
+    axios.get('/api/products/price-stats')
       .then(res => {
-        console.log('ProductsPage: Products fetched from backend:', res.data);
-        setProducts(res.data);
-        
-        // Calculate price range from products
-        const prices = res.data.map(p => parseFloat(p.price)).filter(p => !isNaN(p));
-        if (prices.length > 0) {
-          const minPrice = Math.min(...prices);
-          const maxPrice = Math.max(...prices);
-          setPriceRange({ min: minPrice, max: maxPrice });
-          setMaxPrice(maxPrice);
-          setPriceStats({ minPrice, maxPrice });
-        }
-
-        // Manufacturers will be fetched separately from suppliers API
+        console.log('ProductsPage: Price stats fetched:', res.data);
+        setPriceStats(res.data);
+        setPriceRange({ min: res.data.minPrice, max: res.data.maxPrice });
+        setMaxPrice(res.data.maxPrice);
       })
-      .catch(err => console.error('ProductsPage: Error fetching products:', err));
+      .catch(err => console.error('ProductsPage: Error fetching price stats:', err));
 
     // Fetch categories
     axios.get('/api/categories/public')
@@ -125,8 +166,34 @@ const ProductsPage = () => {
       .catch(err => console.error('ProductsPage: Error fetching suppliers:', err));
   }, []);
 
+  // Fetch products when filters change (but not when search term changes)
+  useEffect(() => {
+    console.log('fetchProducts useEffect triggered');
+    fetchProducts();
+  }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, fetchProducts]);
+
+  // Debounced search effect - only calls API, doesn't update URL
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (searchTerm !== (searchParams.get('search') || '')) {
+        setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page on search
+        fetchProducts();
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, searchParams, fetchProducts]);
+
+  // Initial fetch after price stats are loaded
+  useEffect(() => {
+    if (priceStats.maxPrice > 0) {
+      console.log('Initial fetch triggered after price stats loaded');
+      fetchProducts();
+    }
+  }, [priceStats.maxPrice, fetchProducts]);
+
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
   };
 
   // Use ref-based handler to avoid React state update conflicts
@@ -134,6 +201,7 @@ const ProductsPage = () => {
     const value = parseFloat(e.target.value);
     console.log('Slider value changed to:', value);
     setMaxPrice(value);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
   };
 
   const handleManufacturerChange = (e) => {
@@ -147,18 +215,26 @@ const ProductsPage = () => {
       }
       return prev.filter(id => id !== value);
     });
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
   };
 
 
-
-  const handleSearchChange = (e) => {
-    setSearchTerm(e.target.value);
-  };
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    // Search is handled by the filteredProducts logic
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+    fetchProducts();
   };
+
+  // Handle search term changes - only updates URL
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    const params = new URLSearchParams();
+    params.set('page', '1'); // Reset to first page on search
+    if (newSearchTerm.trim()) {
+      params.set('search', newSearchTerm);
+    }
+    setSearchParams(params);
+  }, [setSearchParams]);
 
   const handleAddToCart = (product) => {
     if (!username || !user_id) {
@@ -176,91 +252,8 @@ const ProductsPage = () => {
     }, 500);
   };
 
-  // Filter products by category, search term, price range, and manufacturer
-  const filteredProducts = useMemo(() => {
-    return products.filter(product => {
-      const categoryObject = categories.find(c => c.category_id === product.category_id);
-      const categoryName = categoryObject ? categoryObject.name : '';
-      const matchesCategory = selectedCategory === 'All Products' || categoryName === selectedCategory;
-      
-      const productPrice = parseFloat(product.price);
-      const matchesPrice = productPrice <= maxPrice;
+  // Products are now filtered on the backend, so we use products directly
 
-      // Match by supplier_id using selected manufacturer IDs
-      const matchesManufacturer =
-        selectedManufacturers.length === 0 ||
-        selectedManufacturers.includes(String(product.supplier_id));
-      
-      const matchesSearch = searchTerm === '' || 
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.short_description && product.short_description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (product.description && product.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        categoryName.toLowerCase().includes(searchTerm.toLowerCase());
-      
-      return matchesCategory && matchesPrice && matchesManufacturer && matchesSearch;
-    });
-  }, [products, categories, selectedCategory, searchTerm, maxPrice, selectedManufacturers]);
-
-  const FilterSidebar = () => (
-    <div className="filters-sidebar">
-      <div className="filter-group">
-        <h3>Price Range</h3>
-        <div className="price-range-container">
-          <div className="price-range-display">
-            <span className="current-price">
-              Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(maxPrice)}
-            </span>
-          </div>
-          <input
-            type="range"
-            id="priceRange"
-            min={priceRange.min}
-            max={priceRange.max}
-            step="0.01"
-            defaultValue={maxPrice}
-            onChange={handlePriceChange}
-            ref={sliderRef}
-            style={{
-              width: '100%',
-              margin: '15px 0',
-              height: '20px',
-              background: 'transparent',
-              outline: 'none',
-              cursor: 'pointer',
-              WebkitAppearance: 'none',
-              appearance: 'none'
-            }}
-          />
-          <div className="price-range-labels">
-            <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.min)}</span>
-            <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.max)}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="filter-group">
-        <h3>Manufacturer</h3>
-        <div className="manufacturer-checkboxes">
-          {manufacturers.map(manufacturer => {
-            const isChecked = selectedManufacturers.includes(manufacturer.name);
-            return (
-              <div key={manufacturer.id} className="manufacturer-checkbox">
-                <label>
-                  <input
-                    type="checkbox"
-                    value={manufacturer.name}
-                    checked={isChecked}
-                    onChange={handleManufacturerChange}
-                  />
-                  <span className="checkbox-label">{manufacturer.name}</span>
-                </label>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="products-page-container">
@@ -279,7 +272,7 @@ const ProductsPage = () => {
               type="text"
               placeholder="Search products, categories, or descriptions..."
               value={searchTerm}
-              onChange={handleSearchChange}
+              onChange={(e) => setSearchTerm(e.target.value)}
               className="search-input"
             />
             {searchTerm && (
@@ -298,7 +291,7 @@ const ProductsPage = () => {
         </form>
         {searchTerm && (
           <div className="search-results-info">
-            Found {filteredProducts.length} product{filteredProducts.length !== 1 ? 's' : ''} for "{searchTerm}"
+            Found {products.length} product{products.length !== 1 ? 's' : ''} for "{searchTerm}"
           </div>
         )}
       </div>
@@ -431,7 +424,7 @@ const ProductsPage = () => {
 
         <div className="product-grid-container">
           <div className="product-grid">
-            {filteredProducts.length === 0 ? (
+            {products.length === 0 ? (
               <div className="no-products-message">
                 <div className="no-products-icon">🔍</div>
                 <h3>No Products Found</h3>
@@ -464,7 +457,7 @@ const ProductsPage = () => {
                 </button>
               </div>
             ) : (
-              filteredProducts.map(product => {
+              products.map(product => {
                 // Enhanced inventory validation
                 const hasValidStock = product.stock && product.stock >= 0;
                 const isOutOfStock = !hasValidStock || product.stock === 0;

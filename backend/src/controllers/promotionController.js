@@ -93,6 +93,7 @@ exports.getActivePromotions = async (req, res) => {
             SELECT * FROM promotions 
             WHERE start_date <= CURDATE() 
             AND end_date >= CURDATE()
+            AND is_active = TRUE
             ORDER BY end_date ASC
         `;
         const [promotions] = await db.query(sql);
@@ -367,18 +368,6 @@ exports.applyPromotionAdvanced = async (req, res) => {
                     discounted_items.push(item.product_id);
                 });
             }
-        } else if (promotion.type === 'buy_x_get_y') {
-            // Buy X Get Y Free logic
-            const buyQuantity = promotion.buy_quantity || 1;
-            const getQuantity = promotion.get_quantity || 1;
-            
-            applicableItems.forEach(item => {
-                const sets = Math.floor(item.quantity / buyQuantity);
-                const freeItems = sets * getQuantity;
-                const freeValue = Math.min(freeItems, item.quantity) * item.price;
-                discount += freeValue;
-                discounted_items.push(item.product_id);
-            });
         }
 
         res.json({
