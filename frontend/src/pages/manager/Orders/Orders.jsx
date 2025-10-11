@@ -177,7 +177,7 @@ const Orders = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, fetchOrdersAndStats]);
+  }, [searchTerm, isUserAdmin]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {

@@ -121,7 +121,7 @@ const Categories = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, fetchCategories]);
+  }, [searchTerm, isUserAdmin]);
 
 
   // Client-side filtering disabled - using server-side pagination instead

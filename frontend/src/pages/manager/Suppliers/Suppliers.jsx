@@ -123,7 +123,7 @@ const Suppliers = () => {
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, fetchSuppliers]);
+  }, [searchTerm, isUserAdmin]);
 
   // Sorting function
   const handleSort = (field) => {
