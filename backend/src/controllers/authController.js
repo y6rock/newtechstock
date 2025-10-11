@@ -57,6 +57,44 @@ exports.register = async (req, res) => {
         return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
     
+    // Enhanced phone validation
+    if (phone && phone.trim()) {
+        // Remove all non-digit characters for validation
+        const phoneDigits = phone.replace(/\D/g, '');
+        
+        // Check if phone has valid length
+        if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+            return res.status(400).json({ message: 'Phone number must be between 7 and 15 digits. Examples: +1234567890, (123) 456-7890, 123-456-7890' });
+        }
+        
+        // Check for common invalid patterns
+        if (phoneDigits.length === phoneDigits.split('').filter(d => d === phoneDigits[0]).length) {
+            return res.status(400).json({ message: 'Phone number cannot be all the same digit' });
+        }
+        
+        // Check for sequential numbers (like 1234567890)
+        const isSequential = phoneDigits.split('').every((digit, index) => {
+            if (index === 0) return true;
+            const currentDigit = parseInt(digit);
+            const prevDigit = parseInt(phoneDigits[index - 1]);
+            return currentDigit === (prevDigit + 1) % 10; // Handle wrap-around (9 -> 0)
+        });
+        
+        if (isSequential && phoneDigits.length >= 8) {
+            return res.status(400).json({ message: 'Phone number cannot be sequential numbers' });
+        }
+    }
+    
+    // Name length validation
+    if (name.length > 70) {
+        return res.status(400).json({ message: 'Name must be 70 characters or less' });
+    }
+    
+    // City length validation
+    if (city.length > 100) {
+        return res.status(400).json({ message: 'City must be 100 characters or less' });
+    }
+    
     try {
         // Check if user already exists
         const [existingUsers] = await db.query('SELECT user_id FROM users WHERE email = ?', [email]);

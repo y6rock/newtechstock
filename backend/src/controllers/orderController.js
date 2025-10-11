@@ -35,17 +35,23 @@ exports.createOrder = async (req, res) => {
             }
         }
 
-        const orderSql = `
-            INSERT INTO orders (user_id, total_amount, shipping_address, payment_method, promotion_id)
-            VALUES (?, ?, ?, ?, ?)
-        `;
-        const [orderResult] = await connection.query(orderSql, [user_id, total_amount, shipping_address, payment_method, promotion_id]);
+        // Determine initial order status based on payment method
+        const initialStatus = payment_method === 'paypal' ? 'pending' : 'confirmed';
         
-        // If PayPal payment, you might want to store the payment ID in a separate table
+        const orderSql = `
+            INSERT INTO orders (user_id, total_amount, shipping_address, payment_method, promotion_id, status)
+            VALUES (?, ?, ?, ?, ?, ?)
+        `;
+        const [orderResult] = await connection.query(orderSql, [user_id, total_amount, shipping_address, payment_method, promotion_id, initialStatus]);
+        
+        const orderId = orderResult.insertId;
+        
+        // Store PayPal payment ID if provided
         if (payment_method === 'paypal' && paypal_payment_id) {
             console.log('PayPal payment processed:', paypal_payment_id);
+            // Store PayPal payment ID in a separate table or add a field to orders table
+            // For now, we'll log it and handle it in the PayPal callback
         }
-        const orderId = orderResult.insertId;
 
         const orderItemsSql = `
             INSERT INTO order_items (order_id, product_id, quantity, price)
@@ -141,6 +147,32 @@ exports.createOrder = async (req, res) => {
     }
 };
 
+// Update order status after successful PayPal payment
+exports.updateOrderStatusAfterPayment = async (req, res) => {
+    const { orderId } = req.params;
+    const { status, paypal_payment_id } = req.body;
+    
+    if (!status) {
+        return res.status(400).json({ message: 'Status is required.' });
+    }
+    
+    try {
+        const sql = `UPDATE orders SET status = ? WHERE order_id = ?`;
+        const [result] = await db.query(sql, [status, orderId]);
+        
+        if (result.affectedRows === 0) {
+            return res.status(404).json({ message: 'Order not found.' });
+        }
+        
+        console.log(`Order ${orderId} status updated to ${status}${paypal_payment_id ? ` with PayPal payment ID: ${paypal_payment_id}` : ''}`);
+        
+        res.json({ message: 'Order status updated successfully' });
+    } catch (err) {
+        console.error(`Error updating status for order ${orderId}:`, err);
+        res.status(500).json({ message: 'Database error', details: err.message });
+    }
+};
+
 // Get order history for a user
 exports.getOrderHistory = async (req, res) => {
     const { userId } = req.params;
@@ -221,7 +253,7 @@ exports.updateOrderStatus = async (req, res) => {
     }
 };
 
-// Get single order details (admin only)
+// Get single order details (user can view their own orders, admin can view all)
 exports.getOrderDetails = async (req, res) => {
     const { orderId } = req.params;
     try {
@@ -246,9 +278,9 @@ exports.getOrderDetails = async (req, res) => {
             JOIN order_items oi ON o.order_id = oi.order_id
             JOIN products p ON oi.product_id = p.product_id
             LEFT JOIN promotions pr ON o.promotion_id = pr.promotion_id
-            WHERE o.order_id = ?
+            WHERE o.order_id = ? AND (o.user_id = ? OR ? = 'admin')
         `;
-        const [rows] = await db.query(sql, [orderId]);
+        const [rows] = await db.query(sql, [orderId, req.user.user_id, req.user.role]);
 
         if (rows.length === 0) {
             return res.status(404).json({ message: 'Order not found.' });

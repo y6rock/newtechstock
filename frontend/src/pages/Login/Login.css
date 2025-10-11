@@ -97,6 +97,19 @@
   background-color: #fff5f5;
 }
 
+.form-input.error:focus {
+  border-color: #dc3545;
+  box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1);
+}
+
+.field-error {
+  display: block;
+  color: #dc3545;
+  font-size: 0.875rem;
+  margin-top: 6px;
+  font-weight: 500;
+}
+
 /* Form Icons */
 .form-icon {
   position: absolute;

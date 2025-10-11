@@ -21,6 +21,7 @@ const Profile = () => {
   const [profileError, setProfileError] = useState(null);
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
+  const [validationErrors, setValidationErrors] = useState({});
 
   // Function to generate initials from user's name
   const generateInitials = (name) => {
@@ -102,12 +103,82 @@ const Profile = () => {
     fetchProfileData();
   }, [user_id, loadingSettings, navigate]);
 
+  // Validation functions
+  const validateField = (name, value) => {
+    switch (name) {
+      case 'name':
+        if (!value.trim()) return 'Name is required';
+        if (value.length > 70) return 'Name must be 70 characters or less';
+        return '';
+      case 'phone':
+        if (value && value.trim()) {
+          const phoneDigits = value.replace(/\D/g, '');
+          
+          // Check if phone has valid length
+          if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+            return 'Phone number must be between 7 and 15 digits. Examples: +1234567890, (123) 456-7890';
+          }
+          
+          // Check for common invalid patterns
+          if (phoneDigits.length === phoneDigits.split('').filter(d => d === phoneDigits[0]).length) {
+            return 'Phone number cannot be all the same digit';
+          }
+          
+          // Check for sequential numbers (like 1234567890)
+          const isSequential = phoneDigits.split('').every((digit, index) => {
+            if (index === 0) return true;
+            const currentDigit = parseInt(digit);
+            const prevDigit = parseInt(phoneDigits[index - 1]);
+            return currentDigit === (prevDigit + 1) % 10; // Handle wrap-around (9 -> 0)
+          });
+          
+          if (isSequential && phoneDigits.length >= 8) {
+            return 'Phone number cannot be sequential numbers';
+          }
+        }
+        return '';
+      case 'address':
+        if (value && value.length > 100) return 'Address must be 100 characters or less';
+        return '';
+      default:
+        return '';
+    }
+  };
+
+  // Phone formatting function
+  const formatPhoneNumber = (value) => {
+    // Remove all non-digit characters
+    const phoneNumber = value.replace(/\D/g, '');
+    
+    // Format based on length
+    if (phoneNumber.length <= 3) {
+      return phoneNumber;
+    } else if (phoneNumber.length <= 6) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    } else if (phoneNumber.length <= 10) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
+    } else {
+      return `+${phoneNumber.slice(0, phoneNumber.length - 10)} (${phoneNumber.slice(-10, -7)}) ${phoneNumber.slice(-7, -4)}-${phoneNumber.slice(-4)}`;
+    }
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
+    // Format phone number as user types
+    let formattedValue = value;
+    if (name === 'phone') {
+      formattedValue = formatPhoneNumber(value);
+    }
+    
     setProfileData(prev => ({
       ...prev,
-      [name]: value
+      [name]: formattedValue
     }));
+    
+    // Validate the field
+    const error = validateField(name, formattedValue);
+    setValidationErrors(prev => ({ ...prev, [name]: error }));
   };
 
   const handleImageFileChange = (e) => {
@@ -122,9 +193,18 @@ const Profile = () => {
 
   const handleUpdateProfile = async () => {
     try {
-      // Validate name length
-      if (profileData.name && profileData.name.length > 70) {
-        showError('Name must be 70 characters or less');
+      // Validate all fields
+      const errors = {};
+      Object.keys(profileData).forEach(key => {
+        if (key !== 'profilePic' && key !== 'email') { // Skip email and profilePic
+          const error = validateField(key, profileData[key]);
+          if (error) errors[key] = error;
+        }
+      });
+
+      if (Object.keys(errors).length > 0) {
+        setValidationErrors(errors);
+        showError('Please fix the validation errors before updating');
         return;
       }
       
@@ -235,12 +315,13 @@ const Profile = () => {
                   name="name"
                   value={profileData.name}
                   onChange={handleChange}
-                  className="form-input"
+                  className={`form-input ${validationErrors.name ? 'error' : ''}`}
                   maxLength={70}
                 />
                 <div className="character-count">
                   {profileData.name ? profileData.name.length : 0}/70 characters
                 </div>
+                {validationErrors.name && <span className="field-error">{validationErrors.name}</span>}
               </div>
               <div className="form-field">
                 <label className="form-label">
@@ -248,12 +329,14 @@ const Profile = () => {
                   Phone Number
                 </label>
                 <input
-                  type="text"
+                  type="tel"
                   name="phone"
+                  placeholder="(123) 456-7890"
                   value={profileData.phone}
                   onChange={handleChange}
-                  className="form-input"
+                  className={`form-input ${validationErrors.phone ? 'error' : ''}`}
                 />
+                {validationErrors.phone && <span className="field-error">{validationErrors.phone}</span>}
               </div>
               <div className="form-field">
                 <label className="form-label">
@@ -265,8 +348,9 @@ const Profile = () => {
                   name="address"
                   value={profileData.address}
                   onChange={handleChange}
-                  className="form-input"
+                  className={`form-input ${validationErrors.address ? 'error' : ''}`}
                 />
+                {validationErrors.address && <span className="field-error">{validationErrors.address}</span>}
               </div>
             </div>
             <button

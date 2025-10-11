@@ -27,3 +27,27 @@
 .order-confirmation-link:hover {
     text-decoration: underline;
 }
+
+.order-confirmation-loading {
+    color: #666;
+    font-style: italic;
+}
+
+.order-confirmation-error {
+    color: #dc3545;
+    font-weight: 500;
+    margin: 15px 0;
+}
+
+.order-confirmation-details {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin: 20px auto;
+    max-width: 400px;
+    border: 1px solid #e9ecef;
+}
+
+.order-confirmation-details .order-confirmation-message {
+    margin: 10px 0;
+}

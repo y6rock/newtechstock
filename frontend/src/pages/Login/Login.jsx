@@ -12,8 +12,42 @@ const Login = () => {
   const [remainingAttempts, setRemainingAttempts] = useState(null);
   const [remainingTime, setRemainingTime] = useState(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [validationErrors, setValidationErrors] = useState({});
   const navigate = useNavigate();
   const { reEvaluateToken } = useSettings();
+
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim()) {
+      return 'Email is required';
+    }
+    if (!emailRegex.test(email)) {
+      return 'Please enter a valid email address';
+    }
+    return '';
+  };
+
+  const validatePassword = (password) => {
+    if (!password) {
+      return 'Password is required';
+    }
+    return '';
+  };
+
+  const handleEmailChange = (e) => {
+    const value = e.target.value;
+    setEmail(value);
+    const error = validateEmail(value);
+    setValidationErrors(prev => ({ ...prev, email: error }));
+  };
+
+  const handlePasswordChange = (e) => {
+    const value = e.target.value;
+    setPassword(value);
+    const error = validatePassword(value);
+    setValidationErrors(prev => ({ ...prev, password: error }));
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -22,8 +56,12 @@ const Login = () => {
     setRemainingTime(null);
     setIsSubmitting(true);
 
-    if (!email || !password) {
-      setError('Please enter both email and password.');
+    // Validate all fields
+    const emailError = validateEmail(email);
+    const passwordError = validatePassword(password);
+    
+    if (emailError || passwordError) {
+      setValidationErrors({ email: emailError, password: passwordError });
       setIsSubmitting(false);
       return;
     }
@@ -109,10 +147,11 @@ const Login = () => {
               type="email"
               placeholder="Enter your email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={handleEmailChange}
               required
-              className="form-input"
+              className={`form-input ${validationErrors.email ? 'error' : ''}`}
             />
+            {validationErrors.email && <span className="field-error">{validationErrors.email}</span>}
           </div>
 
           <div className="form-group">
@@ -121,10 +160,10 @@ const Login = () => {
               type={showPassword ? 'text' : 'password'}
               placeholder="Enter your password"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={handlePasswordChange}
               autoComplete="off"
               required
-              className="form-input"
+              className={`form-input ${validationErrors.password ? 'error' : ''}`}
             />
             <span 
               onClick={() => setShowPassword(!showPassword)} 
@@ -132,6 +171,7 @@ const Login = () => {
             >
               {showPassword ? <FaEyeSlash /> : <FaEye />}
             </span>
+            {validationErrors.password && <span className="field-error">{validationErrors.password}</span>}
           </div>
 
           <div className="forgot-password-link">

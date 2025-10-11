@@ -21,6 +21,24 @@ const Checkout = () => {
     // eslint-disable-next-line no-unused-vars
     const [showPayPal, setShowPayPal] = useState(false);
     const [paypalLoading, setPaypalLoading] = useState(false);
+    const [paypalOrderId, setPaypalOrderId] = useState(null);
+
+    // Function to handle order cancellation when PayPal payment fails
+    const handleOrderCancellation = async (orderId) => {
+        if (!orderId) return;
+        
+        try {
+            const token = localStorage.getItem('token');
+            await axios.put(`/api/orders/${orderId}/payment-status`, {
+                status: 'cancelled'
+            }, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            console.log('Order cancelled due to payment failure');
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+        }
+    };
 
     const handlePlaceOrder = async (e) => {
         e.preventDefault();
@@ -102,6 +120,7 @@ const Checkout = () => {
         setIsPlacingOrder(true);
         setOrderError(null);
 
+        // First, create the order with pending status
         const orderData = {
             user_id,
             items: cartItems.map(item => ({
@@ -124,10 +143,28 @@ const Checkout = () => {
             
             const orderId = response.data.orderId;
             console.log('Order created with PayPal payment, ID:', orderId);
+            setPaypalOrderId(orderId);
 
-            showSuccess('Order placed successfully with PayPal!');
-            clearCart();
-            navigate(`/order-confirmation/${orderId}`);
+            // Update order status to confirmed after successful PayPal payment
+            try {
+                await axios.put(`/api/orders/${orderId}/payment-status`, {
+                    status: 'confirmed',
+                    paypal_payment_id: details.id
+                }, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                console.log('Order status updated to confirmed');
+                
+                showSuccess('Order placed successfully with PayPal!');
+                clearCart();
+                navigate(`/order-confirmation/${orderId}`);
+            } catch (statusError) {
+                console.error('Error updating order status:', statusError);
+                // If status update fails, cancel the order
+                await handleOrderCancellation(orderId);
+                setOrderError('Payment verification failed. Please try again.');
+                showError('Payment verification failed. Please try again.');
+            }
         } catch (error) {
             const message = error.response?.data?.message || 'There was an issue placing your order.';
             console.error('PayPal order placement error:', error);
@@ -144,6 +181,7 @@ const Checkout = () => {
             showError(`Error: ${message}`);
         } finally {
             setIsPlacingOrder(false);
+            setPaypalOrderId(null);
         }
     };
     
@@ -291,12 +329,22 @@ const Checkout = () => {
                                 onError={(err) => {
                                     console.error('PayPal error:', err);
                                     setPaypalLoading(false);
-                                    setOrderError('PayPal payment failed. Please try again.');
+                                    setOrderError('PayPal payment failed. Please try again or use a different payment method.');
+                                    // Cancel the order if it was created
+                                    if (paypalOrderId) {
+                                        handleOrderCancellation(paypalOrderId);
+                                        setPaypalOrderId(null);
+                                    }
                                 }}
                                 onCancel={() => {
-                                    console.log('PayPal payment cancelled');
+                                    console.log('PayPal payment cancelled by user');
                                     setPaypalLoading(false);
-                                    setOrderError('PayPal payment was cancelled.');
+                                    setOrderError('Payment was cancelled. You can try again or choose a different payment method.');
+                                    // Cancel the order if it was created
+                                    if (paypalOrderId) {
+                                        handleOrderCancellation(paypalOrderId);
+                                        setPaypalOrderId(null);
+                                    }
                                 }}
                                 onInit={() => {
                                     console.log('PayPal initialized');
