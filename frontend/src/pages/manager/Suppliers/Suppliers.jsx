@@ -85,11 +85,55 @@ const Suppliers = () => {
       return;
     }
 
-    const page = parseInt(searchParams.get('page')) || 1;
-    const search = searchParams.get('search') || '';
-    setSearchTerm(search);
-    fetchSuppliers(search, page);
-  }, [isUserAdmin, loadingSettings, navigate, fetchSuppliers]);
+    // Inline fetch to avoid dependency issues
+    const loadSuppliers = async () => {
+      try {
+        setLoadingSuppliers(true);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No token found');
+        }
+        
+        const page = parseInt(searchParams.get('page')) || 1;
+        const search = searchParams.get('search') || '';
+        setSearchTerm(search);
+        
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: '10'
+        });
+        
+        if (search.trim()) {
+          params.append('search', search.trim());
+        }
+        
+        const response = await fetch(`/api/suppliers?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const suppliersData = data.suppliers || data;
+        setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
+        
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+      } catch (error) {
+        console.error('Error fetching suppliers:', error);
+        setError('Failed to fetch suppliers');
+      } finally {
+        setLoadingSuppliers(false);
+      }
+    };
+
+    loadSuppliers();
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {

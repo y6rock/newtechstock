@@ -135,15 +135,65 @@ const Orders = () => {
   useEffect(() => {
     if (!loadingSettings) {
       if (isUserAdmin) {
-        const page = parseInt(searchParams.get('page')) || 1;
-        const search = searchParams.get('search') || '';
-        setSearchTerm(search);
-        fetchOrdersAndStats(search, page);
+        // Inline fetch to avoid dependency issues
+        const loadOrders = async () => {
+          try {
+            setLoading(true);
+            setError(null);
+            const token = localStorage.getItem('token');
+            const headers = {
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            };
+
+            const page = parseInt(searchParams.get('page')) || 1;
+            const search = searchParams.get('search') || '';
+            setSearchTerm(search);
+
+            const params = new URLSearchParams({
+              page: page.toString(),
+              limit: '10'
+            });
+
+            if (search.trim()) {
+              params.append('search', search.trim());
+            }
+
+            const [ordersRes, statsRes] = await Promise.all([
+              fetch(`/api/orders/admin?${params}`, { headers }),
+              fetch('/api/orders/admin/stats', { headers })
+            ]);
+
+            if (!ordersRes.ok || !statsRes.ok) {
+              throw new Error('Failed to fetch orders data.');
+            }
+
+            const [ordersData, distributionData] = await Promise.all([
+              ordersRes.json(),
+              statsRes.json()
+            ]);
+
+            const orders = ordersData.orders || ordersData;
+            const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
+            
+            setOrders(orders);
+            setPagination(paginationData);
+            const processedStats = processStats(distributionData);
+            setStats(processedStats);
+
+          } catch (err) {
+            setError(err.message || 'Failed to fetch orders data.');
+          } finally {
+            setLoading(false);
+          }
+        };
+
+        loadOrders();
       } else {
         navigate('/');
       }
     }
-  }, [isUserAdmin, loadingSettings, navigate, searchParams, fetchOrdersAndStats]);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {

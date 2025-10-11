@@ -83,11 +83,55 @@ const Categories = () => {
       return;
     }
 
-    const page = parseInt(searchParams.get('page')) || 1;
-    const search = searchParams.get('search') || '';
-    setSearchTerm(search);
-    fetchCategories(search, page);
-  }, [isUserAdmin, loadingSettings, navigate, searchParams, fetchCategories]);
+    // Inline fetch to avoid dependency issues
+    const loadCategories = async () => {
+      try {
+        setLoadingCategories(true);
+        const token = localStorage.getItem('token');
+        if (!token) {
+          throw new Error('No token found');
+        }
+        
+        const page = parseInt(searchParams.get('page')) || 1;
+        const search = searchParams.get('search') || '';
+        setSearchTerm(search);
+        
+        const params = new URLSearchParams({
+          page: page.toString(),
+          limit: '10'
+        });
+        
+        if (search.trim()) {
+          params.append('search', search.trim());
+        }
+        
+        const response = await fetch(`/api/categories?${params}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const categoriesData = data.categories || data;
+        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
+        
+        if (data.pagination) {
+          setPagination(data.pagination);
+        }
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        setError('Failed to fetch categories');
+      } finally {
+        setLoadingCategories(false);
+      }
+    };
+
+    loadCategories();
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
