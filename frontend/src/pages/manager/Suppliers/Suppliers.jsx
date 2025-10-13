@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Suppliers.css';
 
@@ -12,15 +12,13 @@ const Suppliers = () => {
   const navigate = useNavigate();
 
   const [suppliers, setSuppliers] = useState([]);
-  const [filteredSuppliers, setFilteredSuppliers] = useState([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const searchInputRef = useRef(null);
   const [sortField, setSortField] = useState('supplier_id');
   const [sortDirection, setSortDirection] = useState('asc');
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
-  const [searchParams, setSearchParams] = useSearchParams();
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
@@ -33,80 +31,41 @@ const Suppliers = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
 
-  // Fetch suppliers function
-  const fetchSuppliers = useCallback(async (searchQuery = '', page = 1) => {
-    try {
-      setLoadingSuppliers(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token found');
-      }
-      
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10'
-      });
-      
-      if (searchQuery.trim()) {
-        params.append('search', searchQuery.trim());
-      }
-      
-      const response = await fetch(`/api/suppliers?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setSuppliers(data.suppliers || data);
-      
-      if (data.pagination) {
-        setPagination(data.pagination);
-      }
-    } catch (error) {
-      console.error('Error fetching suppliers:', error);
-      setError('Failed to fetch suppliers');
-    } finally {
-      setLoadingSuppliers(false);
-    }
-  }, []);
-
-  // Initial load
+  // Auto-refocus search input after re-renders to maintain typing experience
   useEffect(() => {
-    if (loadingSettings) {
-      return; // Wait for settings to load
+    if (searchInputRef.current && searchTerm) {
+      searchInputRef.current.focus();
     }
-    if (!isUserAdmin) {
-      navigate('/'); // Redirect if not admin
+  });
+
+  // Ref-based search implementation - no re-renders during typing
+  useEffect(() => {
+    if (!isUserAdmin || loadingSettings) {
+      if (!loadingSettings && !isUserAdmin) {
+        navigate('/');
+      }
       return;
     }
 
-    // Inline fetch to avoid dependency issues
-    const loadSuppliers = async () => {
+    const timeoutId = setTimeout(async () => {
       try {
         setLoadingSuppliers(true);
+        setError(null);
+        
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('No token found');
         }
-        
-        const page = parseInt(searchParams.get('page')) || 1;
-        const search = searchParams.get('search') || '';
-        setSearchTerm(search);
-        
+
         const params = new URLSearchParams({
-          page: page.toString(),
+          page: pagination.currentPage.toString(),
           limit: '10'
         });
-        
-        if (search.trim()) {
-          params.append('search', search.trim());
+
+        if (searchTerm.trim()) {
+          params.append('search', searchTerm.trim());
         }
-        
+
         const response = await fetch(`/api/suppliers?${params}`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -130,44 +89,64 @@ const Suppliers = () => {
       } finally {
         setLoadingSuppliers(false);
       }
-    };
+    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
-    loadSuppliers();
-  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
 
-  // Handle page changes
-  const handlePageChange = useCallback((newPage) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', newPage.toString());
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
+  // Handle page changes - inline fetch to avoid dependency issues
+  const handlePageChange = useCallback(async (newPage) => {
+    try {
+      setLoadingSuppliers(true);
+      setError(null);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      const params = new URLSearchParams({
+        page: newPage.toString(),
+        limit: '10'
+      });
+
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+
+      const response = await fetch(`/api/suppliers?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setSuppliers(data.suppliers || data);
+      
+      if (data.pagination) {
+        setPagination(data.pagination);
+      } else {
+        setPagination(prev => ({
+          ...prev,
+          currentPage: newPage
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      setError('Failed to fetch suppliers');
+    } finally {
+      setLoadingSuppliers(false);
     }
-    setSearchParams(params);
-    fetchSuppliers(searchTerm, newPage);
-  }, [searchParams, setSearchParams, searchTerm, fetchSuppliers]);
+  }, [searchTerm]);
 
-  // Handle search changes with debouncing - only updates state, not URL
+  // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    // Don't update URL params here - let the debounced effect handle it
-    // This prevents the input from losing focus on every keystroke
   }, []);
-
-  // Debounced search effect - optimized to prevent input focus loss
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isUserAdmin && searchTerm.trim()) {
-        // Only perform search if there's actually a search term
-        fetchSuppliers(searchTerm, 1);
-      } else if (isUserAdmin && !searchTerm.trim()) {
-        // Clear search - fetch all suppliers
-        fetchSuppliers('', 1);
-      }
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin]);
 
   // Sorting function
   const handleSort = (field) => {
@@ -249,9 +228,8 @@ const Suppliers = () => {
       setNewSupplierAddress('');
       setShowAddModal(false);
       setError(null);
-      const currentPage = searchParams.get('page') || 1;
-      const currentSearch = searchParams.get('search') || '';
-      fetchSuppliers(currentSearch, currentPage);
+      // Refresh the current page
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Supplier added successfully!');
     } catch (err) {
       console.error('Error adding supplier:', err);
@@ -293,9 +271,8 @@ const Suppliers = () => {
       setEditedSupplierAddress('');
       setShowEditModal(false);
       setError(null);
-      const currentPage = searchParams.get('page') || 1;
-      const currentSearch = searchParams.get('search') || '';
-      fetchSuppliers(currentSearch, currentPage);
+      // Refresh the current page
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Supplier updated successfully!');
     } catch (err) {
       console.error('Error updating supplier:', err);
@@ -332,9 +309,8 @@ const Suppliers = () => {
           await axios.delete(`/api/suppliers/${supplierId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const currentPage = searchParams.get('page') || 1;
-          const currentSearch = searchParams.get('search') || '';
-          fetchSuppliers(currentSearch, currentPage);
+          // Refresh the current page
+          setPagination(prev => ({ ...prev, currentPage: 1 }));
           showSuccess('Supplier deactivated successfully!');
         } catch (err) {
           console.error('Error deleting supplier:', err);
@@ -354,9 +330,8 @@ const Suppliers = () => {
           await axios.patch(`/api/suppliers/${supplierId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const currentPage = searchParams.get('page') || 1;
-          const currentSearch = searchParams.get('search') || '';
-          fetchSuppliers(currentSearch, currentPage);
+          // Refresh the current page
+          setPagination(prev => ({ ...prev, currentPage: 1 }));
           showSuccess('Supplier restored successfully!');
         } catch (err) {
           console.error('Error restoring supplier:', err);
@@ -401,10 +376,29 @@ const Suppliers = () => {
                 type="text"
                 placeholder="Search suppliers by name or email..."
                 value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="search-input"
+                onChange={(e) => handleSearchChange(e.target.value)}
+                ref={searchInputRef}
+                style={{
+                  width: '100%',
+                  maxWidth: '400px',
+                  padding: '14px 20px 14px 45px',
+                  border: '2px solid #e1e5e9',
+                  borderRadius: '12px',
+                  fontSize: '16px',
+                  backgroundColor: '#ffffff',
+                  outline: 'none',
+                  transition: 'all 0.3s ease'
+                }}
               />
-              <span className="search-icon">🔍</span>
+              <span style={{
+                position: 'absolute',
+                left: '15px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                color: '#9ca3af',
+                fontSize: '16px',
+                pointerEvents: 'none'
+              }}>🔍</span>
             </div>
             {searchTerm && (
               <div className="search-results-count">
@@ -413,19 +407,6 @@ const Suppliers = () => {
             )}
           </div>
           
-          <div className="status-filter-group">
-            <label htmlFor="status-filter" className="filter-label">Filter by Status</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="filter-select"
-            >
-              <option value="all">All Suppliers ({suppliers.length})</option>
-              <option value="active">Active ({suppliers.filter(s => s.isActive === true).length})</option>
-              <option value="inactive">Inactive ({suppliers.filter(s => s.isActive === false).length})</option>
-            </select>
-          </div>
         </div>
       </div>
 

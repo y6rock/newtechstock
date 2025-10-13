@@ -1,6 +1,6 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { formatPrice } from '../../../utils/currency';
 import { formatDate, formatDateTime } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
@@ -13,13 +13,11 @@ const Orders = () => {
   const [error, setError] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [userFilter, setUserFilter] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const searchInputRef = useRef(null);
   const [sortField, setSortField] = useState('order_date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
-  const [searchParams, setSearchParams] = useSearchParams();
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
   
@@ -65,7 +63,7 @@ const Orders = () => {
   };
 
   // Sort orders
-  const sortOrders = useCallback((ordersToSort) => {
+  const sortOrders = (ordersToSort) => {
     return [...ordersToSort].sort((a, b) => {
       let aValue = a[sortField];
       let bValue = b[sortField];
@@ -89,145 +87,121 @@ const Orders = () => {
       if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
       return 0;
     });
-  }, [sortField, sortDirection]);
+  };
 
 
-  const fetchOrdersAndStats = useCallback(async (searchQuery = '', page = 1) => {
-    setLoading(true);
-    setError(null);
+  // Auto-refocus search input after re-renders to maintain typing experience
+  useEffect(() => {
+    if (searchInputRef.current && searchTerm) {
+      searchInputRef.current.focus();
+    }
+  });
+
+  // Ref-based search implementation - no re-renders during typing
+  useEffect(() => {
+    if (!isUserAdmin || loadingSettings) {
+      if (!loadingSettings && !isUserAdmin) {
+        navigate('/');
+      }
+      return;
+    }
+
+    const timeoutId = setTimeout(async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const token = localStorage.getItem('token');
+        const headers = { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        const ordersUrl = `/api/admin/orders?page=${pagination.currentPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+        const [ordersRes, distributionRes] = await Promise.all([
+          fetch(ordersUrl, { headers }),
+          fetch('/api/admin/order-status-distribution', { headers })
+        ]);
+
+        if (!ordersRes.ok || !distributionRes.ok) {
+          throw new Error('Failed to fetch orders data');
+        }
+
+        const ordersData = await ordersRes.json();
+        const distributionData = await distributionRes.json();
+
+        // Handle both old format (array) and new format (object with orders array)
+        const orders = ordersData.orders || ordersData;
+        const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
+        
+        setOrders(orders);
+        setPagination(paginationData);
+        const processedStats = processStats(distributionData);
+        setStats(processedStats);
+
+      } catch (err) {
+        setError(err.message || 'Failed to fetch orders data.');
+      } finally {
+        setLoading(false);
+      }
+    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
+
+  // Handle page changes - inline fetch to avoid dependency issues
+  const handlePageChange = useCallback(async (newPage) => {
     try {
+      setLoading(true);
+      setError(null);
+      
       const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+
       const headers = { 
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json'
       };
 
-      const ordersUrl = `/api/admin/orders?page=${page}&limit=10${searchQuery ? `&search=${encodeURIComponent(searchQuery)}` : ''}`;
+      const ordersUrl = `/api/admin/orders?page=${newPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
       const [ordersRes, distributionRes] = await Promise.all([
         fetch(ordersUrl, { headers }),
         fetch('/api/admin/order-status-distribution', { headers })
       ]);
 
       if (!ordersRes.ok || !distributionRes.ok) {
-        throw new Error('Failed to fetch orders data');
+        throw new Error(`HTTP error! status: ${ordersRes.status}`);
       }
 
-      const ordersData = await ordersRes.json();
-      const distributionData = await distributionRes.json();
+      const [ordersData, distributionData] = await Promise.all([
+        ordersRes.json(),
+        distributionRes.json()
+      ]);
 
-      // Handle both old format (array) and new format (object with orders array)
-      const orders = ordersData.orders || ordersData;
-      const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
+      setOrders(ordersData.orders || ordersData);
+      setStats(distributionData);
       
-      setOrders(orders);
-      setPagination(paginationData);
-      const processedStats = processStats(distributionData);
-      setStats(processedStats);
-
+      if (ordersData.pagination) {
+        setPagination(ordersData.pagination);
+      } else {
+        setPagination(prev => ({
+          ...prev,
+          currentPage: newPage
+        }));
+      }
     } catch (err) {
       setError(err.message || 'Failed to fetch orders data.');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [searchTerm]);
 
-  // Initial load
-  useEffect(() => {
-    if (!loadingSettings) {
-      if (isUserAdmin) {
-        // Inline fetch to avoid dependency issues
-        const loadOrders = async () => {
-          try {
-            setLoading(true);
-            setError(null);
-            const token = localStorage.getItem('token');
-            const headers = {
-              'Authorization': `Bearer ${token}`,
-              'Content-Type': 'application/json'
-            };
-
-            const page = parseInt(searchParams.get('page')) || 1;
-            const search = searchParams.get('search') || '';
-            setSearchTerm(search);
-
-            const params = new URLSearchParams({
-              page: page.toString(),
-              limit: '10'
-            });
-
-            if (search.trim()) {
-              params.append('search', search.trim());
-            }
-
-            const [ordersRes, statsRes] = await Promise.all([
-              fetch(`/api/orders/admin?${params}`, { headers }),
-              fetch('/api/orders/admin/stats', { headers })
-            ]);
-
-            if (!ordersRes.ok || !statsRes.ok) {
-              throw new Error('Failed to fetch orders data.');
-            }
-
-            const [ordersData, distributionData] = await Promise.all([
-              ordersRes.json(),
-              statsRes.json()
-            ]);
-
-            const orders = ordersData.orders || ordersData;
-            const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
-            
-            setOrders(orders);
-            setPagination(paginationData);
-            const processedStats = processStats(distributionData);
-            setStats(processedStats);
-
-          } catch (err) {
-            setError(err.message || 'Failed to fetch orders data.');
-          } finally {
-            setLoading(false);
-          }
-        };
-
-        loadOrders();
-      } else {
-        navigate('/');
-      }
-    }
-  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
-
-  // Handle page changes
-  const handlePageChange = useCallback((newPage) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', newPage.toString());
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
-    }
-    setSearchParams(params);
-    fetchOrdersAndStats(searchTerm, newPage);
-  }, [searchParams, setSearchParams, searchTerm, fetchOrdersAndStats]);
-
-  // Handle search changes with debouncing - only updates state, not URL
+  // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    // Don't update URL params here - let the debounced effect handle it
-    // This prevents the input from losing focus on every keystroke
   }, []);
-
-  // Debounced search effect - optimized to prevent input focus loss
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isUserAdmin && searchTerm.trim()) {
-        // Only perform search if there's actually a search term
-        fetchOrdersAndStats(searchTerm, 1);
-      } else if (isUserAdmin && !searchTerm.trim()) {
-        // Clear search - fetch all orders
-        fetchOrdersAndStats('', 1);
-      }
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -245,9 +219,8 @@ const Orders = () => {
       if (!response.ok) {
         throw new Error('Failed to update status');
       }
-      const currentPage = searchParams.get('page') || 1;
-      const currentSearch = searchParams.get('search') || '';
-      fetchOrdersAndStats(currentSearch, currentPage);
+      // Refresh the current page
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (err) {
       setError(err.message || 'Failed to update order status.');
     }
@@ -308,54 +281,6 @@ const Orders = () => {
       <div className="orders-filters">
         {/* Main filters row */}
         <div className="filter-row main-filters">
-          <div className="filter-group">
-            <label htmlFor="status-filter">Filter by Status:</label>
-            <select
-              id="status-filter"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="status-filter-dropdown"
-            >
-              <option value="all">All Orders ({orders.length})</option>
-              <option value="Pending">Pending ({stats.pending_orders})</option>
-              <option value="Processing">Processing ({stats.processing_orders})</option>
-              <option value="Shipped">Shipped ({stats.shipped_orders})</option>
-              <option value="Delivered">Delivered ({stats.delivered_orders})</option>
-            </select>
-          </div>
-          
-          <div className="filter-group">
-            <label htmlFor="user-filter">Filter by User:</label>
-            <select
-              id="user-filter"
-              value={userFilter}
-              onChange={(e) => setUserFilter(e.target.value)}
-              className="user-filter-dropdown"
-            >
-              <option value="all">All Users</option>
-              {getUniqueUsers().map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.name} ({user.email})
-                </option>
-              ))}
-            </select>
-          </div>
-          
-          <div className="filter-info">
-            <span>Showing {pagination.totalItems} orders</span>
-            {(statusFilter !== 'all' || userFilter !== 'all' || searchTerm) && (
-              <button 
-                onClick={() => {
-                  setStatusFilter('all');
-                  setUserFilter('all');
-                  setSearchTerm('');
-                }}
-                className="clear-filter-btn"
-              >
-                Clear All Filters
-              </button>
-            )}
-          </div>
         </div>
         
         {/* Search row */}
@@ -367,7 +292,8 @@ const Orders = () => {
               type="text"
               placeholder="Enter name, email, or order ID..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              ref={searchInputRef}
               className="search-input"
             />
           </div>

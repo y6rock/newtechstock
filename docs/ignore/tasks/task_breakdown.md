@@ -211,3 +211,33 @@ After a PayPal checkout, the app treats the transaction as cancelled and no invo
 - Successful PayPal payment leads to confirmation page, not cancellation.
 - Invoice is sent properly.
 - Cancellation/error are handled separately.
+
+
+### 13. Search icon magnifying glass overlapping text 
+
+Context:
+In the Categories manager page, the search input has a magnifying glass icon placed inside the input field. The problem is that the placeholder text overlaps with the icon, making the text unreadable and visually messy.
+
+Goal:
+Fix the CSS/layout of the search input so that the placeholder text and typed text are properly aligned and do not overlap with the icon.
+
+Do:
+1) Locate the search input in the Categories manager page toolbar (likely in src/**/manager/**/categories/**).
+2) Adjust the input padding so that there is sufficient left padding to accommodate the icon. For example:
+   - Add padding-left equal to or slightly larger than the icon width + margin (e.g., 2rem or 32px).
+3) If the icon is absolutely positioned inside the input container, ensure:
+   - The container is `position: relative`.
+   - The icon is `position: absolute; left: 8px; top: 50%; transform: translateY(-50%);`.
+4) The input text should never overlap the icon, including placeholder and user-entered text.
+
+Acceptance Criteria:
+- Placeholder and typed text are fully visible and do not overlap with the icon.
+- Icon remains vertically centered and aligned correctly.
+- Layout is consistent across desktop and mobile breakpoints.
+- No visual regressions on other inputs or toolbars.
+
+Scope:
+Limit the changes to the search input CSS or its immediate wrapper. No refactors or unrelated style changes.
+
+Cursor Prompt:
+Fix the text overlap with the search icon inside the search input on the Categories manager page by adjusting padding and icon positioning.

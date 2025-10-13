@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Categories.css';
 
@@ -15,8 +15,8 @@ const Categories = () => {
   const [loadingCategories, setLoadingCategories] = useState(true);
   const [error, setError] = useState(null);
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
-  const [searchParams, setSearchParams] = useSearchParams();
-  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
+  const [searchTerm, setSearchTerm] = useState('');
+  const searchInputRef = useRef(null);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryImage, setNewCategoryImage] = useState(null);
@@ -28,83 +28,42 @@ const Categories = () => {
   const [editedCategoryImagePreview, setEditedCategoryImagePreview] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
 
-  // Fetch categories function
-  const fetchCategories = useCallback(async (searchQuery = '', page = 1) => {
-    try {
-      setLoadingCategories(true);
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('No token found');
-      }
-      
-      const params = new URLSearchParams({
-        page: page.toString(),
-        limit: '10'
-      });
-      
-      if (searchQuery.trim()) {
-        params.append('search', searchQuery.trim());
-      }
-      
-      const response = await fetch(`/api/categories?${params}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      const categoriesData = data.categories || data;
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      
-      if (data.pagination) {
-        setPagination(data.pagination);
-      }
-    } catch (error) {
-      console.error('Error fetching categories:', error);
-      setError('Failed to fetch categories');
-    } finally {
-      setLoadingCategories(false);
-    }
-  }, []);
-
-  // Initial load
+  // Auto-refocus search input after re-renders to maintain typing experience
   useEffect(() => {
-    if (loadingSettings) {
-      return; // Wait for settings to load
+    if (searchInputRef.current && searchTerm) {
+      searchInputRef.current.focus();
     }
-    if (!isUserAdmin) {
-      navigate('/'); // Redirect if not admin
+  });
+
+  // Ref-based search implementation - no re-renders during typing
+  useEffect(() => {
+    if (!isUserAdmin || loadingSettings) {
+      if (!loadingSettings && !isUserAdmin) {
+        navigate('/');
+      }
       return;
     }
 
-    // Inline fetch to avoid dependency issues
-    const loadCategories = async () => {
+    const timeoutId = setTimeout(async () => {
       try {
         setLoadingCategories(true);
+        setError(null);
+        
         const token = localStorage.getItem('token');
         if (!token) {
           throw new Error('No token found');
         }
-        
-        const page = parseInt(searchParams.get('page')) || 1;
-        const search = searchParams.get('search') || '';
-        setSearchTerm(search);
-        
+
         const params = new URLSearchParams({
-          page: page.toString(),
+          page: pagination.currentPage.toString(),
           limit: '10'
         });
-        
-        if (search.trim()) {
-          params.append('search', search.trim());
+
+        if (searchTerm.trim()) {
+          params.append('search', searchTerm.trim());
         }
-        
+
         const response = await fetch(`/api/categories?${params}`, {
           headers: {
             'Authorization': `Bearer ${token}`
@@ -128,44 +87,64 @@ const Categories = () => {
       } finally {
         setLoadingCategories(false);
       }
-    };
+    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
-    loadCategories();
-  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
 
-  // Handle page changes
-  const handlePageChange = useCallback((newPage) => {
-    const params = new URLSearchParams(searchParams);
-    params.set('page', newPage.toString());
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
+  // Handle page changes - inline fetch to avoid dependency issues
+  const handlePageChange = useCallback(async (newPage) => {
+    try {
+      setLoadingCategories(true);
+      setError(null);
+      
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No token found');
+      }
+
+      const params = new URLSearchParams({
+        page: newPage.toString(),
+        limit: '10'
+      });
+
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+
+      const response = await fetch(`/api/categories?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      setCategories(data.categories || data);
+      
+      if (data.pagination) {
+        setPagination(data.pagination);
+      } else {
+        setPagination(prev => ({
+          ...prev,
+          currentPage: newPage
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching categories:', error);
+      setError('Failed to fetch categories');
+    } finally {
+      setLoadingCategories(false);
     }
-    setSearchParams(params);
-    fetchCategories(searchTerm, newPage);
-  }, [searchParams, setSearchParams, searchTerm, fetchCategories]);
+  }, [searchTerm]);
 
-  // Handle search changes with debouncing - only updates state, not URL
+  // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    // Don't update URL params here - let the debounced effect handle it
-    // This prevents the input from losing focus on every keystroke
   }, []);
-
-  // Debounced search effect - optimized to prevent input focus loss
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isUserAdmin && searchTerm.trim()) {
-        // Only perform search if there's actually a search term
-        fetchCategories(searchTerm, 1);
-      } else if (isUserAdmin && !searchTerm.trim()) {
-        // Clear search - fetch all categories
-        fetchCategories('', 1);
-      }
-    }, 500);
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin]);
 
 
   // Client-side filtering disabled - using server-side pagination instead
@@ -219,9 +198,8 @@ const Categories = () => {
       setNewCategoryImagePreview(null);
       setShowAddModal(false);
       setError(null);
-      const currentPage = searchParams.get('page') || 1;
-      const currentSearch = searchParams.get('search') || '';
-      fetchCategories(currentSearch, currentPage);
+      // Refresh the current page
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Category added successfully!');
     } catch (err) {
       console.error('Error adding category:', err);
@@ -273,9 +251,8 @@ const Categories = () => {
       setShowEditModal(false);
       setError(null);
       showSuccess('Category updated successfully!');
-      const currentPage = searchParams.get('page') || 1;
-      const currentSearch = searchParams.get('search') || '';
-      fetchCategories(currentSearch, currentPage);
+      // Refresh the current page
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (err) {
       console.error('Error updating category:', err);
       showError(err.response?.data?.message || 'Failed to update category.');
@@ -330,9 +307,8 @@ const Categories = () => {
           await axios.delete(`/api/categories/${categoryId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const currentPage = searchParams.get('page') || 1;
-          const currentSearch = searchParams.get('search') || '';
-          fetchCategories(currentPage, currentSearch);
+          // Refresh the current page
+          setPagination(prev => ({ ...prev, currentPage: 1 }));
           showSuccess('Category deactivated successfully!');
         } catch (err) {
           console.error('Error deactivating category:', err);
@@ -354,9 +330,8 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const currentPage = searchParams.get('page') || 1;
-          const currentSearch = searchParams.get('search') || '';
-          fetchCategories(currentPage, currentSearch);
+          // Refresh the current page
+          setPagination(prev => ({ ...prev, currentPage: 1 }));
           showSuccess('Category restored successfully!');
         } catch (err) {
           console.error('Error restoring category:', err);
@@ -379,9 +354,8 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          const currentPage = searchParams.get('page') || 1;
-          const currentSearch = searchParams.get('search') || '';
-          fetchCategories(currentPage, currentSearch);
+          // Refresh the current page
+          setPagination(prev => ({ ...prev, currentPage: 1 }));
           showSuccess(`Category ${action}d successfully!`);
         } catch (err) {
           console.error('Error toggling category status:', err);
@@ -418,10 +392,29 @@ const Categories = () => {
                   type="text"
                   placeholder="Search categories by name..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="search-input"
+                  onChange={(e) => handleSearchChange(e.target.value)}
+                  ref={searchInputRef}
+                  style={{
+                    width: '100%',
+                    maxWidth: '400px',
+                    padding: '14px 20px 14px 45px',
+                    border: '2px solid #e1e5e9',
+                    borderRadius: '12px',
+                    fontSize: '16px',
+                    backgroundColor: '#ffffff',
+                    outline: 'none',
+                    transition: 'all 0.3s ease'
+                  }}
                 />
-                <span className="search-icon">🔍</span>
+                <span style={{
+                  position: 'absolute',
+                  left: '15px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  color: '#9ca3af',
+                  fontSize: '16px',
+                  pointerEvents: 'none'
+                }}>🔍</span>
               </div>
               {searchTerm && (
                 <div className="search-results-count">
@@ -430,19 +423,6 @@ const Categories = () => {
               )}
             </div>
             
-            <div className="status-filter-group">
-              <label htmlFor="status-filter" className="filter-label">Filter by Status</label>
-              <select
-                id="status-filter"
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All Categories ({pagination.totalItems})</option>
-                <option value="active">Active ({categories.filter(c => c.status === 'Active').length})</option>
-                <option value="inactive">Inactive ({categories.filter(c => c.status === 'Inactive').length})</option>
-              </select>
-            </div>
           </div>
           
           {/* Add Category Button */}
