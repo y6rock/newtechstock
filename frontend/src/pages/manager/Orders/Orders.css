@@ -70,7 +70,7 @@
 
 .orders-filters {
     background-color: #fff;
-    padding: 1.5rem;
+    padding: 1rem;
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
     margin-bottom: 1.5rem;
@@ -79,7 +79,7 @@
 .filter-row {
     display: flex;
     gap: 1.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.5rem;
     align-items: end;
     flex-wrap: wrap;
 }
@@ -96,9 +96,8 @@
 
 /* Search row - separate row for search */
 .search-row {
-    border-top: 1px solid #e9ecef;
-    padding-top: 1rem;
-    margin-top: 1rem;
+    padding-top: 0.5rem;
+    margin-top: 0.5rem;
 }
 
 .search-group {

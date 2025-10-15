@@ -374,14 +374,37 @@ export default function Promotions() {
 
       {/* Search and Status Filter */}
       <div className="promotions-filters">
-        <div className="search-container">
+        <div className="search-container" style={{ position: 'relative' }}>
           <input
             type="text"
             placeholder="Search promotions by name, description, or code..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input"
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '14px 20px 14px 55px',
+              border: '2px solid #e1e5e9',
+              borderRadius: '12px',
+              fontSize: '16px',
+              backgroundColor: '#ffffff',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              boxSizing: 'border-box'
+            }}
           />
+          <span style={{
+            position: 'absolute',
+            left: '20px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            color: '#9ca3af',
+            fontSize: '16px',
+            pointerEvents: 'none',
+            zIndex: 1
+          }}>
+            🔍
+          </span>
         </div>
         <div className="status-filters">
           <button 

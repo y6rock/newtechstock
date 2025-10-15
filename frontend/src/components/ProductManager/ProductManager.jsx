@@ -26,7 +26,7 @@ function ProductManager() {
   const [error, setError] = useState('');
   
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const token = localStorage.getItem('token');
@@ -376,39 +376,49 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
   };
 
   const handleDeleteProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to deactivate this product? It will be hidden from customers but can be restored later.')) {
-      try {
-        const res = await axios.delete(`/api/products/${productId}`, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        showSuccess('Product deactivated successfully!');
-        // Reload products after deactivating
-        const updated = await axios.get('/api/products/admin/all', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProducts(updated.data);
-      } catch (err) {
-        showError(err.response?.data?.message || 'Error deactivating product');
+    showConfirm(
+      'Are you sure you want to deactivate this product? It will be hidden from customers but can be restored later.',
+      async () => {
+        try {
+          const res = await axios.delete(`/api/products/${productId}`, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          showSuccess('Product deactivated successfully!');
+          // Reload products after deactivating
+          const updated = await axios.get('/api/products/admin/all', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          // Ensure products is always an array
+          const productsData = updated.data.products || updated.data;
+          setProducts(Array.isArray(productsData) ? productsData : []);
+        } catch (err) {
+          showError(err.response?.data?.message || 'Error deactivating product');
+        }
       }
-    }
+    );
   };
 
   const handleRestoreProduct = async (productId) => {
-    if (window.confirm('Are you sure you want to restore this product? It will be visible to customers again.')) {
-      try {
-        const res = await axios.patch(`/api/products/${productId}/restore`, {}, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        showSuccess('Product restored successfully!');
-        // Reload products after restoring
-        const updated = await axios.get('/api/products/admin/all', {
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        setProducts(updated.data);
-      } catch (err) {
-        showError(err.response?.data?.message || 'Error restoring product');
+    showConfirm(
+      'Are you sure you want to restore this product? It will be visible to customers again.',
+      async () => {
+        try {
+          const res = await axios.patch(`/api/products/${productId}/restore`, {}, {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          showSuccess('Product restored successfully!');
+          // Reload products after restoring
+          const updated = await axios.get('/api/products/admin/all', {
+            headers: { Authorization: `Bearer ${token}` }
+          });
+          // Ensure products is always an array
+          const productsData = updated.data.products || updated.data;
+          setProducts(Array.isArray(productsData) ? productsData : []);
+        } catch (err) {
+          showError(err.response?.data?.message || 'Error restoring product');
+        }
       }
-    }
+    );
   };
 
 
@@ -437,7 +447,9 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
         axios.get('/api/suppliers', { headers }),
         axios.get('/api/categories', { headers })
       ]);
-      setProducts(productsRes.data.products || productsRes.data);
+      // Ensure products is always an array
+      const productsData = productsRes.data.products || productsRes.data;
+      setProducts(Array.isArray(productsData) ? productsData : []);
       setSuppliers(suppliersRes.data.suppliers || suppliersRes.data);
       setCategories(categoriesRes.data.categories || categoriesRes.data);
     } catch (err) {

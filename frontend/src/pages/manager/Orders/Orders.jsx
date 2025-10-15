@@ -37,20 +37,6 @@ const Orders = () => {
     return newStats;
   };
 
-  // Get unique users from orders
-  const getUniqueUsers = () => {
-    const userMap = new Map();
-    orders.forEach(order => {
-      if (order.user_id && (order.customer_name || order.customer_email)) {
-        userMap.set(order.user_id, {
-          id: order.user_id,
-          name: order.customer_name || 'Unknown User',
-          email: order.customer_email || 'No email'
-        });
-      }
-    });
-    return Array.from(userMap.values());
-  };
 
   // Sorting function
   const handleSort = (field) => {
@@ -62,32 +48,6 @@ const Orders = () => {
     }
   };
 
-  // Sort orders
-  const sortOrders = (ordersToSort) => {
-    return [...ordersToSort].sort((a, b) => {
-      let aValue = a[sortField];
-      let bValue = b[sortField];
-      
-      // Handle different data types
-      if (sortField === 'order_date') {
-        aValue = new Date(aValue);
-        bValue = new Date(bValue);
-      } else if (sortField === 'total_amount') {
-        aValue = parseFloat(aValue) || 0;
-        bValue = parseFloat(bValue) || 0;
-      } else if (sortField === 'customer_name') {
-        aValue = (a.customer_name || a.customer_email || '').toLowerCase();
-        bValue = (b.customer_name || b.customer_email || '').toLowerCase();
-      } else if (typeof aValue === 'string') {
-        aValue = aValue.toLowerCase();
-        bValue = bValue.toLowerCase();
-      }
-      
-      if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-      if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-      return 0;
-    });
-  };
 
 
   // Auto-refocus search input after re-renders to maintain typing experience
@@ -219,8 +179,32 @@ const Orders = () => {
       if (!response.ok) {
         throw new Error('Failed to update status');
       }
-      // Refresh the current page
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      
+      // Refresh the orders data after status update
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+      
+      const ordersUrl = `/api/admin/orders?page=${pagination.currentPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+      const [ordersRes, distributionRes] = await Promise.all([
+        fetch(ordersUrl, { headers }),
+        fetch('/api/admin/order-status-distribution', { headers })
+      ]);
+
+      if (!ordersRes.ok || !distributionRes.ok) {
+        throw new Error('Failed to refresh orders data');
+      }
+
+      const [ordersData, distributionData] = await Promise.all([
+        ordersRes.json(),
+        distributionRes.json()
+      ]);
+
+      setOrders(ordersData.orders || ordersData);
+      const processedStats = processStats(distributionData);
+      setStats(processedStats);
+      
     } catch (err) {
       setError(err.message || 'Failed to update order status.');
     }
@@ -285,17 +269,39 @@ const Orders = () => {
         
         {/* Search row */}
         <div className="filter-row search-row">
-          <div className="filter-group search-group">
-            <label htmlFor="search-term">Search by Name/Email/Order ID:</label>
+          <div className="filter-group search-group" style={{ position: 'relative' }}>
             <input
               id="search-term"
               type="text"
-              placeholder="Enter name, email, or order ID..."
+              placeholder="Search by name, email, or order ID..."
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               ref={searchInputRef}
-              className="search-input"
+              style={{
+                width: '100%',
+                maxWidth: '400px',
+                padding: '14px 20px 14px 55px',
+                border: '2px solid #e1e5e9',
+                borderRadius: '12px',
+                fontSize: '16px',
+                backgroundColor: '#ffffff',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                boxSizing: 'border-box'
+              }}
             />
+            <span style={{
+              position: 'absolute',
+              left: '20px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+              color: '#9ca3af',
+              fontSize: '16px',
+              pointerEvents: 'none',
+              zIndex: 1
+            }}>
+              🔍
+            </span>
           </div>
         </div>
       </div>
