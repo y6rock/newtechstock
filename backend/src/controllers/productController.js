@@ -363,7 +363,7 @@ exports.getAllProductsAdmin = async (req, res) => {
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
-        res.json({
+        const response = {
             products,
             pagination: {
                 currentPage: parseInt(page),
@@ -373,7 +373,15 @@ exports.getAllProductsAdmin = async (req, res) => {
                 hasNextPage: parseInt(page) < totalPages,
                 hasPreviousPage: parseInt(page) > 1
             }
+        };
+        
+        console.log('Products admin API response:', {
+            productsCount: products.length,
+            pagination: response.pagination,
+            queryParams: { page, limit, search, category, supplier, status }
         });
+        
+        res.json(response);
     } catch (err) {
         console.error('Error fetching all products:', err);
         res.status(500).json({ message: 'Database error' });
