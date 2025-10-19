@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const fs = require('fs');
+const session = require('express-session');
 
 // Load env.config file
 const envPath = path.join(__dirname, 'env.config');
@@ -23,7 +24,7 @@ if (fs.existsSync(envPath)) {
 // Singleton DB connection
 const dbSingleton = require('./dbSingleton.js'); 
 
-let authRoutes, productRoutes, userRoutes, promotionRoutes, orderRoutes, adminRoutes, supplierRoutes, categoryRoutes, settingsRoutes, contactRoutes, cartRoutes;
+let authRoutes, productRoutes, userRoutes, promotionRoutes, orderRoutes, adminRoutes, supplierRoutes, categoryRoutes, settingsRoutes, contactRoutes, cartRoutes, sessionCartRoutes;
 try {
     authRoutes = require('./src/routes/auth.js');
     productRoutes = require('./src/routes/products.js');
@@ -36,6 +37,7 @@ try {
     settingsRoutes = require('./src/routes/settings.js');
     contactRoutes = require('./src/routes/contact.js');
     cartRoutes = require('./src/routes/cart.js');
+    sessionCartRoutes = require('./src/routes/sessionCart.js');
 } catch (error) {
     console.error('--- A FATAL ERROR OCCURRED DURING SERVER STARTUP ---');
     console.error('This is likely an incorrect file path in one of the `require` statements.');
@@ -46,11 +48,25 @@ try {
 // Initialize Express app
 const app = express();
 
+// Session configuration
+app.use(session({
+  secret: process.env.SESSION_SECRET || 'techstock-secret-key-change-in-production',
+  resave: false,
+  saveUninitialized: true,
+  cookie: { 
+    secure: false, // Set to true in production with HTTPS
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    httpOnly: true,
+    sameSite: 'lax' // Important for Safari compatibility
+  }
+}));
+
 // Core Middleware
 app.use(cors({
   origin: 'http://localhost:3000',
   credentials: true,
-  allowedHeaders: ['Content-Type', 'Authorization']
+  allowedHeaders: ['Content-Type', 'Authorization', 'Cookie'],
+  exposedHeaders: ['Set-Cookie']
 }));
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
@@ -67,6 +83,7 @@ app.use('/api/categories', categoryRoutes);
 app.use('/api/settings', settingsRoutes);
 app.use('/api/contact', contactRoutes);
 app.use('/api/cart', cartRoutes);
+app.use('/api/session-cart', sessionCartRoutes);
 
 // General API health check
 app.get('/api/health', (req, res) => {
