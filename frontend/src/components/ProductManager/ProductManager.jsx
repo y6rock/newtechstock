@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import ProductModal from '../ProductModal/ProductModal';
@@ -25,6 +25,9 @@ function ProductManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
   
+  // Sorting state
+  const [sortConfig, setSortConfig] = useState({ field: 'stock', direction: 'asc' });
+  
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
@@ -38,6 +41,87 @@ function ProductManager() {
     itemsPerPage: 10
   });
 
+  const [globalStats, setGlobalStats] = useState({
+    totalProducts: 0,
+    activeProducts: 0,
+    inactiveProducts: 0
+  });
+
+  const isInitialLoad = useRef(true);
+  const previousFilters = useRef({
+    statusFilter,
+    categoryFilter,
+    supplierFilter
+  });
+
+  // Handle column sorting
+  const handleSort = (field) => {
+    setSortConfig(prevConfig => {
+      if (prevConfig.field === field) {
+        // Toggle direction if same field
+        return { field, direction: prevConfig.direction === 'asc' ? 'desc' : 'asc' };
+      } else {
+        // New field, default to ascending
+        return { field, direction: 'asc' };
+      }
+    });
+  };
+
+  // Sort products based on sortConfig
+  const sortedProducts = [...products].sort((a, b) => {
+    const { field, direction } = sortConfig;
+    let aValue = a[field];
+    let bValue = b[field];
+
+    // Handle different data types
+    if (field === 'stock' || field === 'price') {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else if (field === 'name') {
+      aValue = aValue ? aValue.toString().toLowerCase() : '';
+      bValue = bValue ? bValue.toString().toLowerCase() : '';
+    } else if (field === 'category_id' || field === 'supplier_id') {
+      // Get names for categories/suppliers
+      if (field === 'category_id') {
+        aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
+        bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
+      } else if (field === 'supplier_id') {
+        aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
+        bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
+      }
+    }
+
+    if (direction === 'asc') {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+    }
+  });
+
+  // Fetch global statistics for all products
+  const fetchGlobalStats = useCallback(async () => {
+    if (loadingSettings || !isUserAdmin) return;
+    
+    try {
+      const token = localStorage.getItem('token');
+      const headers = { 'Authorization': `Bearer ${token}` };
+      
+      const response = await fetch('/api/products/admin/stats', { headers });
+      if (!response.ok) {
+        throw new Error('Failed to fetch statistics');
+      }
+      
+      const statsData = await response.json();
+      setGlobalStats({
+        totalProducts: statsData.totalProducts || 0,
+        activeProducts: statsData.activeProducts || 0,
+        inactiveProducts: statsData.inactiveProducts || 0
+      });
+    } catch (err) {
+      console.error('Error fetching global statistics:', err);
+    }
+  }, [loadingSettings, isUserAdmin]);
+
   // Stock level indicator function
   const getStockLevel = (stock) => {
     if (stock <= 0) return { level: 'out', class: 'stock-out-of-stock', text: 'OUT OF STOCK' };
@@ -49,7 +133,7 @@ function ProductManager() {
 
   const fetchProductData = useCallback(async (page = 1, search = '') => {
     if (loadingSettings || !isUserAdmin) {
-if (!loadingSettings && !isUserAdmin) navigate('/');
+      if (!loadingSettings && !isUserAdmin) navigate('/');
       return;
     }
 
@@ -80,6 +164,8 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
       }
       
       console.log('Fetching products with params:', params.toString());
+      console.log('API URL:', `/api/products/admin/all?${params}`);
+      console.log('Headers:', headers);
       
       const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
         fetch(`/api/products/admin/all?${params}`, { headers }),
@@ -107,10 +193,16 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
       console.error('Error fetching initial product data:', err);
       setError('Failed to load necessary data. Please try again.');
     }
-  }, [isUserAdmin, loadingSettings, navigate, statusFilter, categoryFilter, supplierFilter]);
+  }, [isUserAdmin, loadingSettings, navigate]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
+    console.log('=== PAGE CHANGE DEBUG ===');
+    console.log('Page change requested:', newPage);
+    console.log('Current searchParams:', searchParams.toString());
+    console.log('Current searchTerm:', searchTerm);
+    console.log('Current pagination:', pagination);
+    
     const params = new URLSearchParams(searchParams);
     params.set('page', newPage.toString());
     if (searchTerm) {
@@ -118,9 +210,16 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
     } else {
       params.delete('search');
     }
+    
+    console.log('New params:', params.toString());
     setSearchParams(params);
-    fetchProductData(newPage, searchTerm);
-  }, [searchParams, setSearchParams, searchTerm, fetchProductData]);
+    // Update pagination state immediately
+    setPagination(prev => {
+      console.log('Updating pagination from:', prev, 'to:', { ...prev, currentPage: newPage });
+      return { ...prev, currentPage: newPage };
+    });
+    console.log('=== END PAGE CHANGE DEBUG ===');
+  }, [searchParams, setSearchParams, searchTerm, pagination]);
 
   // Handle search term changes
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -132,30 +231,233 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
     setSearchParams(params);
   }, [setSearchParams]);
 
+  // Load global statistics on mount
+  useEffect(() => {
+    fetchGlobalStats();
+  }, [fetchGlobalStats]);
+
   // Initial load and URL parameter sync
   useEffect(() => {
+    console.log('=== URL PARAMS SYNC DEBUG ===');
     const currentPage = parseInt(searchParams.get('page')) || 1;
     const currentSearch = searchParams.get('search') || '';
+    const urlStatusFilter = searchParams.get('status') || 'all';
+    const urlCategoryFilter = searchParams.get('category') || 'all';
+    const urlSupplierFilter = searchParams.get('supplier') || 'all';
+    
+    console.log('URL params - page:', currentPage, 'search:', currentSearch);
+    console.log('URL filters - status:', urlStatusFilter, 'category:', urlCategoryFilter, 'supplier:', urlSupplierFilter);
+    console.log('Current filter state:', { statusFilter, categoryFilter, supplierFilter });
+    console.log('Current pagination state:', pagination);
+    
+    // Only update if URL params differ from current state or if it's initial load
+    const shouldUpdate = isInitialLoad.current || 
+      currentSearch !== searchTerm ||
+      urlStatusFilter !== statusFilter ||
+      urlCategoryFilter !== categoryFilter ||
+      urlSupplierFilter !== supplierFilter ||
+      currentPage !== pagination.currentPage;
+    
+    if (!shouldUpdate && !isInitialLoad.current) {
+      console.log('No changes detected, skipping');
+      return;
+    }
+    
     setSearchTerm(currentSearch);
-    fetchProductData(currentPage, currentSearch);
-  }, [searchParams, fetchProductData]);
+    setStatusFilter(urlStatusFilter);
+    setCategoryFilter(urlCategoryFilter);
+    setSupplierFilter(urlSupplierFilter);
+    setPagination(prev => {
+      console.log('Setting pagination from URL:', { ...prev, currentPage });
+      return { ...prev, currentPage };
+    });
+    
+    console.log('About to call fetchProductData with page:', currentPage, 'search:', currentSearch);
+    
+    // Always fetch data, but handle filters appropriately
+    if (isInitialLoad.current) {
+      // Initial load - fetch with filters applied via the dedicated fetch function
+      previousFilters.current = {
+        statusFilter: urlStatusFilter,
+        categoryFilter: urlCategoryFilter,
+        supplierFilter: urlSupplierFilter
+      };
+      
+      // Call fetchProductData which will apply current filter state
+      const fetchWithFilters = async () => {
+        if (loadingSettings || !isUserAdmin) return;
+        
+        try {
+          const token = localStorage.getItem('token');
+          const headers = { 'Authorization': `Bearer ${token}` };
+          
+          const params = new URLSearchParams({
+            page: currentPage.toString(),
+            limit: '10'
+          });
+          
+          if (currentSearch.trim()) {
+            params.append('search', currentSearch.trim());
+          }
+          
+          // Add filter parameters from URL
+          if (urlStatusFilter && urlStatusFilter !== 'all') {
+            params.append('status', urlStatusFilter);
+          }
+          
+          if (urlCategoryFilter && urlCategoryFilter !== 'all') {
+            params.append('category', urlCategoryFilter);
+          }
+          
+          if (urlSupplierFilter && urlSupplierFilter !== 'all') {
+            params.append('supplier', urlSupplierFilter);
+          }
+          
+          const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
+            fetch(`/api/products/admin/all?${params}`, { headers }),
+            fetch('/api/suppliers', { headers }),
+            fetch('/api/categories', { headers })
+          ]);
+
+          if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+            throw new Error('Failed to fetch product data.');
+          }
+
+          const productsData = await productsRes.json();
+          const suppliersData = await suppliersRes.json();
+          const categoriesData = await categoriesRes.json();
+
+          setProducts(productsData.products || productsData);
+          setSuppliers(suppliersData.suppliers || suppliersData);
+          setCategories(categoriesData.categories || categoriesData);
+          
+          if (productsData.pagination) {
+            setPagination(productsData.pagination);
+          }
+        } catch (err) {
+          console.error('Error fetching product data:', err);
+        }
+      };
+      
+      fetchWithFilters();
+    } else {
+      // Not initial load - use simple fetch for page changes
+      fetchProductData(currentPage, currentSearch);
+    }
+    
+    // Mark initial load as complete
+    isInitialLoad.current = false;
+    console.log('=== END URL PARAMS SYNC DEBUG ===');
+  }, [searchParams]);
 
   // Debounced search effect - only calls API, doesn't update URL
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchTerm !== (searchParams.get('search') || '')) {
+        setPagination(prev => ({ ...prev, currentPage: 1 }));
         fetchProductData(1, searchTerm);
       }
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams, fetchProductData]);
+  }, [searchTerm, searchParams]);
 
-  // Fetch products when filters change
+  // Fetch products when filters change (but not on initial load)
   useEffect(() => {
+    // Skip if this is the initial load
+    if (isInitialLoad.current) {
+      console.log('Skipping filter effect on initial load');
+      return;
+    }
+    
+    // Check if filters actually changed
+    const filtersChanged = 
+      previousFilters.current.statusFilter !== statusFilter ||
+      previousFilters.current.categoryFilter !== categoryFilter ||
+      previousFilters.current.supplierFilter !== supplierFilter;
+    
+    if (!filtersChanged) {
+      console.log('Filters unchanged, skipping');
+      return;
+    }
+    
     console.log('Filters changed, refetching products');
+    console.log('Previous filters:', previousFilters.current);
+    console.log('Current filters:', { statusFilter, categoryFilter, supplierFilter });
+    
+    // Update previous filters
+    previousFilters.current = {
+      statusFilter,
+      categoryFilter,
+      supplierFilter
+    };
+    
     const currentSearch = searchParams.get('search') || '';
-    fetchProductData(1, currentSearch);
-  }, [statusFilter, categoryFilter, supplierFilter, fetchProductData, searchParams]);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    
+    // Create a new fetch function with current filter values
+    const fetchWithCurrentFilters = async () => {
+      if (loadingSettings || !isUserAdmin) return;
+
+      try {
+        const token = localStorage.getItem('token');
+        const headers = { 'Authorization': `Bearer ${token}` };
+        
+        const params = new URLSearchParams({
+          page: '1',
+          limit: '10'
+        });
+        
+        if (currentSearch.trim()) {
+          params.append('search', currentSearch.trim());
+        }
+        
+        // Add current filter parameters
+        if (statusFilter && statusFilter !== 'all') {
+          params.append('status', statusFilter);
+        }
+        
+        if (categoryFilter && categoryFilter !== 'all') {
+          params.append('category', categoryFilter);
+        }
+        
+        if (supplierFilter && supplierFilter !== 'all') {
+          params.append('supplier', supplierFilter);
+        }
+        
+        console.log('Fetching products with filters:', params.toString());
+        console.log('Filter API URL:', `/api/products/admin/all?${params}`);
+        console.log('Filter Headers:', headers);
+        
+        const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
+          fetch(`/api/products/admin/all?${params}`, { headers }),
+          fetch('/api/suppliers', { headers }),
+          fetch('/api/categories', { headers })
+        ]);
+
+        if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+          throw new Error('Failed to fetch product data.');
+        }
+
+        const productsData = await productsRes.json();
+        const suppliersData = await suppliersRes.json();
+        const categoriesData = await categoriesRes.json();
+
+        setProducts(productsData.products || productsData);
+        setSuppliers(suppliersData.suppliers || suppliersData);
+        setCategories(categoriesData.categories || categoriesData);
+        
+        if (productsData.pagination) {
+          setPagination(productsData.pagination);
+        }
+
+      } catch (err) {
+        console.error('Error fetching product data:', err);
+        setError('Failed to load product data. Please try again.');
+      }
+    };
+    
+    fetchWithCurrentFilters();
+  }, [statusFilter, categoryFilter, supplierFilter, loadingSettings, isUserAdmin]);
 
   const handleChange = e => {
     const { name, value } = e.target;
@@ -269,9 +571,9 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
       console.log('POST /api/products successful. Response:', res.data);
       // Reload products after adding
       console.log('Attempting to re-fetch products after successful addition...');
-      const updated = await axios.get('/api/products');
-      console.log('GET /api/products promise resolved. Re-fetched products data:', updated.data);
-      setProducts(updated.data);
+      const currentPage = pagination.currentPage;
+      const currentSearch = searchParams.get('search') || '';
+      fetchProductData(currentPage, currentSearch);
       setShowAddForm(false);
       setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
       setImageFile(null);
@@ -365,11 +667,9 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
       setShowAddForm(false);
       
       // Reload products after updating
-      const updated = await axios.get('/api/products/admin/all', {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      
-      setProducts(updated.data);
+      const currentPage = pagination.currentPage;
+      const currentSearch = searchParams.get('search') || '';
+      fetchProductData(currentPage, currentSearch);
     } catch (err) {
       setMessage(err.response?.data?.message || 'Error updating product');
     }
@@ -385,12 +685,10 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
           });
           showSuccess('Product deactivated successfully!');
           // Reload products after deactivating
-          const updated = await axios.get('/api/products/admin/all', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // Ensure products is always an array
-          const productsData = updated.data.products || updated.data;
-          setProducts(Array.isArray(productsData) ? productsData : []);
+          const currentPage = pagination.currentPage;
+          const currentSearch = searchParams.get('search') || '';
+          await fetchProductData(currentPage, currentSearch);
+          await fetchGlobalStats(); // Refresh global statistics
         } catch (err) {
           showError(err.response?.data?.message || 'Error deactivating product');
         }
@@ -408,12 +706,10 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
           });
           showSuccess('Product restored successfully!');
           // Reload products after restoring
-          const updated = await axios.get('/api/products/admin/all', {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          // Ensure products is always an array
-          const productsData = updated.data.products || updated.data;
-          setProducts(Array.isArray(productsData) ? productsData : []);
+          const currentPage = pagination.currentPage;
+          const currentSearch = searchParams.get('search') || '';
+          await fetchProductData(currentPage, currentSearch);
+          await fetchGlobalStats(); // Refresh global statistics
         } catch (err) {
           showError(err.response?.data?.message || 'Error restoring product');
         }
@@ -438,23 +734,23 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
     setEditingProduct(null);
   };
 
-  const handleSuccess = async () => {
+  const handleSuccess = async (isEdit = false) => {
     handleCloseModal();
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-        axios.get('/api/products/admin/all', { headers }),
-        axios.get('/api/suppliers', { headers }),
-        axios.get('/api/categories', { headers })
-      ]);
-      // Ensure products is always an array
-      const productsData = productsRes.data.products || productsRes.data;
-      setProducts(Array.isArray(productsData) ? productsData : []);
-      setSuppliers(suppliersRes.data.suppliers || suppliersRes.data);
-      setCategories(categoriesRes.data.categories || categoriesRes.data);
+      const currentPage = pagination.currentPage;
+      const currentSearch = searchParams.get('search') || '';
+      await fetchProductData(currentPage, currentSearch);
+      await fetchGlobalStats(); // Refresh global statistics
+      
+      // Show success toast
+      if (isEdit) {
+        showSuccess('Product updated successfully!');
+      } else {
+        showSuccess('Product added successfully!');
+      }
     } catch (err) {
       console.error('Error fetching product data after success:', err);
-      setMessage('Product was added, but failed to refresh the list.');
+      showError('Product was saved, but failed to refresh the list.');
     }
   };
 
@@ -549,19 +845,19 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
       <div className="stats-container">
         <div className="stat-card">
           <div className="stat-value stat-value-total">
-            {products.length}
+            {globalStats.totalProducts}
           </div>
           <div className="stat-label">Total Products</div>
         </div>
         <div className="stat-card">
           <div className="stat-value stat-value-active">
-            {products.filter(p => p.is_active === 1).length}
+            {globalStats.activeProducts}
           </div>
           <div className="stat-label">Active Products</div>
         </div>
         <div className="stat-card">
           <div className="stat-value stat-value-inactive">
-            {products.filter(p => p.is_active === 0).length}
+            {globalStats.inactiveProducts}
           </div>
           <div className="stat-label">Inactive Products</div>
         </div>
@@ -584,16 +880,56 @@ if (!loadingSettings && !isUserAdmin) navigate('/');
           <thead>
             <tr className="table-header-row">
               <th className="table-header-cell">Image</th>
-              <th className="table-header-cell">Name</th>
-              <th className="table-header-cell">Category</th>
-              <th className="table-header-cell">Price (Base / Final)</th>
-              <th className="table-header-cell">Stock</th>
-              <th className="table-header-cell">Status</th>
+              <th 
+                className={`table-header-cell sortable ${sortConfig.field === 'name' ? 'active' : ''}`}
+                onClick={() => handleSort('name')}
+              >
+                Name
+              <span className="sort-arrow">
+                  {sortConfig.field === 'name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+              </span>
+              </th>
+              <th 
+                className={`table-header-cell sortable ${sortConfig.field === 'category_id' ? 'active' : ''}`}
+                onClick={() => handleSort('category_id')}
+              >
+                Category
+                <span className="sort-arrow">
+                  {sortConfig.field === 'category_id' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`table-header-cell sortable ${sortConfig.field === 'price' ? 'active' : ''}`}
+                onClick={() => handleSort('price')}
+              >
+                Price (Base / Final)
+                <span className="sort-arrow">
+                  {sortConfig.field === 'price' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`table-header-cell sortable ${sortConfig.field === 'stock' ? 'active' : ''}`}
+                onClick={() => handleSort('stock')}
+              >
+                Stock
+                <span className="sort-arrow">
+                  {sortConfig.field === 'stock' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`table-header-cell sortable ${sortConfig.field === 'is_active' ? 'active' : ''}`}
+                onClick={() => handleSort('is_active')}
+              >
+                Status
+                <span className="sort-arrow">
+                  {sortConfig.field === 'is_active' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
               <th className="table-header-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {products.map(p => (
+            {sortedProducts.map(p => (
               <tr key={p.product_id} className="table-body-row">
                 <td className="table-body-cell">
                   {p.image ? (

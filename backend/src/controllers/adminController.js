@@ -249,13 +249,13 @@ exports.getCustomers = async (req, res) => {
         }
         
         // Add status filter if provided
-        if (status && status !== 'all') {
-            if (status === 'active') {
-                whereClause += " AND u.isActive = TRUE";
-            } else if (status === 'inactive') {
-                whereClause += " AND u.isActive = FALSE";
-            }
+        // Note: By default (when status is 'all'), we show ALL customers including inactive ones
+        if (status && status === 'active') {
+            whereClause += " AND u.isActive = 1";
+        } else if (status && status === 'inactive') {
+            whereClause += " AND u.isActive = 0";
         }
+        // When status is 'all' or undefined, we show all customers (active and inactive)
         
         // Get total count for pagination
         const [countResult] = await db.query(`
@@ -279,7 +279,7 @@ exports.getCustomers = async (req, res) => {
                 u.isActive,
                 COUNT(o.order_id) AS order_count,
                 COALESCE(SUM(o.total_amount), 0) AS total_spent,
-                CASE WHEN u.isActive = TRUE THEN "Active" ELSE "Inactive" END as status
+                CASE WHEN u.isActive = 1 THEN "Active" ELSE "Inactive" END as status
             FROM users u
             LEFT JOIN orders o ON u.user_id = o.user_id
             ${whereClause}
@@ -340,7 +340,7 @@ exports.deleteCustomer = async (req, res) => {
         
         // Soft delete the user (set isActive to false)
         const [result] = await db.query(`
-            UPDATE users SET isActive = FALSE WHERE user_id = ?
+            UPDATE users SET isActive = 0 WHERE user_id = ?
         `, [userId]);
         
         if (result.affectedRows === 0) {
@@ -374,7 +374,7 @@ exports.restoreCustomer = async (req, res) => {
         
         // Restore the user
         const [result] = await db.query(`
-            UPDATE users SET isActive = TRUE WHERE user_id = ?
+            UPDATE users SET isActive = 1 WHERE user_id = ?
         `, [userId]);
         
         if (result.affectedRows === 0) {

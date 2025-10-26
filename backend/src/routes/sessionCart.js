@@ -5,7 +5,8 @@ const {
     addToSessionCart,
     updateSessionCartItem,
     removeFromSessionCart,
-    clearSessionCart
+    clearSessionCart,
+    validateSessionCart
 } = require('../controllers/sessionCartController.js');
 
 const router = express.Router();
@@ -25,4 +26,8 @@ router.delete('/remove', removeFromSessionCart);
 // Clear session cart
 router.delete('/clear', clearSessionCart);
 
+// Validate and synchronize cart items with current product data
+router.post('/validate', validateSessionCart);
+
 module.exports = router;
+

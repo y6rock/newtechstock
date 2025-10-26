@@ -129,7 +129,7 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
         res = await axios.post('/api/products', formData, config);
       }
       setMessage(res.data.message || 'Success!');
-      onSuccess(); // Trigger refresh on parent
+      onSuccess(!!product); // Trigger refresh on parent, pass true if editing
       onClose(); // Close the modal
     } catch (err) {
       setMessage(err.response?.data?.message || 'An error occurred.');

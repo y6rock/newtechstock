@@ -17,6 +17,10 @@ const Categories = () => {
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef(null);
+  
+  // Sorting and filtering state
+  const [sortConfig, setSortConfig] = useState({ field: 'name', direction: 'asc' });
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryImage, setNewCategoryImage] = useState(null);
@@ -307,8 +311,8 @@ const Categories = () => {
           await axios.delete(`/api/categories/${categoryId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the current page
-          setPagination(prev => ({ ...prev, currentPage: 1 }));
+          // Refresh the data after deactivation
+          handlePageChange(pagination.currentPage);
           showSuccess('Category deactivated successfully!');
         } catch (err) {
           console.error('Error deactivating category:', err);
@@ -317,7 +321,7 @@ const Categories = () => {
       },
       () => {
         // Cancel callback - do nothing
-      }
+}
     );
   };
 
@@ -330,8 +334,8 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the current page
-          setPagination(prev => ({ ...prev, currentPage: 1 }));
+          // Refresh the data after restoration
+          handlePageChange(pagination.currentPage);
           showSuccess('Category restored successfully!');
         } catch (err) {
           console.error('Error restoring category:', err);
@@ -354,8 +358,16 @@ const Categories = () => {
           await axios.patch(`/api/categories/${categoryId}/toggle-status`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the current page
-          setPagination(prev => ({ ...prev, currentPage: 1 }));
+          
+          // Update the category status immediately in the local state
+          setCategories(prevCategories => 
+            prevCategories.map(cat => 
+              cat.category_id === categoryId 
+                ? { ...cat, status: currentStatus === 'Active' ? 'Inactive' : 'Active' }
+                : cat
+            )
+          );
+          
           showSuccess(`Category ${action}d successfully!`);
         } catch (err) {
           console.error('Error toggling category status:', err);
@@ -367,6 +379,48 @@ const Categories = () => {
       }
     );
   };
+
+  // Handle column sorting
+  const handleSort = (field) => {
+    setSortConfig(prevConfig => {
+      if (prevConfig.field === field) {
+        return { field, direction: prevConfig.direction === 'asc' ? 'desc' : 'asc' };
+      } else {
+        return { field, direction: 'asc' };
+      }
+    });
+  };
+
+  // Filter categories based on status
+  const filteredCategories = categories.filter(category => {
+    if (statusFilter === 'active') {
+      return category.status === 'Active';
+    } else if (statusFilter === 'inactive') {
+      return category.status === 'Inactive';
+    }
+    return true; // Show all if filter is 'all'
+  });
+
+  // Sort filtered categories
+  const sortedCategories = [...filteredCategories].sort((a, b) => {
+    const { field, direction } = sortConfig;
+    let aValue = a[field];
+    let bValue = b[field];
+
+    // Handle different data types
+    if (field === 'status') {
+      // Sort by status: Active comes first (A before I alphabetically)
+      aValue = aValue === 'Active' ? 'A' : 'I';
+      bValue = bValue === 'Active' ? 'A' : 'I';
+    } else if (typeof aValue === 'string') {
+      aValue = (aValue || '').toLowerCase();
+      bValue = (bValue || '').toLowerCase();
+    }
+
+    if (aValue < bValue) return direction === 'asc' ? -1 : 1;
+    if (aValue > bValue) return direction === 'asc' ? 1 : -1;
+    return 0;
+  });
 
   if (loadingSettings || loadingCategories) {
     return <div className="categories-loading">Loading Admin Panel...</div>;
@@ -386,7 +440,6 @@ const Categories = () => {
         <div className="filter-section">
           <div className="filter-controls">
             <div className="search-filter-group">
-              <label className="filter-label">Search Categories</label>
               <div className="search-input-wrapper">
                 <input
                   type="text"
@@ -421,6 +474,28 @@ const Categories = () => {
                   {pagination.totalItems} categor{pagination.totalItems !== 1 ? 'ies' : 'y'} found
                 </div>
               )}
+              
+              {/* Status Filter - Under Search Field */}
+              <div className="status-filters" style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
+                <button 
+                  className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('all')}
+                >
+                  All ({categories.length})
+                </button>
+                <button 
+                  className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('active')}
+                >
+                  Active ({categories.filter(c => c.status === 'Active').length})
+                </button>
+                <button 
+                  className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
+                  onClick={() => setStatusFilter('inactive')}
+                >
+                  Inactive ({categories.filter(c => c.status === 'Inactive').length})
+                </button>
+              </div>
             </div>
             
           </div>
@@ -442,19 +517,43 @@ const Categories = () => {
         <table className="categories-table">
           <thead>
             <tr>
-              <th>ID</th>
-              <th>Name</th>
-              <th className="status-cell">Status</th>
+              <th 
+                className={`sortable ${sortConfig.field === 'category_id' ? 'active' : ''}`}
+                onClick={() => handleSort('category_id')}
+              >
+                ID
+                <span className="sort-arrow">
+                  {sortConfig.field === 'category_id' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable ${sortConfig.field === 'name' ? 'active' : ''}`}
+                onClick={() => handleSort('name')}
+              >
+                Name
+                <span className="sort-arrow">
+                  {sortConfig.field === 'name' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
+              <th 
+                className={`sortable status-cell ${sortConfig.field === 'status' ? 'active' : ''}`}
+                onClick={() => handleSort('status')}
+              >
+                Status
+                <span className="sort-arrow">
+                  {sortConfig.field === 'status' ? (sortConfig.direction === 'asc' ? '↑' : '↓') : '↕'}
+                </span>
+              </th>
               <th className="actions-cell">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {categories.length === 0 ? (
+            {sortedCategories.length === 0 ? (
               <tr>
                 <td colSpan="4" className="no-categories">No categories found.</td>
               </tr>
             ) : (
-              categories.map((category) => (
+              sortedCategories.map((category) => (
                 <tr key={category.category_id}>
                   <td>{category.category_id}</td>
                   <td>{category.name}</td>

@@ -1,0 +1,9 @@
+* pagination products - check products table
+
+* onadd product cart check price
+
+* categories sorting
+
+* pagination check on all
+
+* cart related tables - removed and keep consistency over sessions

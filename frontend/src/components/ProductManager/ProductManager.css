@@ -230,6 +230,31 @@
   letter-spacing: 0.5px;
 }
 
+/* Sortable Header Styles */
+.table-header-cell.sortable {
+  cursor: pointer;
+  user-select: none;
+  position: relative;
+  transition: background-color 0.2s ease;
+}
+
+.table-header-cell.sortable:hover {
+  background-color: #e9ecef;
+}
+
+.sort-arrow {
+  margin-left: 8px;
+  font-size: 0.8rem;
+  opacity: 0.6;
+  transition: all 0.2s ease;
+}
+
+.table-header-cell.active .sort-arrow {
+  opacity: 1;
+  color: #007bff;
+  font-weight: bold;
+}
+
 .products-table td {
   padding: 20px 15px;
   border-bottom: 1px solid #e9ecef;

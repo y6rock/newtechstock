@@ -403,3 +403,33 @@ exports.restoreProduct = async (req, res) => {
         return res.status(500).json({ message: 'Database error', details: err.message });
     }
 };
+
+// Get global statistics for all products (admin only)
+exports.getProductStats = async (req, res) => {
+    try {
+        const [stats] = await db.query(`
+            SELECT 
+                COUNT(*) as total_products,
+                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_products,
+                SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_products,
+                SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
+                SUM(CASE WHEN stock > 0 AND stock <= 10 THEN 1 ELSE 0 END) as low_stock,
+                SUM(CASE WHEN stock > 10 AND stock <= 20 THEN 1 ELSE 0 END) as medium_stock,
+                SUM(CASE WHEN stock > 20 THEN 1 ELSE 0 END) as high_stock
+            FROM products
+        `);
+        
+        res.json({
+            totalProducts: stats[0].total_products || 0,
+            activeProducts: stats[0].active_products || 0,
+            inactiveProducts: stats[0].inactive_products || 0,
+            outOfStock: stats[0].out_of_stock || 0,
+            lowStock: stats[0].low_stock || 0,
+            mediumStock: stats[0].medium_stock || 0,
+            highStock: stats[0].high_stock || 0
+        });
+    } catch (err) {
+        console.error('Error fetching product statistics:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};

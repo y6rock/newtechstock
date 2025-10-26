@@ -515,7 +515,7 @@ const Customers = () => {
                     showSuccess('Customer deactivated successfully!');
                     // Refresh the customers list to show updated status
                     const updatedCustomers = customers.map(c => 
-                        c.user_id === customer.user_id ? { ...c, isActive: false } : c
+                        c.user_id === customer.user_id ? { ...c, isActive: 0 } : c
                     );
                     setCustomers(updatedCustomers);
                 } catch (error) {
@@ -550,7 +550,7 @@ const Customers = () => {
                     showSuccess('Customer restored successfully!');
                     // Refresh the customers list to show updated status
                     const updatedCustomers = customers.map(c => 
-                        c.user_id === customer.user_id ? { ...c, isActive: true } : c
+                        c.user_id === customer.user_id ? { ...c, isActive: 1 } : c
                     );
                     setCustomers(updatedCustomers);
                 } catch (error) {
@@ -585,8 +585,9 @@ const Customers = () => {
             aValue = parseInt(aValue) || 0;
             bValue = parseInt(bValue) || 0;
         } else if (sortField === 'isActive') {
-            aValue = a.isActive ? 1 : 0;
-            bValue = b.isActive ? 1 : 0;
+            // isActive is stored as 0 or 1 in the database (TINYINT)
+            aValue = aValue === 0 ? 0 : 1;
+            bValue = bValue === 0 ? 0 : 1;
         } else if (typeof aValue === 'string') {
             aValue = (aValue || '').toLowerCase();
             bValue = (bValue || '').toLowerCase();
@@ -678,7 +679,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            All Customers
+                            All Customers ({pagination.totalItems})
                         </button>
                         <button
                             onClick={() => handleStatusFilterChange('active')}
@@ -694,7 +695,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Active Only
+                            Active Only ({customers.filter(c => c.isActive !== 0).length})
                         </button>
                         <button
                             onClick={() => handleStatusFilterChange('inactive')}
@@ -710,7 +711,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Inactive Only
+                            Inactive Only ({customers.filter(c => c.isActive === 0).length})
                         </button>
                     </div>
                 </div>
@@ -789,15 +790,15 @@ const Customers = () => {
                     </thead>
                     <tbody>
                         {sortedCustomers.map((customer) => (
-                            <tr key={customer.user_id} className={`table-body-row ${customer.isActive === false ? 'inactive-row' : ''}`}>
+                            <tr key={customer.user_id} className={`table-body-row ${customer.isActive === 0 ? 'inactive-row' : ''}`}>
                                 <td className="table-body-cell">{customer.username || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.email || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.phone || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.order_count || 0}</td>
                                 <td className="table-body-cell">{formatPrice(customer.total_spent || 0, currency)}</td>
                                 <td className="table-body-cell">
-                                    <span className={`status-badge ${customer.isActive === false ? 'inactive' : 'active'}`}>
-                                        {customer.isActive === false ? 'Inactive' : 'Active'}
+                                    <span className={`status-badge ${customer.isActive === 0 ? 'inactive' : 'active'}`}>
+                                        {customer.isActive === 0 ? 'Inactive' : 'Active'}
                                     </span>
                                 </td>
                                 <td className="table-body-cell center">
@@ -808,7 +809,7 @@ const Customers = () => {
                                         >
                                             View Orders
                                         </button>
-                                        {customer.isActive === false ? (
+                                        {customer.isActive === 0 ? (
                                             <button
                                                 onClick={() => handleRestoreCustomer(customer)}
                                                 className="action-btn restore-btn"

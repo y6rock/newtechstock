@@ -535,3 +535,38 @@
 }
 
 /* Responsive styles for filter section handled by grid layout above */
+
+/* Status Filters - Horizontal Buttons */
+.status-filters {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.filter-btn {
+  padding: 8px 16px;
+  border: 2px solid #e2e8f0;
+  border-radius: 6px;
+  background-color: white;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-btn:hover {
+  border-color: #cbd5e1;
+  background-color: #f8fafc;
+}
+
+.filter-btn.active {
+  border-color: #3b82f6;
+  background-color: #3b82f6;
+  color: white;
+}
+
+.filter-btn.active:hover {
+  border-color: #2563eb;
+  background-color: #2563eb;
+}

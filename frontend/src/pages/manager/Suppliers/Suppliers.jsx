@@ -309,8 +309,8 @@ const Suppliers = () => {
           await axios.delete(`/api/suppliers/${supplierId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the current page
-          setPagination(prev => ({ ...prev, currentPage: 1 }));
+          // Refresh the data after deactivation
+          handlePageChange(pagination.currentPage);
           showSuccess('Supplier deactivated successfully!');
         } catch (err) {
           console.error('Error deleting supplier:', err);
@@ -330,8 +330,8 @@ const Suppliers = () => {
           await axios.patch(`/api/suppliers/${supplierId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the current page
-          setPagination(prev => ({ ...prev, currentPage: 1 }));
+          // Refresh the data after restoration
+          handlePageChange(pagination.currentPage);
           showSuccess('Supplier restored successfully!');
         } catch (err) {
           console.error('Error restoring supplier:', err);
@@ -354,23 +354,12 @@ const Suppliers = () => {
       <h1 className="suppliers-title">Manage Suppliers</h1>
       <p className="suppliers-subtitle">Add, edit, or delete product suppliers.</p>
       
-      {/* Add Supplier Button */}
-      <div className="add-button-container">
-        <button 
-          onClick={() => setShowAddModal(true)}
-          className="add-supplier-btn"
-        >
-          + Add New Supplier
-        </button>
-      </div>
-
       {error && <p className="suppliers-error">{error}</p>}
 
       {/* Filter Section */}
       <div className="filter-section">
         <div className="filter-controls">
           <div className="search-filter-group">
-            <label className="filter-label">Search Suppliers</label>
             <div className="search-input-wrapper">
               <input
                 type="text"
@@ -408,6 +397,16 @@ const Suppliers = () => {
           </div>
           
         </div>
+      </div>
+
+      {/* Add Supplier Button - moved under search to match Categories */}
+      <div className="add-button-container">
+        <button 
+          onClick={() => setShowAddModal(true)}
+          className="add-supplier-btn"
+        >
+          + Add New Supplier
+        </button>
       </div>
 
       {/* Suppliers List */}

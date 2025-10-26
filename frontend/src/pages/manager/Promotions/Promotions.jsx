@@ -144,7 +144,9 @@ export default function Promotions() {
       if (response.ok) {
         const data = await response.json();
         console.log('Products fetched:', data);
-        setProducts(data);
+        // Handle both old format (array) and new format (object with products array)
+        const productsData = data.products || data;
+        setProducts(Array.isArray(productsData) ? productsData : []);
       } else {
         console.error('Failed to fetch products:', response.status, response.statusText);
       }
@@ -443,29 +445,47 @@ export default function Promotions() {
       {loading ? (
         <div className="loading">Loading promotions...</div>
       ) : (
-        <div className="promotions-grid">
-          {promotions.filter((promotion) => {
-            if (statusFilter === 'all') return true;
-            const status = getPromotionStatus(promotion);
-            if (statusFilter === 'inactive') {
-              return !promotion.is_active;
-            }
-            return status.status === statusFilter;
-          }).sort((a, b) => {
-            // Sort active promotions first, then by start date
-            const statusA = getPromotionStatus(a);
-            const statusB = getPromotionStatus(b);
-            
-            // Active promotions first
-            if (statusA.status === 'active' && statusB.status !== 'active') return -1;
-            if (statusA.status !== 'active' && statusB.status === 'active') return 1;
-            
-            // If both are active or both are not active, sort by start date (newest first)
-            return new Date(b.start_date) - new Date(a.start_date);
-          }).map((promotion) => {
-            const status = getPromotionStatus(promotion);
+        (() => {
+          const filteredPromotions = promotions
+            .filter((promotion) => {
+              if (statusFilter === 'all') return true;
+              const status = getPromotionStatus(promotion);
+              if (statusFilter === 'inactive') {
+                return !promotion.is_active;
+              }
+              return status.status === statusFilter;
+            })
+            .sort((a, b) => {
+              // Sort active promotions first, then by start date
+              const statusA = getPromotionStatus(a);
+              const statusB = getPromotionStatus(b);
+              if (statusA.status === 'active' && statusB.status !== 'active') return -1;
+              if (statusA.status !== 'active' && statusB.status === 'active') return 1;
+              return new Date(b.start_date) - new Date(a.start_date);
+            });
+
+          if (filteredPromotions.length === 0) {
+            const labelMap = {
+              all: 'promotions',
+              active: 'active promotions',
+              inactive: 'inactive promotions',
+              expired: 'expired promotions',
+              pending: 'pending promotions'
+            };
+            const label = labelMap[statusFilter] || 'promotions';
             return (
-              <div key={promotion.promotion_id} className={`promotion-card ${status.className}`}>
+              <div className="empty-state" style={{ padding: '20px', textAlign: 'center', color: '#6b7280' }}>
+                No {label} found.
+              </div>
+            );
+          }
+
+          return (
+            <div className="promotions-grid">
+              {filteredPromotions.map((promotion) => {
+                const status = getPromotionStatus(promotion);
+                return (
+                  <div key={promotion.promotion_id} className={`promotion-card ${status.className}`}>
                 <div className="promotion-header">
                   <div className="promotion-type-icon">
                     {getPromotionTypeIcon(promotion.type)}
@@ -539,25 +559,26 @@ export default function Promotions() {
                     </div>
                   )}
                 </div>
-
-                <div className="promotion-actions">
-                  <button 
-                    className="edit-btn"
-                    onClick={() => handleEdit(promotion)}
-                  >
-                    <FaEdit /> Edit
-                  </button>
-                  <button 
-                    className="delete-btn"
-                    onClick={() => handleDelete(promotion.promotion_id)}
-                  >
-                    <FaTrash /> Delete
-                  </button>
+                  <div className="promotion-actions">
+                    <button 
+                      className="edit-btn"
+                      onClick={() => handleEdit(promotion)}
+                    >
+                      <FaEdit /> Edit
+                    </button>
+                    <button 
+                      className="delete-btn"
+                      onClick={() => handleDelete(promotion.promotion_id)}
+                    >
+                      <FaTrash /> Delete
+                    </button>
+                  </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
+              );
+            })}
+            </div>
+          );
+        })()
       )}
 
       {showModal && (

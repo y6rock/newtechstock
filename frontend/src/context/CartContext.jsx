@@ -16,36 +16,102 @@ export const CartProvider = ({ children }) => {
   const isInitialMount = useRef(true);
   const lastValidationTime = useRef(0);
 
-  // Load cart from sessionStorage when user_id changes
+  // Load cart from server session when component mounts or user_id changes
   useEffect(() => {
-    if (user_id && !isInitialMount.current) {
-      loadCartFromSession();
+    if (!isInitialMount.current) {
+      loadCartFromServer();
     }
     isInitialMount.current = false;
   }, [user_id]);
 
-  // Load cart from sessionStorage
-  const loadCartFromSession = () => {
-    if (!user_id) return;
+  // Also load cart on every mount to handle Safari session issues
+  useEffect(() => {
+    loadCartFromServer();
+  }, []);
 
+  // Safari-specific cart loading with aggressive fallback
+  useEffect(() => {
+    const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+    
+    if (isSafari) {
+      // For Safari, try localStorage backup first, then server
+      const cartBackup = localStorage.getItem('cart_backup');
+      if (cartBackup) {
+        try {
+          const backupData = JSON.parse(cartBackup);
+          // Use backup if it's less than 24 hours old
+          if (Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
+            console.log('Safari: Loading cart from localStorage backup');
+            setCartItems(backupData.cartItems || []);
+            setAppliedPromotion(backupData.appliedPromotion);
+            setDiscountAmount(backupData.discountAmount || 0);
+          }
+        } catch (error) {
+          console.error('Safari: Error loading cart backup:', error);
+        }
+      }
+      
+      // Still try to sync with server
+      setTimeout(() => {
+        loadCartFromServer();
+      }, 1000);
+    }
+  }, []);
+
+  // Load cart from server session
+  const loadCartFromServer = async () => {
     setIsLoading(true);
     try {
-      const cartData = sessionStorage.getItem(`cart_${user_id}`);
-      if (cartData) {
-        const { cartItems: sessionCartItems, appliedPromotion: sessionPromotion, discountAmount: sessionDiscount } = JSON.parse(cartData);
+      const response = await axios.get('/api/session-cart', {
+        withCredentials: true // Important for session cookies
+      });
 
-        setCartItems(sessionCartItems || []);
-        setAppliedPromotion(sessionPromotion);
-        setDiscountAmount(sessionDiscount || 0);
-      } else {
-        // Initialize empty cart for new user
-        setCartItems([]);
-        setAppliedPromotion(null);
-        setDiscountAmount(0);
+      const { cartItems: serverCartItems, appliedPromotion: serverPromotion, discountAmount: serverDiscount, sessionId } = response.data;
+      
+      setCartItems(serverCartItems || []);
+      setAppliedPromotion(serverPromotion);
+      setDiscountAmount(serverDiscount || 0);
+
+      // Store cart data in localStorage as backup for Safari
+      if (serverCartItems && serverCartItems.length > 0) {
+        localStorage.setItem('cart_backup', JSON.stringify({
+          cartItems: serverCartItems,
+          appliedPromotion: serverPromotion,
+          discountAmount: serverDiscount || 0,
+          sessionId: sessionId,
+          timestamp: Date.now()
+        }));
       }
+
     } catch (error) {
-      console.error('Error loading cart from session:', error);
-      // Reset to empty cart on error
+      console.error('Error loading cart from server:', error);
+      
+      // Safari fallback: try to load from localStorage backup
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        try {
+          const cartBackup = localStorage.getItem('cart_backup');
+          if (cartBackup) {
+            const backupData = JSON.parse(cartBackup);
+            // Only use backup if it's less than 24 hours old
+            if (Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
+              console.log('Using Safari cart backup from localStorage');
+              setCartItems(backupData.cartItems || []);
+              setAppliedPromotion(backupData.appliedPromotion);
+              setDiscountAmount(backupData.discountAmount || 0);
+              setIsLoading(false);
+              return;
+            }
+          }
+        } catch (backupError) {
+          console.error('Error loading cart backup:', backupError);
+        }
+      }
+      
+      // Don't show error for auth issues during initial load
+      if (error.response?.status !== 401 && error.response?.status !== 403) {
+        console.error('Failed to load cart:', error.response?.data?.message || error.message);
+      }
+      // Initialize empty cart on error
       setCartItems([]);
       setAppliedPromotion(null);
       setDiscountAmount(0);
@@ -54,115 +120,62 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Cart validation and synchronization function (unchanged logic)
+  // Cart validation and synchronization function
   const validateCart = async (showNotifications = true) => {
-    if (!user_id || cartItems.length === 0 || isValidating) {
-      return;
-    }
-
-    const token = localStorage.getItem('token');
-    if (!token) {
-      return;
-    }
+    if (cartItems.length === 0) return;
 
     const now = Date.now();
-    if (now - lastValidationTime.current < 30000) {
+    if (now - lastValidationTime.current < 60000) { // Throttle to once per minute
       return;
     }
-
-    setIsValidating(true);
     lastValidationTime.current = now;
 
+    setIsValidating(true);
     try {
-      const response = await axios.post('/api/cart/validate', {
+      const response = await axios.post('/api/session-cart/validate', {
         cartItems: cartItems
       }, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        withCredentials: true
       });
 
-      const { validatedCart, changes, removedItems, summary } = response.data;
+      const { validatedCart, changes, removedItems } = response.data;
 
-      if (validatedCart.length !== cartItems.length || changes.length > 0) {
+      if (changes.length > 0 || removedItems.length > 0) {
         setCartItems(validatedCart);
-      }
 
-      if (showNotifications) {
-        if (removedItems.length > 0) {
-          const removedNames = removedItems.map(item => item.name).join(', ');
-          showError(`${removedItems.length} item(s) removed from cart: ${removedNames}`);
-        }
-        const priceChanges = changes.filter(change => 
-          change.changes.some(c => c.field === 'price')
-        );
-        if (priceChanges.length > 0) {
-          showInfo(`Prices updated for ${priceChanges.length} item(s) in your cart`);
-        }
-        const quantityChanges = changes.filter(change => 
-          change.changes.some(c => c.field === 'quantity')
-        );
-        if (quantityChanges.length > 0) {
-          showInfo(`Quantities adjusted for ${quantityChanges.length} item(s) due to stock limits`);
-        }
-      }
-
-      console.log('Cart validation completed:', summary);
-
-    } catch (error) {
-      console.error('Cart validation failed:', error);
-      
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        console.log('Cart validation skipped: Authentication required');
-        if (showNotifications && user_id) {
-          showInfo('Session expired. Please log in again to validate cart items');
-        }
-      } else if (error.response?.status >= 500) {
-        console.log('Server error during cart validation');
         if (showNotifications) {
-          showError('Server temporarily unavailable. Please try again later.');
+          if (changes.length > 0) {
+            const changeMessages = changes.map(change => 
+              `${change.name}: ${change.change}`
+            ).join(', ');
+            showInfo(`Cart updated: ${changeMessages}`);
+          }
+
+          if (removedItems.length > 0) {
+            const removedNames = removedItems.map(item => item.name).join(', ');
+            showError(`Removed from cart (no longer available): ${removedNames}`);
+          }
         }
-      } else if (showNotifications && error.response) {
-        const errorMessage = error.response?.data?.message || `Server error (${error.response.status})`;
-        showError(errorMessage);
-      } else if (showNotifications && !error.response) {
-        showError('Unable to connect to server. Please check your connection.');
+      }
+    } catch (error) {
+      console.error('Error validating cart:', error);
+      if (showNotifications) {
+        showError('Failed to validate cart items');
       }
     } finally {
       setIsValidating(false);
     }
   };
 
-  // Validate cart on initial load and when user_id changes
+  // Validate cart when cart items change
   useEffect(() => {
-    if (user_id && cartItems.length > 0 && !isInitialMount.current) {
-      const timer = setTimeout(() => {
-        validateCart(false);
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (cartItems.length > 0) {
+      validateCart(false); // Don't show notifications during auto-validation
     }
-  }, [user_id]);
+  }, [cartItems.length, validateCart]);
 
-  // Validate cart when page becomes visible
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (!document.hidden && user_id && cartItems.length > 0 && localStorage.getItem('token')) {
-        const now = Date.now();
-        if (now - lastValidationTime.current > 60000) {
-          validateCart(false);
-        }
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [user_id, cartItems.length]);
-
-  // Add to cart - now uses server API
+  // Add to cart - now uses session-based API
   const addToCart = async (product, quantity = 1) => {
-    if (!user_id) {
-      showError('Please log in to add items to your cart.');
-      return;
-    }
-
     if (!product.stock || product.stock < 0) {
       showError('This product has invalid inventory data and cannot be added to cart.');
       return;
@@ -184,141 +197,102 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
-      // Update cart in memory
-      const existingItemIndex = cartItems.findIndex(item => item.product_id === product.product_id);
+      const response = await axios.post('/api/session-cart/add', {
+        product_id: product.product_id,
+        quantity: quantity
+      }, {
+        withCredentials: true
+      });
 
-      let updatedCartItems;
-      if (existingItemIndex >= 0) {
-        // Update existing item quantity
-        updatedCartItems = [...cartItems];
-        updatedCartItems[existingItemIndex] = {
-          ...updatedCartItems[existingItemIndex],
-          quantity: updatedCartItems[existingItemIndex].quantity + quantity,
-          price: product.price, // Update price in case it changed
-          stock: product.stock // Keep latest stock snapshot for client-side checks
-        };
-      } else {
-        // Add new item
-        updatedCartItems = [...cartItems, {
-          product_id: product.product_id,
-          name: product.name,
-          price: product.price,
-          image: product.image,
-          quantity: quantity,
-          stock: product.stock,
-          category_name: product.category_name,
-          supplier_name: product.supplier_name
-        }];
-      }
-
+      // Update local state with server response
+      const updatedCartItems = response.data.cartItems || [];
       setCartItems(updatedCartItems);
-
-      // Save to sessionStorage
-      const cartData = {
+      
+      // Update localStorage backup for Safari
+      localStorage.setItem('cart_backup', JSON.stringify({
         cartItems: updatedCartItems,
-        appliedPromotion,
-        discountAmount
-      };
-      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
-
+        appliedPromotion: appliedPromotion,
+        discountAmount: discountAmount,
+        timestamp: Date.now()
+      }));
+      
       showSuccess(`Added ${quantity} ${product.name} to cart!`);
 
     } catch (error) {
       console.error('Error adding to cart:', error);
-      showError('Failed to add item to cart');
+      if (error.response?.data?.message) {
+        showError(error.response.data.message);
+      } else {
+        showError('Failed to add item to cart');
+      }
     }
   };
 
-  // Remove from cart - now uses sessionStorage only
+  // Remove from cart - now uses session-based API
   const removeFromCart = async (productId) => {
-    if (!user_id) return;
-
     try {
-      // Update cart in memory
-      const updatedCartItems = cartItems.filter(item => item.product_id !== productId);
-      setCartItems(updatedCartItems);
+      const response = await axios.delete('/api/session-cart/remove', {
+        data: { product_id: productId },
+        withCredentials: true
+      });
 
-      // Save to sessionStorage
-      const cartData = {
-        cartItems: updatedCartItems,
-        appliedPromotion,
-        discountAmount
-      };
-      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
-
+      // Update local state with server response
+      setCartItems(response.data.cartItems || []);
       showSuccess('Item removed from cart');
 
     } catch (error) {
       console.error('Error removing from cart:', error);
-      showError('Failed to remove item from cart');
+      if (error.response?.data?.message) {
+        showError(error.response.data.message);
+      } else {
+        showError('Failed to remove item from cart');
+      }
     }
   };
 
-  // Update quantity - now uses sessionStorage only
+  // Update quantity - now uses session-based API
   const updateQuantity = async (productId, newQuantity) => {
-    const quantity = parseInt(newQuantity);
-    if (isNaN(quantity) || quantity < 1) {
-      showError('Please enter a valid quantity (minimum 1).');
-      return;
-    }
-
-    if (!user_id) return;
-
-    const item = cartItems.find(item => item.product_id === productId);
-    if (!item) return;
-
-    if (item.stock === undefined || item.stock === null || Number.isNaN(Number(item.stock))) {
-      showError('This product has invalid inventory data.');
-      return;
-    }
-
-    if (quantity > item.stock) {
-      showError(`Only ${item.stock} unit${item.stock === 1 ? '' : 's'} available. Cannot set quantity to ${quantity}.`);
+    if (newQuantity < 0) {
+      showError('Quantity cannot be negative');
       return;
     }
 
     try {
-      // Update cart in memory
-      const updatedCartItems = cartItems.map(item =>
-        item.product_id === productId ? { ...item, quantity: quantity } : item
-      );
-      setCartItems(updatedCartItems);
+      const response = await axios.put('/api/session-cart/update', {
+        product_id: productId,
+        quantity: newQuantity
+      }, {
+        withCredentials: true
+      });
 
-      // Save to sessionStorage
-      const cartData = {
-        cartItems: updatedCartItems,
-        appliedPromotion,
-        discountAmount
-      };
-      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+      // Update local state with server response
+      setCartItems(response.data.cartItems || []);
 
-      showSuccess('Quantity updated');
+      if (newQuantity === 0) {
+        showSuccess('Item removed from cart');
+      }
 
     } catch (error) {
-      console.error('Error updating cart:', error);
-      showError('Failed to update cart item');
+      console.error('Error updating quantity:', error);
+      if (error.response?.data?.message) {
+        showError(error.response.data.message);
+      } else {
+        showError('Failed to update quantity');
+      }
     }
   };
 
-  // Clear cart - now uses sessionStorage only
+  // Clear cart - now uses session-based API
   const clearCart = async () => {
-    if (!user_id) {
-      setCartItems([]);
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
-      return;
-    }
-
     try {
-      // Clear cart in memory
+      await axios.delete('/api/session-cart/clear', {
+        withCredentials: true
+      });
+
       setCartItems([]);
       setAppliedPromotion(null);
       setDiscountAmount(0);
-
-      // Clear from sessionStorage
-      sessionStorage.removeItem(`cart_${user_id}`);
-
-      showSuccess('Cart cleared');
+      showSuccess('Cart cleared successfully');
 
     } catch (error) {
       console.error('Error clearing cart:', error);
@@ -326,58 +300,45 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Apply promotion - now uses sessionStorage only
-  const applyPromotion = async (promotion, calculatedDiscount) => {
-    if (!user_id) {
-      showError('Please log in to apply promotions.');
-      return false;
-    }
-
+  // Apply promotion - now uses session-based API
+  const applyPromotion = async (promotionCode) => {
     try {
-      // Update cart in memory
-      setAppliedPromotion(promotion);
-      setDiscountAmount(calculatedDiscount);
+      const response = await axios.post('/api/cart/promotion', {
+        code: promotionCode
+      }, {
+        withCredentials: true
+      });
 
-      // Save to sessionStorage
-      const cartData = {
-        cartItems,
-        appliedPromotion: promotion,
-        discountAmount: calculatedDiscount
-      };
-      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
+      const { appliedPromotion: newPromotion, discountAmount: newDiscount } = response.data;
+      setAppliedPromotion(newPromotion);
+      setDiscountAmount(newDiscount || 0);
 
-      showSuccess(`Applied promotion: ${promotion.name}`);
-      return true;
+      if (newPromotion) {
+        showSuccess(`Promotion "${newPromotion.name}" applied successfully!`);
+      } else {
+        showError('Invalid promotion code');
+      }
 
     } catch (error) {
       console.error('Error applying promotion:', error);
-      showError('Failed to apply promotion');
-      return false;
+      if (error.response?.data?.message) {
+        showError(error.response.data.message);
+      } else {
+        showError('Failed to apply promotion');
+      }
     }
   };
 
-  // Remove promotion - now uses sessionStorage only
+  // Remove promotion - now uses session-based API
   const removePromotion = async () => {
-    if (!user_id) {
-      setAppliedPromotion(null);
-      setDiscountAmount(0);
-      return;
-    }
-
     try {
-      // Update cart in memory
+      await axios.delete('/api/cart/promotion', {
+        withCredentials: true
+      });
+
       setAppliedPromotion(null);
       setDiscountAmount(0);
-
-      // Save to sessionStorage
-      const cartData = {
-        cartItems,
-        appliedPromotion: null,
-        discountAmount: 0
-      };
-      sessionStorage.setItem(`cart_${user_id}`, JSON.stringify(cartData));
-
-      showSuccess('Promotion removed');
+      showSuccess('Promotion removed successfully');
 
     } catch (error) {
       console.error('Error removing promotion:', error);
@@ -385,65 +346,50 @@ export const CartProvider = ({ children }) => {
     }
   };
 
-  // Clear cart from sessionStorage (for logout)
-  const clearCartSession = () => {
-    if (user_id) {
-      sessionStorage.removeItem(`cart_${user_id}`);
-    }
-    setCartItems([]);
-    setAppliedPromotion(null);
-    setDiscountAmount(0);
+  // Refresh cart from server
+  const refreshCart = async () => {
+    await loadCartFromServer();
   };
 
-  // Clear cart when user logs out (when user_id becomes null)
-  useEffect(() => {
-    if (isInitialMount.current) {
-      isInitialMount.current = false;
-      return;
-    }
-
-    if (!user_id) {
-      // User logged out, clear cart
-      clearCartSession();
-    }
-  }, [user_id]);
-
   // Calculate totals
-  const subtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const subtotalAfterDiscount = subtotal - discountAmount;
-  const vatAmount = (subtotalAfterDiscount * (vat_rate || 0)) / 100;
-  const netAmount = subtotalAfterDiscount - vatAmount;
-  const total = subtotalAfterDiscount;
-  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
+  const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const netAmount = subtotal - discountAmount;
+  const vatAmount = netAmount * (vat_rate / 100);
+  const total = netAmount + vatAmount;
+  const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
+
+  const value = {
+    cartItems,
+    appliedPromotion,
+    discountAmount,
+    subtotal,
+    netAmount,
+    vatAmount,
+    total,
+    totalItems,
+    isLoading,
+    isValidating,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    applyPromotion,
+    removePromotion,
+    refreshCart,
+    validateCart
+  };
 
   return (
-    <CartContext.Provider
-      value={{
-        cartItems,
-        addToCart,
-        removeFromCart,
-        updateQuantity,
-        clearCart,
-        clearCartSession,
-        appliedPromotion,
-        discountAmount,
-        applyPromotion,
-        removePromotion,
-        validateCart,
-        isValidating,
-        isLoading,
-        subtotal,
-        subtotalAfterDiscount,
-        vatAmount,
-        netAmount,
-        vat_rate,
-        total,
-        totalItems,
-      }}
-    >
+    <CartContext.Provider value={value}>
       {children}
     </CartContext.Provider>
   );
 };
 
-export const useCart = () => useContext(CartContext);
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) {
+    throw new Error('useCart must be used within a CartProvider');
+  }
+  return context;
+};

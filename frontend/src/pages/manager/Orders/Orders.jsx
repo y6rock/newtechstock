@@ -48,6 +48,32 @@ const Orders = () => {
     }
   };
 
+  // Sort orders based on sortConfig
+  const sortedOrders = [...orders].sort((a, b) => {
+    let aValue = a[sortField];
+    let bValue = b[sortField];
+
+    // Handle different data types
+    if (sortField === 'total_amount' || sortField === 'total_price') {
+      aValue = parseFloat(aValue) || 0;
+      bValue = parseFloat(bValue) || 0;
+    } else if (sortField === 'order_date') {
+      aValue = new Date(aValue).getTime();
+      bValue = new Date(bValue).getTime();
+    } else if (sortField === 'customer_name') {
+      // Handle customer name which might be in different fields
+      aValue = (a.customer_name || a.customer_email || '').toLowerCase();
+      bValue = (b.customer_name || b.customer_email || '').toLowerCase();
+    } else if (typeof aValue === 'string') {
+      aValue = (aValue || '').toLowerCase();
+      bValue = (bValue || '').toLowerCase();
+    }
+
+    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
+    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
+    return 0;
+  });
+
 
 
   // Auto-refocus search input after re-renders to maintain typing experience
@@ -140,8 +166,12 @@ const Orders = () => {
         distributionRes.json()
       ]);
 
-      setOrders(ordersData.orders || ordersData);
-      setStats(distributionData);
+      const ordersArray = ordersData.orders || ordersData;
+      setOrders(ordersArray);
+      
+      // Process stats properly
+      const processedStats = processStats(distributionData);
+      setStats(processedStats);
       
       if (ordersData.pagination) {
         setPagination(ordersData.pagination);
@@ -359,7 +389,7 @@ const Orders = () => {
             </tr>
           </thead>
           <tbody>
-            {orders.map(order => (
+            {sortedOrders.map(order => (
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
                 <td>{formatDate(order.order_date)}</td>

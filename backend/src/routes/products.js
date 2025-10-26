@@ -12,7 +12,8 @@ const {
     updateProduct,
     deleteProduct,
     getAllProductsAdmin,
-    restoreProduct
+    restoreProduct,
+    getProductStats
 } = require('../controllers/productController.js');
 
 const router = express.Router();
@@ -54,6 +55,9 @@ router.delete('/:id', authenticateToken, requireAdmin, deleteProduct);
 
 // Get all products including inactive (admin only)
 router.get('/admin/all', authenticateToken, requireAdmin, getAllProductsAdmin);
+
+// Get product statistics (admin only)
+router.get('/admin/stats', authenticateToken, requireAdmin, getProductStats);
 
 // Restore a deactivated product (admin only)
 router.patch('/:id/restore', authenticateToken, requireAdmin, restoreProduct);
