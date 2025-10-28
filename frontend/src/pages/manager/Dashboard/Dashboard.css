@@ -381,6 +381,7 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  white-space: nowrap;
 }
 
 .stock-badge {
@@ -392,15 +393,15 @@
 }
 
 .stock-badge.low {
-  background-color: #fef2f2;
-  color: #dc2626;
-  border: 1px solid #fecaca;
+  background-color: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
 }
 
 .stock-badge.medium {
-  background-color: #fef3c7;
-  color: #d97706;
-  border: 1px solid #fde68a;
+  background-color: #dc2626;
+  color: white;
+  border: 1px solid #dc2626;
 }
 
 .inactive-badge {

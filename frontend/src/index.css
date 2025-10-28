@@ -12,3 +12,17 @@ code {
   font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
     monospace;
 }
+
+/* Ensure all form fields align text from the left, regardless of parent alignment */
+input,
+textarea,
+select {
+  text-align: left;
+}
+
+/* Specific common input classes used across pages/modals */
+.form-input,
+.edit-form-input,
+.search-input {
+  text-align: left;
+}

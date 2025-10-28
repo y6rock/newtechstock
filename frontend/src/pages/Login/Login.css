@@ -61,6 +61,24 @@
   margin-bottom: 24px;
 }
 
+/* When the input has an error, create extra space below the group without affecting icon vertical centering */
+.form-group:has(.form-input.error) {
+  margin-bottom: 44px; /* space for error line */
+}
+
+.field-error {
+  position: absolute;
+  left: 0;
+  top: 100%;
+  margin-top: 6px; /* Show below input without changing group height */
+  background: transparent;
+  pointer-events: none;
+  white-space: normal;
+  max-width: 100%;
+  line-height: 1.2;
+  z-index: 2;
+}
+
 .form-label {
   font-weight: 600;
   color: #333;
@@ -73,10 +91,12 @@
   border: 2px solid #e2e8f0;
   border-radius: 12px;
   font-size: 1em;
-  transition: all 0.3s ease;
+  transition: border-color 0.3s ease, box-shadow 0.3s ease;
   box-sizing: border-box;
   background-color: #f8fafc;
   color: #2d3748;
+  text-align: left;
+  vertical-align: middle;
 }
 
 .form-input:focus {
@@ -84,7 +104,7 @@
   border-color: #667eea;
   background-color: #fff;
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-  transform: translateY(-1px);
+  transform: none; /* Prevent any transform on focus */
 }
 
 .form-input::placeholder {
@@ -106,8 +126,10 @@
   display: block;
   color: #dc3545;
   font-size: 0.875rem;
-  margin-top: 6px;
   font-weight: 500;
+  position: absolute;
+  left: 0;
+  bottom: 0; /* Place inside reserved padding, so height doesn't change */
 }
 
 /* Form Icons */
@@ -115,7 +137,7 @@
   position: absolute;
   left: 18px !important;
   top: 50%;
-  transform: translateY(-50%);
+  transform: translateY(-50%); /* Perfect vertical centering */
   color: #a0aec0;
   font-size: 1.1em;
   z-index: 1;

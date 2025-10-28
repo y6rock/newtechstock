@@ -239,6 +239,7 @@
   margin-bottom: 0;
   box-sizing: border-box;
   transition: border-color 0.2s ease;
+  text-align: left; /* Ensure caret starts at left */
 }
 
 .form-input:focus {

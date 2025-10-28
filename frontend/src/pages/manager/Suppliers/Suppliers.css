@@ -399,6 +399,7 @@
   font-family: inherit;
   transition: all 0.3s ease;
   background-color: #f9fafb;
+  text-align: left; /* Ensure caret starts at left */
 }
 
 .form-input:focus,

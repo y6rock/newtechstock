@@ -157,7 +157,7 @@ export default function Dashboard() {
           }
         }
       },
-      y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Orders' } }
+      y1: { beginAtZero: true, position: 'right', grid: { drawOnChartArea: false }, title: { display: true, text: 'Orders' }, ticks: { callback: (v) => v } }
     },
     plugins: {
       tooltip: {
@@ -168,7 +168,11 @@ export default function Dashboard() {
               label += ': ';
             }
             if (context.parsed.y !== null) {
-              label += formatPrice(context.parsed.y, currency);
+              if (context.dataset.label === 'Order Count') {
+                label += context.parsed.y;
+              } else {
+                label += formatPrice(context.parsed.y, currency);
+              }
             }
             return label;
           }
@@ -177,17 +181,21 @@ export default function Dashboard() {
     }
   };
 
+  const sortedTopProducts = topProducts && topProducts.length > 0 
+    ? [...topProducts].sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
+    : [];
+
   const topProductsBarData = {
-    labels: topProducts.length > 0 ? topProducts.map(p => p.name) : ['No Products'],
+    labels: sortedTopProducts.length > 0 ? sortedTopProducts.map(p => p.name) : ['No Products'],
     datasets: [
       {
         label: 'Units Sold',
-        data: topProducts.length > 0 ? topProducts.map(p => p.total_sold) : [0],
+        data: sortedTopProducts.length > 0 ? sortedTopProducts.map(p => p.total_sold) : [0],
         backgroundColor: '#ffc107',
       },
       {
         label: 'Total Sales',
-        data: topProducts.length > 0 ? topProducts.map(p => p.total_revenue) : [0],
+        data: sortedTopProducts.length > 0 ? sortedTopProducts.map(p => p.total_revenue) : [0],
         backgroundColor: '#007bff',
       }
     ]
@@ -213,6 +221,75 @@ export default function Dashboard() {
     <div className="dashboard-container">
       <h2>Dashboard</h2>
       <p className="subtitle">Overview of your store's performance</p>
+
+      {/* Low Stock Products - Moved to top */}
+      <div className="chart-container low-stock-section">
+        <h3>Low Stock Products (≤10 units)</h3>
+        {lowStockProducts.length > 0 ? (
+          <>
+            <div className="low-stock-grid">
+              {lowStockProducts.slice(0, lowStockDisplayCount).map(product => (
+                <div key={product.id} className="low-stock-product-card">
+                  <div className="low-stock-product-image">
+                    {product.image ? (
+                      <img 
+                        src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/50'} 
+                        alt={product.name}
+                        onError={(e) => {
+                          e.target.style.display = 'none';
+                          e.target.nextSibling.style.display = 'block';
+                        }}
+                      />
+                    ) : null}
+                    <div 
+                      className={`low-stock-product-placeholder ${product.image ? 'hidden' : ''}`}
+                    >
+                      📦
+                    </div>
+                  </div>
+                  <div className="low-stock-product-info">
+                    <h4 className="low-stock-product-name">
+                      {product.name}
+                    </h4>
+                    <p className="low-stock-product-category">
+                      {product.category}
+                    </p>
+                    <div className="low-stock-product-details">
+                      <span className={`stock-badge ${product.stock <= 5 ? 'low' : 'medium'}`}>
+                        {product.stock} left
+                      </span>
+                      {!product.is_active && (
+                        <span className="inactive-badge">
+                          INACTIVE
+                        </span>
+                      )}
+                      <span className="product-price">
+                        {formatPrice(product.price, currency)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            {lowStockProducts.length > lowStockDisplayCount && (
+              <div className="load-more-container">
+                <button 
+                  onClick={() => setLowStockDisplayCount(prev => prev + 6)}
+                  className="load-more-button"
+                >
+                  Load More ({lowStockProducts.length - lowStockDisplayCount} remaining)
+                </button>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="no-low-stock-message">
+            <div className="no-low-stock-icon">✅</div>
+            <h4 className="no-low-stock-title">All products are well stocked!</h4>
+            <p className="no-low-stock-text">No products have stock levels ≤ 10 units.</p>
+          </div>
+        )}
+      </div>
 
       {/* Date Range Picker */}
       <div className="date-range-picker">
@@ -261,75 +338,6 @@ export default function Dashboard() {
         >
           All Time
         </button>
-      </div>
-
-      {/* Low Stock Products - Moved to top */}
-      <div className="chart-container low-stock-section">
-        <h3>Low Stock Products (≤10 units)</h3>
-        {lowStockProducts.length > 0 ? (
-          <>
-            <div className="low-stock-grid">
-              {lowStockProducts.slice(0, lowStockDisplayCount).map(product => (
-                <div key={product.id} className="low-stock-product-card">
-                  <div className="low-stock-product-image">
-                    {product.image ? (
-                      <img 
-                        src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/50'} 
-                        alt={product.name}
-                        onError={(e) => {
-                          e.target.style.display = 'none';
-                          e.target.nextSibling.style.display = 'block';
-                        }}
-                      />
-                    ) : null}
-                    <div 
-                      className={`low-stock-product-placeholder ${product.image ? 'hidden' : ''}`}
-                    >
-                      📦
-                    </div>
-                  </div>
-                  <div className="low-stock-product-info">
-                    <h4 className="low-stock-product-name">
-                      {product.name}
-                    </h4>
-                    <p className="low-stock-product-category">
-                      {product.category}
-                    </p>
-                    <div className="low-stock-product-details">
-                      <span className={`stock-badge ${product.stock <= 5 ? 'low' : 'medium'}`}>
-                        {product.stock} units left
-                      </span>
-                      {!product.is_active && (
-                        <span className="inactive-badge">
-                          INACTIVE
-                        </span>
-                      )}
-                      <span className="product-price">
-                        {formatPrice(product.price, currency)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {lowStockProducts.length > lowStockDisplayCount && (
-              <div className="load-more-container">
-                <button 
-                  onClick={() => setLowStockDisplayCount(prev => prev + 6)}
-                  className="load-more-button"
-                >
-                  Load More ({lowStockProducts.length - lowStockDisplayCount} remaining)
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="no-low-stock-message">
-            <div className="no-low-stock-icon">✅</div>
-            <h4 className="no-low-stock-title">All products are well stocked!</h4>
-            <p className="no-low-stock-text">No products have stock levels ≤ 10 units.</p>
-          </div>
-        )}
       </div>
 
       {/* Date Range Summary */}

@@ -422,6 +422,7 @@
   border-radius: 5px;
   font-size: 16px;
   transition: border-color 0.2s ease;
+  text-align: left; /* Ensure caret starts at left */
 }
 
 .form-input:focus {
