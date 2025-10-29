@@ -189,21 +189,30 @@ const Categories = () => {
         formData.append('image', newCategoryImage);
       }
       
-      await axios.post('/api/categories', formData, {
+      const res = await axios.post('/api/categories', formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
         }
       });
-      
+
+      // Optimistically update list with created category
+      const created = res?.data?.category || {
+        category_id: res?.data?.insertId || Math.floor(Math.random() * -1000000),
+        name: newCategoryName,
+        description: newCategoryDescription,
+        image: newCategoryImagePreview || null,
+        status: 'Active'
+      };
+      setCategories(prev => [created, ...prev]);
+      setPagination(prev => ({ ...prev, totalItems: (prev.totalItems || 0) + 1 }));
+
       setNewCategoryName('');
       setNewCategoryDescription('');
       setNewCategoryImage(null);
       setNewCategoryImagePreview(null);
       setShowAddModal(false);
       setError(null);
-      // Refresh the current page
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Category added successfully!');
     } catch (err) {
       console.error('Error adding category:', err);
@@ -240,7 +249,7 @@ const Categories = () => {
         formData.append('image', editedCategoryImagePreview);
       }
       
-      await axios.put(`/api/categories/${editingCategory.category_id}`, formData, {
+      const res = await axios.put(`/api/categories/${editingCategory.category_id}`, formData, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Content-Type': 'multipart/form-data'
@@ -254,9 +263,15 @@ const Categories = () => {
       setEditedCategoryImagePreview(null);
       setShowEditModal(false);
       setError(null);
+      // Update the row in local state immediately
+      const updated = res?.data?.category || {
+        ...editingCategory,
+        name: editedCategoryName,
+        description: editedCategoryDescription,
+        image: editedCategoryImagePreview
+      };
+      setCategories(prev => prev.map(c => (c.category_id === updated.category_id ? { ...c, ...updated } : c)));
       showSuccess('Category updated successfully!');
-      // Refresh the current page
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
     } catch (err) {
       console.error('Error updating category:', err);
       showError(err.response?.data?.message || 'Failed to update category.');
@@ -422,19 +437,19 @@ const Categories = () => {
     return 0;
   });
 
-  if (loadingSettings || loadingCategories) {
-    return <div className="categories-loading">Loading Admin Panel...</div>;
-  }
-
   if (!isUserAdmin) {
     return null; // Should redirect, but return null just in case
   }
+  const isLoading = loadingSettings || loadingCategories;
 
   return (
     <div className="categories-container">
       <div className="categories-header">
         <h1 className="categories-title">Manage Categories</h1>
         <p className="categories-subtitle">Add, edit, or delete product categories.</p>
+        {isLoading && (
+          <div className="categories-loading" style={{ marginBottom: '10px' }}>Loading...</div>
+        )}
         
         {/* Filter Section */}
         <div className="filter-section">
