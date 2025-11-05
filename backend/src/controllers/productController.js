@@ -100,7 +100,32 @@ exports.getAllProducts = async (req, res) => {
 // Get price statistics for slider (min, max prices)
 exports.getPriceStats = async (req, res) => {
     try {
-        const [stats] = await db.query('SELECT MIN(price) as minPrice, MAX(price) as maxPrice FROM products WHERE is_active = 1');
+        const { category, manufacturer } = req.query;
+        
+        let whereConditions = ['p.is_active = 1'];
+        let params = [];
+        
+        // Add category filter if provided
+        if (category && category !== 'All Products') {
+            whereConditions.push('p.category_id = ?');
+            params.push(category);
+        }
+        
+        // Add manufacturer (supplier) filter if provided
+        if (manufacturer) {
+            const manufacturerIds = Array.isArray(manufacturer) ? manufacturer : [manufacturer];
+            if (manufacturerIds.length > 0) {
+                const placeholders = manufacturerIds.map(() => '?').join(',');
+                whereConditions.push(`p.supplier_id IN (${placeholders})`);
+                params.push(...manufacturerIds);
+            }
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        const sql = `SELECT MIN(p.price) as minPrice, MAX(p.price) as maxPrice FROM products p ${whereClause}`;
+        const [stats] = await db.query(sql, params);
+        
         res.json({
             minPrice: parseFloat(stats[0].minPrice) || 0,
             maxPrice: parseFloat(stats[0].maxPrice) || 1000
@@ -300,7 +325,9 @@ exports.getAllProductsAdmin = async (req, res) => {
             search = '',
             category,
             supplier,
-            status
+            status,
+            sortField = 'product_id',
+            sortDirection = 'desc'
         } = req.query;
         
         let whereConditions = [];
@@ -335,6 +362,22 @@ exports.getAllProductsAdmin = async (req, res) => {
         }
         
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // Sorting: validate and map allowed fields to SQL columns
+        const allowedSortFields = {
+            name: 'p.name',
+            price: 'p.price',
+            stock: 'p.stock',
+            status: 'p.is_active',
+            created_at: 'p.created_at',
+            updated_at: 'p.updated_at',
+            category_name: 'c.name',
+            supplier_name: 's.name',
+            product_id: 'p.product_id'
+        };
+        const normalizedField = String(sortField || '').toLowerCase();
+        const orderByColumn = allowedSortFields[normalizedField] || 'p.name';
+        const direction = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
         
         // Get total count for pagination
         const [countResult] = await db.query(`
@@ -350,6 +393,21 @@ exports.getAllProductsAdmin = async (req, res) => {
         const offset = (parseInt(page) - 1) * parseInt(limit);
         
         // Get paginated products
+        // Build ORDER BY clause; for status, add stable secondary sort by name
+        let orderByClause;
+        if (orderByColumn === 'p.is_active') {
+            // For status sorting, group strictly by status, then by name for stability.
+            // Asc: Active first, then Inactive (business expectation).
+            // Desc: Inactive first, then Active.
+            if (direction === 'ASC') {
+                orderByClause = 'ORDER BY p.is_active DESC, p.name ASC';
+            } else {
+                orderByClause = 'ORDER BY p.is_active ASC, p.name ASC';
+            }
+        } else {
+            orderByClause = `ORDER BY ${orderByColumn} ${direction}`;
+        }
+
         const [products] = await db.query(`
             SELECT 
                 p.*,
@@ -359,7 +417,7 @@ exports.getAllProductsAdmin = async (req, res) => {
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             ${whereClause}
-            ORDER BY p.name
+            ${orderByClause}
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
@@ -378,7 +436,7 @@ exports.getAllProductsAdmin = async (req, res) => {
         console.log('Products admin API response:', {
             productsCount: products.length,
             pagination: response.pagination,
-            queryParams: { page, limit, search, category, supplier, status }
+            queryParams: { page, limit, search, category, supplier, status, sortField: normalizedField, sortDirection: direction }
         });
         
         res.json(response);
@@ -407,17 +465,53 @@ exports.restoreProduct = async (req, res) => {
 // Get global statistics for all products (admin only)
 exports.getProductStats = async (req, res) => {
     try {
+        const { status, category, supplier, search } = req.query;
+        
+        let whereConditions = [];
+        let params = [];
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereConditions.push('p.is_active = 1');
+            } else if (status === 'inactive') {
+                whereConditions.push('p.is_active = 0');
+            }
+        }
+        
+        // Add category filter if provided
+        if (category && category !== 'all') {
+            whereConditions.push('p.category_id = ?');
+            params.push(category);
+        }
+        
+        // Add supplier filter if provided
+        if (supplier && supplier !== 'all') {
+            whereConditions.push('p.supplier_id = ?');
+            params.push(supplier);
+        }
+        
+        // Add search filter if provided
+        if (search && search.trim()) {
+            whereConditions.push('(p.name LIKE ? OR p.description LIKE ?)');
+            const searchPattern = `%${search.trim()}%`;
+            params.push(searchPattern, searchPattern);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
         const [stats] = await db.query(`
             SELECT 
                 COUNT(*) as total_products,
-                SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_products,
-                SUM(CASE WHEN is_active = 0 THEN 1 ELSE 0 END) as inactive_products,
-                SUM(CASE WHEN stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
-                SUM(CASE WHEN stock > 0 AND stock <= 10 THEN 1 ELSE 0 END) as low_stock,
-                SUM(CASE WHEN stock > 10 AND stock <= 20 THEN 1 ELSE 0 END) as medium_stock,
-                SUM(CASE WHEN stock > 20 THEN 1 ELSE 0 END) as high_stock
-            FROM products
-        `);
+                SUM(CASE WHEN p.is_active = 1 THEN 1 ELSE 0 END) as active_products,
+                SUM(CASE WHEN p.is_active = 0 THEN 1 ELSE 0 END) as inactive_products,
+                SUM(CASE WHEN p.stock <= 0 THEN 1 ELSE 0 END) as out_of_stock,
+                SUM(CASE WHEN p.stock > 0 AND p.stock <= 10 THEN 1 ELSE 0 END) as low_stock,
+                SUM(CASE WHEN p.stock > 10 AND p.stock <= 20 THEN 1 ELSE 0 END) as medium_stock,
+                SUM(CASE WHEN p.stock > 20 THEN 1 ELSE 0 END) as high_stock
+            FROM products p
+            ${whereClause}
+        `, params);
         
         res.json({
             totalProducts: stats[0].total_products || 0,

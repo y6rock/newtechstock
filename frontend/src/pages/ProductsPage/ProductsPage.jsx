@@ -38,6 +38,7 @@ const ProductsPage = () => {
   };
 
   const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
   ]);
@@ -100,6 +101,8 @@ const ProductsPage = () => {
       }
     } catch (error) {
       console.error('ProductsPage: Error fetching products:', error);
+    } finally {
+      setLoading(false);
     }
   }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, priceStats.maxPrice, searchTerm]);
   
@@ -130,16 +133,39 @@ const ProductsPage = () => {
     });
   }, []);
 
+  // Fetch price statistics based on current filters
+  const fetchPriceStats = useCallback(async () => {
+    const params = new URLSearchParams();
+    
+    if (selectedCategory && selectedCategory !== 'All Products') {
+      params.append('category', selectedCategory);
+    }
+    
+    if (selectedManufacturers.length > 0) {
+      selectedManufacturers.forEach(id => params.append('manufacturer', id));
+    }
+    
+    try {
+      const response = await axios.get(`/api/products/price-stats?${params.toString()}`);
+      console.log('ProductsPage: Price stats fetched with filters:', response.data);
+      setPriceStats(response.data);
+      setPriceRange({ min: response.data.minPrice, max: response.data.maxPrice });
+      // Update maxPrice to new max if it's within the new range, otherwise clamp it
+      const newMaxPrice = response.data.maxPrice;
+      setMaxPrice(prevMax => {
+        if (prevMax > newMaxPrice) {
+          return newMaxPrice; // Clamp to new max if it's lower
+        }
+        return prevMax; // Keep current value if it's still valid
+      });
+    } catch (err) {
+      console.error('ProductsPage: Error fetching price stats:', err);
+    }
+  }, [selectedCategory, selectedManufacturers]);
+
   useEffect(() => {
-    // Fetch price statistics first
-    axios.get('/api/products/price-stats')
-      .then(res => {
-        console.log('ProductsPage: Price stats fetched:', res.data);
-        setPriceStats(res.data);
-        setPriceRange({ min: res.data.minPrice, max: res.data.maxPrice });
-        setMaxPrice(res.data.maxPrice);
-      })
-      .catch(err => console.error('ProductsPage: Error fetching price stats:', err));
+    // Fetch initial price statistics (no filters)
+    fetchPriceStats();
 
     // Fetch categories
     axios.get('/api/categories/public')
@@ -165,6 +191,11 @@ const ProductsPage = () => {
       })
       .catch(err => console.error('ProductsPage: Error fetching suppliers:', err));
   }, []);
+
+  // Update price stats when category or manufacturer filters change
+  useEffect(() => {
+    fetchPriceStats();
+  }, [selectedCategory, selectedManufacturers, fetchPriceStats]);
 
   // Fetch products when filters change (but not when search term changes)
   useEffect(() => {
@@ -194,6 +225,7 @@ const ProductsPage = () => {
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+    // Price stats will be updated via useEffect
   };
 
   // Use ref-based handler to avoid React state update conflicts
@@ -424,7 +456,12 @@ const ProductsPage = () => {
 
         <div className="product-grid-container">
           <div className="product-grid">
-            {products.length === 0 ? (
+            {loading ? (
+              <div className="loading-message">
+                <div className="loading-spinner"></div>
+                <p>Loading products...</p>
+              </div>
+            ) : products.length === 0 ? (
               <div className="no-products-message">
                 <div className="no-products-icon">🔍</div>
                 <h3>No Products Found</h3>
@@ -461,7 +498,7 @@ const ProductsPage = () => {
                 // Enhanced inventory validation
                 const hasValidStock = product.stock && product.stock >= 0;
                 const isOutOfStock = !hasValidStock || product.stock === 0;
-                const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : `Stock: ${product.stock}`;
+                const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Stock: 0' : `Stock: ${product.stock}`;
                 
                 return (
                   <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
@@ -486,7 +523,7 @@ const ProductsPage = () => {
                       <p className="product-price">
                         {formatPriceWithCommas(product.price, currency, vat_rate)}
                       </p>
-                      {hasValidStock && product.stock > 0 && (
+                      {hasValidStock && (
                         <p className="stock-info">
                           {stockStatus}
                         </p>

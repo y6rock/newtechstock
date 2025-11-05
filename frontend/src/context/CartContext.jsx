@@ -33,18 +33,23 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
     
-    if (isSafari) {
+    if (isSafari && user_id) {
       // For Safari, try localStorage backup first, then server
-      const cartBackup = localStorage.getItem('cart_backup');
+      // Scope localStorage key by user_id to prevent cross-user cart persistence
+      const cartBackupKey = `cart_backup_${user_id}`;
+      const cartBackup = localStorage.getItem(cartBackupKey);
       if (cartBackup) {
         try {
           const backupData = JSON.parse(cartBackup);
-          // Use backup if it's less than 24 hours old
-          if (Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
+          // Verify the backup is for the current user
+          if (backupData.userId === user_id && Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
             console.log('Safari: Loading cart from localStorage backup');
             setCartItems(backupData.cartItems || []);
             setAppliedPromotion(backupData.appliedPromotion);
             setDiscountAmount(backupData.discountAmount || 0);
+          } else {
+            // Clear old backup if user doesn't match or expired
+            localStorage.removeItem(cartBackupKey);
           }
         } catch (error) {
           console.error('Safari: Error loading cart backup:', error);
@@ -56,7 +61,7 @@ export const CartProvider = ({ children }) => {
         loadCartFromServer();
       }, 1000);
     }
-  }, []);
+  }, [user_id]);
 
   // Load cart from server session
   const loadCartFromServer = async () => {
@@ -72,13 +77,15 @@ export const CartProvider = ({ children }) => {
       setAppliedPromotion(serverPromotion);
       setDiscountAmount(serverDiscount || 0);
 
-      // Store cart data in localStorage as backup for Safari
-      if (serverCartItems && serverCartItems.length > 0) {
-        localStorage.setItem('cart_backup', JSON.stringify({
+      // Store cart data in localStorage as backup for Safari (scoped by user_id)
+      if (serverCartItems && serverCartItems.length > 0 && user_id) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        localStorage.setItem(cartBackupKey, JSON.stringify({
           cartItems: serverCartItems,
           appliedPromotion: serverPromotion,
           discountAmount: serverDiscount || 0,
           sessionId: sessionId,
+          userId: user_id,
           timestamp: Date.now()
         }));
       }
@@ -86,24 +93,27 @@ export const CartProvider = ({ children }) => {
     } catch (error) {
       console.error('Error loading cart from server:', error);
       
-      // Safari fallback: try to load from localStorage backup
+      // Safari fallback: try to load from localStorage backup (scoped by user_id)
       if (error.response?.status === 401 || error.response?.status === 403) {
-        try {
-          const cartBackup = localStorage.getItem('cart_backup');
-          if (cartBackup) {
-            const backupData = JSON.parse(cartBackup);
-            // Only use backup if it's less than 24 hours old
-            if (Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
-              console.log('Using Safari cart backup from localStorage');
-              setCartItems(backupData.cartItems || []);
-              setAppliedPromotion(backupData.appliedPromotion);
-              setDiscountAmount(backupData.discountAmount || 0);
-              setIsLoading(false);
-              return;
+        if (user_id) {
+          try {
+            const cartBackupKey = `cart_backup_${user_id}`;
+            const cartBackup = localStorage.getItem(cartBackupKey);
+            if (cartBackup) {
+              const backupData = JSON.parse(cartBackup);
+              // Verify user matches and backup is less than 24 hours old
+              if (backupData.userId === user_id && Date.now() - backupData.timestamp < 24 * 60 * 60 * 1000) {
+                console.log('Using Safari cart backup from localStorage');
+                setCartItems(backupData.cartItems || []);
+                setAppliedPromotion(backupData.appliedPromotion);
+                setDiscountAmount(backupData.discountAmount || 0);
+                setIsLoading(false);
+                return;
+              }
             }
+          } catch (backupError) {
+            console.error('Error loading cart backup:', backupError);
           }
-        } catch (backupError) {
-          console.error('Error loading cart backup:', backupError);
         }
       }
       
@@ -208,13 +218,17 @@ export const CartProvider = ({ children }) => {
       const updatedCartItems = response.data.cartItems || [];
       setCartItems(updatedCartItems);
       
-      // Update localStorage backup for Safari
-      localStorage.setItem('cart_backup', JSON.stringify({
-        cartItems: updatedCartItems,
-        appliedPromotion: appliedPromotion,
-        discountAmount: discountAmount,
-        timestamp: Date.now()
-      }));
+      // Update localStorage backup for Safari (scoped by user_id)
+      if (user_id) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        localStorage.setItem(cartBackupKey, JSON.stringify({
+          cartItems: updatedCartItems,
+          appliedPromotion: appliedPromotion,
+          discountAmount: discountAmount,
+          userId: user_id,
+          timestamp: Date.now()
+        }));
+      }
       
       showSuccess(`Added ${quantity} ${product.name} to cart!`);
 
@@ -237,7 +251,26 @@ export const CartProvider = ({ children }) => {
       });
 
       // Update local state with server response
-      setCartItems(response.data.cartItems || []);
+      const updatedCartItems = response.data.cartItems || [];
+      setCartItems(updatedCartItems);
+      
+      // Update localStorage backup (scoped by user_id)
+      if (user_id) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        if (updatedCartItems.length > 0) {
+          localStorage.setItem(cartBackupKey, JSON.stringify({
+            cartItems: updatedCartItems,
+            appliedPromotion: appliedPromotion,
+            discountAmount: discountAmount,
+            userId: user_id,
+            timestamp: Date.now()
+          }));
+        } else {
+          // Clear backup if cart is empty
+          localStorage.removeItem(cartBackupKey);
+        }
+      }
+      
       showSuccess('Item removed from cart');
 
     } catch (error) {
@@ -266,7 +299,25 @@ export const CartProvider = ({ children }) => {
       });
 
       // Update local state with server response
-      setCartItems(response.data.cartItems || []);
+      const updatedCartItems = response.data.cartItems || [];
+      setCartItems(updatedCartItems);
+      
+      // Update localStorage backup (scoped by user_id)
+      if (user_id) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        if (updatedCartItems.length > 0) {
+          localStorage.setItem(cartBackupKey, JSON.stringify({
+            cartItems: updatedCartItems,
+            appliedPromotion: appliedPromotion,
+            discountAmount: discountAmount,
+            userId: user_id,
+            timestamp: Date.now()
+          }));
+        } else {
+          // Clear backup if cart is empty
+          localStorage.removeItem(cartBackupKey);
+        }
+      }
 
       if (newQuantity === 0) {
         showSuccess('Item removed from cart');
@@ -292,6 +343,13 @@ export const CartProvider = ({ children }) => {
       setCartItems([]);
       setAppliedPromotion(null);
       setDiscountAmount(0);
+      
+      // Clear localStorage backup (scoped by user_id)
+      if (user_id) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        localStorage.removeItem(cartBackupKey);
+      }
+      
       showSuccess('Cart cleared successfully');
 
     } catch (error) {
@@ -303,7 +361,7 @@ export const CartProvider = ({ children }) => {
   // Apply promotion - now uses session-based API
   const applyPromotion = async (promotionCode) => {
     try {
-      const response = await axios.post('/api/cart/promotion', {
+      const response = await axios.post('/api/session-cart/promotion', {
         code: promotionCode
       }, {
         withCredentials: true
@@ -312,6 +370,18 @@ export const CartProvider = ({ children }) => {
       const { appliedPromotion: newPromotion, discountAmount: newDiscount } = response.data;
       setAppliedPromotion(newPromotion);
       setDiscountAmount(newDiscount || 0);
+
+      // Update localStorage backup (scoped by user_id)
+      if (user_id && cartItems.length > 0) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        localStorage.setItem(cartBackupKey, JSON.stringify({
+          cartItems: cartItems,
+          appliedPromotion: newPromotion,
+          discountAmount: newDiscount || 0,
+          userId: user_id,
+          timestamp: Date.now()
+        }));
+      }
 
       if (newPromotion) {
         showSuccess(`Promotion "${newPromotion.name}" applied successfully!`);
@@ -326,18 +396,31 @@ export const CartProvider = ({ children }) => {
       } else {
         showError('Failed to apply promotion');
       }
+      throw error;
     }
   };
 
   // Remove promotion - now uses session-based API
   const removePromotion = async () => {
     try {
-      await axios.delete('/api/cart/promotion', {
+      await axios.delete('/api/session-cart/promotion', {
         withCredentials: true
       });
 
       setAppliedPromotion(null);
       setDiscountAmount(0);
+
+      // Update localStorage backup (scoped by user_id)
+      if (user_id && cartItems.length > 0) {
+        const cartBackupKey = `cart_backup_${user_id}`;
+        localStorage.setItem(cartBackupKey, JSON.stringify({
+          cartItems: cartItems,
+          appliedPromotion: null,
+          discountAmount: 0,
+          userId: user_id,
+          timestamp: Date.now()
+        }));
+      }
       showSuccess('Promotion removed successfully');
 
     } catch (error) {

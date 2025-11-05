@@ -6,7 +6,9 @@ const {
     updateSessionCartItem,
     removeFromSessionCart,
     clearSessionCart,
-    validateSessionCart
+    validateSessionCart,
+    applyPromotionToSessionCart,
+    removePromotionFromSessionCart
 } = require('../controllers/sessionCartController.js');
 
 const router = express.Router();
@@ -28,6 +30,12 @@ router.delete('/clear', clearSessionCart);
 
 // Validate and synchronize cart items with current product data
 router.post('/validate', validateSessionCart);
+
+// Apply promotion to session cart
+router.post('/promotion', applyPromotionToSessionCart);
+
+// Remove promotion from session cart
+router.delete('/promotion', removePromotionFromSessionCart);
 
 module.exports = router;
 

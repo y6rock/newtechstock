@@ -9,6 +9,18 @@ class InvoiceGenerator {
         this.db = dbSingleton.getConnection();
     }
 
+        async getVatRate() {
+        try {
+            const [settings] = await this.db.query('SELECT taxRate FROM settings LIMIT 1');
+            if (settings.length > 0 && settings[0].taxRate !== null) {
+                return parseFloat(settings[0].taxRate) || 0;
+            }
+        } catch (err) {
+            console.error('Error fetching VAT rate:', err);
+        }
+        return 0; // Default to 0 if no settings found
+    }
+
     async getCurrencySymbol() {
         try {
             const [rows] = await this.db.query('SELECT currency FROM settings LIMIT 1');
@@ -32,8 +44,9 @@ class InvoiceGenerator {
         const { order_id, order_date, total_amount, shipping_address, payment_method, items, promotion, discount_amount } = orderData;
         const { name, email } = userData;
         
-        // Get the current currency symbol
+        // Get the current currency symbol and VAT rate
         const currencySymbol = await this.getCurrencySymbol();
+        const vatRate = await this.getVatRate();
 
         // Create the PDF
         const fileName = `invoice_${order_id}_${Date.now()}.pdf`;
@@ -182,6 +195,9 @@ class InvoiceGenerator {
 
         // Calculate subtotal
         const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
+        const subtotalAfterDiscount = subtotal - (discount_amount || 0);
+        const netAmount = subtotalAfterDiscount;
+        const vatAmount = netAmount * (vatRate / 100);
 
         // Summary section
         this.doc.y = yPosition + 20;
@@ -202,7 +218,30 @@ class InvoiceGenerator {
                 .fillColor('#6b7280')
                 .text(`Discount (${promotion.name}):`, summaryX, this.doc.y)
                 .fillColor('#dc2626')
-                .text(`-${currencySymbol}${discount_amount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+                .text(`-${currencySymbol}${discount_amount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' })
+                .moveDown(0.3)
+                .fillColor('#6b7280')
+                .text('Subtotal after discount:', summaryX, this.doc.y)
+                .fillColor('#1f2937')
+                .text(`${currencySymbol}${subtotalAfterDiscount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+        }
+
+        // Net Amount (excluding VAT)
+        this.doc
+            .moveDown(0.3)
+            .fillColor('#6b7280')
+            .text('Net Amount (excluding VAT):', summaryX, this.doc.y)
+            .fillColor('#1f2937')
+            .text(`${currencySymbol}${netAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+
+        // VAT
+        if (vatRate > 0) {
+            this.doc
+                .moveDown(0.3)
+                .fillColor('#6b7280')
+                .text(`VAT (${vatRate}%):`, summaryX, this.doc.y)
+                .fillColor('#1f2937')
+                .text(`${currencySymbol}${vatAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
         }
 
         // Draw line above total

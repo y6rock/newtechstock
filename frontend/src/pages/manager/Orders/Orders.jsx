@@ -17,6 +17,7 @@ const Orders = () => {
   const searchInputRef = useRef(null);
   const [sortField, setSortField] = useState('order_date');
   const [sortDirection, setSortDirection] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'processing', 'shipped', 'delivered'
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
@@ -40,39 +41,17 @@ const Orders = () => {
 
   // Sorting function
   const handleSort = (field) => {
+    let nextField = field;
+    let nextDir = 'asc';
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
+      nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
     }
+    setSortField(nextField);
+    setSortDirection(nextDir);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
-  // Sort orders based on sortConfig
-  const sortedOrders = [...orders].sort((a, b) => {
-    let aValue = a[sortField];
-    let bValue = b[sortField];
-
-    // Handle different data types
-    if (sortField === 'total_amount' || sortField === 'total_price') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (sortField === 'order_date') {
-      aValue = new Date(aValue).getTime();
-      bValue = new Date(bValue).getTime();
-    } else if (sortField === 'customer_name') {
-      // Handle customer name which might be in different fields
-      aValue = (a.customer_name || a.customer_email || '').toLowerCase();
-      bValue = (b.customer_name || b.customer_email || '').toLowerCase();
-    } else if (typeof aValue === 'string') {
-      aValue = (aValue || '').toLowerCase();
-      bValue = (bValue || '').toLowerCase();
-    }
-
-    if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-    if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-    return 0;
-  });
+  // Render server-sorted orders directly
 
 
 
@@ -103,10 +82,26 @@ const Orders = () => {
           'Content-Type': 'application/json'
         };
 
-        const ordersUrl = `/api/admin/orders?page=${pagination.currentPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+        const params = new URLSearchParams({
+          page: pagination.currentPage.toString(),
+          limit: '10'
+        });
+        if (searchTerm.trim()) {
+          params.append('search', searchTerm.trim());
+        }
+        if (statusFilter && statusFilter !== 'all') {
+          params.append('status', statusFilter);
+        }
+        // Sorting
+        if (sortField) {
+          params.append('sortField', sortField);
+          params.append('sortDirection', sortDirection);
+        }
+        const ordersUrl = `/api/admin/orders?${params.toString()}`;
+        const distributionUrl = `/api/admin/order-status-distribution?${params.toString()}`;
         const [ordersRes, distributionRes] = await Promise.all([
           fetch(ordersUrl, { headers }),
-          fetch('/api/admin/order-status-distribution', { headers })
+          fetch(distributionUrl, { headers })
         ]);
 
         if (!ordersRes.ok || !distributionRes.ok) {
@@ -133,7 +128,7 @@ const Orders = () => {
     }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortField, sortDirection]);
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
@@ -151,10 +146,25 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
 
-      const ordersUrl = `/api/admin/orders?page=${newPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+      const params = new URLSearchParams({
+        page: newPage.toString(),
+        limit: '10'
+      });
+      if (searchTerm.trim()) {
+        params.append('search', searchTerm.trim());
+      }
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (sortField) {
+        params.append('sortField', sortField);
+        params.append('sortDirection', sortDirection);
+      }
+      const ordersUrl = `/api/admin/orders?${params.toString()}`;
+      const distributionUrl = `/api/admin/order-status-distribution?${params.toString()}`;
       const [ordersRes, distributionRes] = await Promise.all([
         fetch(ordersUrl, { headers }),
-        fetch('/api/admin/order-status-distribution', { headers })
+        fetch(distributionUrl, { headers })
       ]);
 
       if (!ordersRes.ok || !distributionRes.ok) {
@@ -186,11 +196,18 @@ const Orders = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on search
+  }, []);
+  
+  // Handle status filter changes
+  const handleStatusFilterChange = useCallback((newStatus) => {
+    setStatusFilter(newStatus);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on filter change
   }, []);
 
 
@@ -217,9 +234,17 @@ const Orders = () => {
       };
       
       const ordersUrl = `/api/admin/orders?page=${pagination.currentPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+      const distributionParams = new URLSearchParams();
+      if (searchTerm.trim()) {
+        distributionParams.append('search', searchTerm.trim());
+      }
+      if (statusFilter && statusFilter !== 'all') {
+        distributionParams.append('status', statusFilter);
+      }
+      const distributionUrl = `/api/admin/order-status-distribution?${distributionParams.toString()}`;
       const [ordersRes, distributionRes] = await Promise.all([
         fetch(ordersUrl, { headers }),
-        fetch('/api/admin/order-status-distribution', { headers })
+        fetch(distributionUrl, { headers })
       ]);
 
       if (!ordersRes.ok || !distributionRes.ok) {
@@ -287,6 +312,10 @@ const Orders = () => {
           <p className="stat-number">{stats.processing_orders}</p>
         </div>
         <div className="stat-card">
+          <h3>Shipped</h3>
+          <p className="stat-number">{stats.shipped_orders}</p>
+        </div>
+        <div className="stat-card">
           <h3>Delivered</h3>
           <p className="stat-number">{stats.delivered_orders}</p>
         </div>
@@ -332,6 +361,95 @@ const Orders = () => {
             }}>
               🔍
             </span>
+          </div>
+          
+          {/* Status Filter - Under Search Field */}
+          <div className="status-filters" style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+            <button 
+              className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+              onClick={() => handleStatusFilterChange('all')}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${statusFilter === 'all' ? '#3b82f6' : '#e2e8f0'}`,
+                borderRadius: '6px',
+                backgroundColor: statusFilter === 'all' ? '#3b82f6' : 'white',
+                color: statusFilter === 'all' ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              All ({pagination.totalItems})
+            </button>
+            <button 
+              className={`filter-btn ${statusFilter === 'pending' ? 'active' : ''}`}
+              onClick={() => handleStatusFilterChange('pending')}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${statusFilter === 'pending' ? '#3b82f6' : '#e2e8f0'}`,
+                borderRadius: '6px',
+                backgroundColor: statusFilter === 'pending' ? '#3b82f6' : 'white',
+                color: statusFilter === 'pending' ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Pending
+            </button>
+            <button 
+              className={`filter-btn ${statusFilter === 'processing' ? 'active' : ''}`}
+              onClick={() => handleStatusFilterChange('processing')}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${statusFilter === 'processing' ? '#3b82f6' : '#e2e8f0'}`,
+                borderRadius: '6px',
+                backgroundColor: statusFilter === 'processing' ? '#3b82f6' : 'white',
+                color: statusFilter === 'processing' ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Processing
+            </button>
+            <button 
+              className={`filter-btn ${statusFilter === 'shipped' ? 'active' : ''}`}
+              onClick={() => handleStatusFilterChange('shipped')}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${statusFilter === 'shipped' ? '#3b82f6' : '#e2e8f0'}`,
+                borderRadius: '6px',
+                backgroundColor: statusFilter === 'shipped' ? '#3b82f6' : 'white',
+                color: statusFilter === 'shipped' ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Shipped
+            </button>
+            <button 
+              className={`filter-btn ${statusFilter === 'delivered' ? 'active' : ''}`}
+              onClick={() => handleStatusFilterChange('delivered')}
+              style={{
+                padding: '8px 16px',
+                border: `2px solid ${statusFilter === 'delivered' ? '#3b82f6' : '#e2e8f0'}`,
+                borderRadius: '6px',
+                backgroundColor: statusFilter === 'delivered' ? '#3b82f6' : 'white',
+                color: statusFilter === 'delivered' ? 'white' : '#64748b',
+                fontSize: '14px',
+                fontWeight: '500',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease'
+              }}
+            >
+              Delivered
+            </button>
           </div>
         </div>
       </div>
@@ -389,7 +507,7 @@ const Orders = () => {
             </tr>
           </thead>
           <tbody>
-            {sortedOrders.map(order => (
+            {orders.map(order => (
               <tr key={order.order_id}>
                 <td>#{order.order_id}</td>
                 <td>{formatDate(order.order_date)}</td>

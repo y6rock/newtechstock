@@ -40,25 +40,29 @@ export default function Header() {
       </div>
 
       <div className={`header-nav-container ${menuOpen ? 'active' : ''}`}>
-        <div className="header-nav-links">
-          <Link to="/" onClick={closeMenu}>Home</Link>
-          <Link to="/products" onClick={closeMenu}>Products</Link>
-          {username && (
-            <Link to="/cart" ref={cartTabRef} className="cart-link" onClick={closeMenu}>
-              Cart {totalItems > 0 && (
-                <span className="cart-badge">{totalItems}</span>
-              )}
-            </Link>
-          )}
-          <Link to="/contact" onClick={closeMenu}>Contact</Link>
-          <Link to="/about" onClick={closeMenu}>About</Link>
-        </div>
+        {!isUserAdmin && (
+          <div className="header-nav-links">
+            <Link to="/" onClick={closeMenu}>Home</Link>
+            <Link to="/products" onClick={closeMenu}>Products</Link>
+            {username && (
+              <Link to="/cart" ref={cartTabRef} className="cart-link" onClick={closeMenu}>
+                Cart {totalItems > 0 && (
+                  <span className="cart-badge">{totalItems}</span>
+                )}
+              </Link>
+            )}
+            <Link to="/contact" onClick={closeMenu}>Contact</Link>
+            <Link to="/about" onClick={closeMenu}>About</Link>
+          </div>
+        )}
 
         <div className="header-right">
-          {/* Search Bar - Next to Auth Links */}
-          <div className="header-search-container">
-            <HeaderSearch />
-          </div>
+          {/* Search Bar - Next to Auth Links (only for non-admin) */}
+          {!isUserAdmin && (
+            <div className="header-search-container">
+              <HeaderSearch />
+            </div>
+          )}
           
           <div className="header-auth-links">
             {!username ? (

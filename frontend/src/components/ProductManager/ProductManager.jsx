@@ -26,7 +26,7 @@ function ProductManager() {
   const [error, setError] = useState('');
   
   // Sorting state
-  const [sortConfig, setSortConfig] = useState({ field: 'stock', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ field: 'product_id', direction: 'desc' });
   
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const { showSuccess, showError, showConfirm } = useToast();
@@ -54,51 +54,38 @@ function ProductManager() {
     supplierFilter
   });
 
-  // Handle column sorting
-  const handleSort = (field) => {
-    setSortConfig(prevConfig => {
-      if (prevConfig.field === field) {
-        // Toggle direction if same field
-        return { field, direction: prevConfig.direction === 'asc' ? 'desc' : 'asc' };
-      } else {
-        // New field, default to ascending
-        return { field, direction: 'asc' };
-      }
-    });
+  // Map UI field names to API sort fields
+  const mapToApiSortField = (field) => {
+    if (field === 'category_id') return 'category_name';
+    if (field === 'supplier_id') return 'supplier_name';
+    if (field === 'is_active') return 'status';
+    return field;
   };
 
-  // Sort products based on sortConfig
-  const sortedProducts = [...products].sort((a, b) => {
-    const { field, direction } = sortConfig;
-    let aValue = a[field];
-    let bValue = b[field];
-
-    // Handle different data types
-    if (field === 'stock' || field === 'price') {
-      aValue = parseFloat(aValue) || 0;
-      bValue = parseFloat(bValue) || 0;
-    } else if (field === 'name') {
-      aValue = aValue ? aValue.toString().toLowerCase() : '';
-      bValue = bValue ? bValue.toString().toLowerCase() : '';
-    } else if (field === 'category_id' || field === 'supplier_id') {
-      // Get names for categories/suppliers
-      if (field === 'category_id') {
-        aValue = categories.find(c => c.category_id === a.category_id)?.name || '';
-        bValue = categories.find(c => c.category_id === b.category_id)?.name || '';
-      } else if (field === 'supplier_id') {
-        aValue = suppliers.find(s => s.supplier_id === a.supplier_id)?.name || '';
-        bValue = suppliers.find(s => s.supplier_id === b.supplier_id)?.name || '';
+  // Handle column sorting (server-side)
+  const handleSort = (field) => {
+    const next = (prevConfig => {
+      if (prevConfig.field === field) {
+        return { field, direction: prevConfig.direction === 'asc' ? 'desc' : 'asc' };
+      } else {
+        return { field, direction: 'asc' };
       }
-    }
+    })(sortConfig);
+    setSortConfig(next);
+    // Reset to first page on sort change and refetch
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    const currentSearch = searchParams.get('search') || '';
+    // Persist sort in URL
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    params.set('sortField', mapToApiSortField(next.field));
+    params.set('sortDirection', next.direction);
+    if (currentSearch) params.set('search', currentSearch); else params.delete('search');
+    setSearchParams(params);
+    // Rely on URL/sortConfig effects to trigger refetch with fresh state
+  };
 
-    if (direction === 'asc') {
-      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
-    } else {
-      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
-    }
-  });
-
-  // Fetch global statistics for all products
+  // Fetch global statistics for products (with current filters)
   const fetchGlobalStats = useCallback(async () => {
     if (loadingSettings || !isUserAdmin) return;
     
@@ -106,7 +93,23 @@ function ProductManager() {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
       
-      const response = await fetch('/api/products/admin/stats', { headers });
+      const params = new URLSearchParams();
+      const currentSearch = searchParams.get('search') || '';
+      
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+      if (categoryFilter && categoryFilter !== 'all') {
+        params.append('category', categoryFilter);
+      }
+      if (supplierFilter && supplierFilter !== 'all') {
+        params.append('supplier', supplierFilter);
+      }
+      if (currentSearch.trim()) {
+        params.append('search', currentSearch.trim());
+      }
+      
+      const response = await fetch(`/api/products/admin/stats?${params.toString()}`, { headers });
       if (!response.ok) {
         throw new Error('Failed to fetch statistics');
       }
@@ -120,7 +123,7 @@ function ProductManager() {
     } catch (err) {
       console.error('Error fetching global statistics:', err);
     }
-  }, [loadingSettings, isUserAdmin]);
+  }, [loadingSettings, isUserAdmin, statusFilter, categoryFilter, supplierFilter, searchParams]);
 
   // Stock level indicator function
   const getStockLevel = (stock) => {
@@ -162,6 +165,12 @@ function ProductManager() {
       if (supplierFilter && supplierFilter !== 'all') {
         params.append('supplier', supplierFilter);
       }
+
+      // Add sorting params
+      if (sortConfig?.field) {
+        params.append('sortField', mapToApiSortField(sortConfig.field));
+        params.append('sortDirection', sortConfig.direction);
+      }
       
       console.log('Fetching products with params:', params.toString());
       console.log('API URL:', `/api/products/admin/all?${params}`);
@@ -193,7 +202,7 @@ function ProductManager() {
       console.error('Error fetching initial product data:', err);
       setError('Failed to load necessary data. Please try again.');
     }
-  }, [isUserAdmin, loadingSettings, navigate]);
+  }, [isUserAdmin, loadingSettings, navigate, sortConfig]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -210,6 +219,11 @@ function ProductManager() {
     } else {
       params.delete('search');
     }
+    // Keep sort in URL
+    if (sortConfig?.field) {
+      params.set('sortField', mapToApiSortField(sortConfig.field));
+      params.set('sortDirection', sortConfig.direction);
+    }
     
     console.log('New params:', params.toString());
     setSearchParams(params);
@@ -219,7 +233,7 @@ function ProductManager() {
       return { ...prev, currentPage: newPage };
     });
     console.log('=== END PAGE CHANGE DEBUG ===');
-  }, [searchParams, setSearchParams, searchTerm, pagination]);
+  }, [searchParams, setSearchParams, searchTerm, pagination, sortConfig]);
 
   // Handle search term changes
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -236,6 +250,11 @@ function ProductManager() {
     fetchGlobalStats();
   }, [fetchGlobalStats]);
 
+  // Refresh stats when filters change
+  useEffect(() => {
+    fetchGlobalStats();
+  }, [statusFilter, categoryFilter, supplierFilter, searchParams, fetchGlobalStats]);
+
   // Initial load and URL parameter sync
   useEffect(() => {
     console.log('=== URL PARAMS SYNC DEBUG ===');
@@ -244,6 +263,8 @@ function ProductManager() {
     const urlStatusFilter = searchParams.get('status') || 'all';
     const urlCategoryFilter = searchParams.get('category') || 'all';
     const urlSupplierFilter = searchParams.get('supplier') || 'all';
+    const urlSortField = searchParams.get('sortField') || null;
+    const urlSortDirection = searchParams.get('sortDirection') || null;
     
     console.log('URL params - page:', currentPage, 'search:', currentSearch);
     console.log('URL filters - status:', urlStatusFilter, 'category:', urlCategoryFilter, 'supplier:', urlSupplierFilter);
@@ -256,6 +277,7 @@ function ProductManager() {
       urlStatusFilter !== statusFilter ||
       urlCategoryFilter !== categoryFilter ||
       urlSupplierFilter !== supplierFilter ||
+      (urlSortField && (mapToApiSortField(sortConfig.field) !== urlSortField || sortConfig.direction !== (urlSortDirection || 'asc'))) ||
       currentPage !== pagination.currentPage;
     
     if (!shouldUpdate && !isInitialLoad.current) {
@@ -267,6 +289,14 @@ function ProductManager() {
     setStatusFilter(urlStatusFilter);
     setCategoryFilter(urlCategoryFilter);
     setSupplierFilter(urlSupplierFilter);
+    if (urlSortField) {
+      // Map back from API name to UI field
+      let uiField = urlSortField;
+      if (urlSortField === 'category_name') uiField = 'category_id';
+      if (urlSortField === 'supplier_name') uiField = 'supplier_id';
+      if (urlSortField === 'status') uiField = 'is_active';
+      setSortConfig({ field: uiField, direction: (urlSortDirection === 'desc' ? 'desc' : 'asc') });
+    }
     setPagination(prev => {
       console.log('Setting pagination from URL:', { ...prev, currentPage });
       return { ...prev, currentPage };
@@ -311,6 +341,21 @@ function ProductManager() {
           
           if (urlSupplierFilter && urlSupplierFilter !== 'all') {
             params.append('supplier', urlSupplierFilter);
+          }
+
+          // Add sort from URL directly (avoids race with setSortConfig)
+          if (urlSortField) {
+            params.append('sortField', urlSortField);
+            params.append('sortDirection', (urlSortDirection === 'desc' ? 'desc' : 'asc'));
+          } else if (sortConfig?.field) {
+            params.append('sortField', mapToApiSortField(sortConfig.field));
+            params.append('sortDirection', sortConfig.direction);
+          }
+
+          // Add sorting params from current sortConfig
+          if (sortConfig?.field) {
+            params.append('sortField', mapToApiSortField(sortConfig.field));
+            params.append('sortDirection', sortConfig.direction);
           }
           
           const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
@@ -360,6 +405,13 @@ function ProductManager() {
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchParams]);
+
+  // Refetch when sorting changes
+  useEffect(() => {
+    if (isInitialLoad.current) return;
+    const currentSearch = searchParams.get('search') || '';
+    fetchProductData(pagination.currentPage, currentSearch);
+  }, [sortConfig]);
 
   // Fetch products when filters change (but not on initial load)
   useEffect(() => {
@@ -422,6 +474,12 @@ function ProductManager() {
         
         if (supplierFilter && supplierFilter !== 'all') {
           params.append('supplier', supplierFilter);
+        }
+
+        // Add sorting params
+        if (sortConfig?.field) {
+          params.append('sortField', mapToApiSortField(sortConfig.field));
+          params.append('sortDirection', sortConfig.direction);
         }
         
         console.log('Fetching products with filters:', params.toString());
@@ -929,7 +987,7 @@ function ProductManager() {
             </tr>
           </thead>
           <tbody>
-            {sortedProducts.map(p => (
+            {products.map(p => (
               <tr key={p.product_id} className="table-body-row">
                 <td className="table-body-cell">
                   {p.image ? (

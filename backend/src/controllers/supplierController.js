@@ -16,16 +16,49 @@ exports.getPublicSuppliers = async (req, res) => {
 // Get all suppliers (admin only) - shows both active and inactive
 exports.getAllSuppliers = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '' } = req.query;
+        const { page = 1, limit = 10, search = '', status, sortField = 'supplier_id', sortDirection = 'desc' } = req.query;
         
-        let whereClause = '';
+        let whereConditions = [];
         let params = [];
         
         // Add search functionality if search parameter is provided
         if (search && search.trim()) {
-            whereClause = 'WHERE (name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?)';
+            whereConditions.push('(name LIKE ? OR email LIKE ? OR phone LIKE ? OR address LIKE ?)');
             const searchTerm = `%${search.trim()}%`;
-            params = [searchTerm, searchTerm, searchTerm, searchTerm];
+            params.push(searchTerm, searchTerm, searchTerm, searchTerm);
+        }
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereConditions.push('isActive = 1');
+            } else if (status === 'inactive') {
+                whereConditions.push('isActive = 0');
+            }
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // Sorting whitelist/mapping
+        const allowedSortFields = {
+            supplier_id: 'supplier_id',
+            name: 'name',
+            email: 'email',
+            phone: 'phone',
+            status: 'isActive',
+            isActive: 'isActive'
+        };
+        const normalizedField = String(sortField || '').toLowerCase();
+        const column = allowedSortFields[normalizedField] || 'name';
+        const dir = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+        let orderByClause;
+        if (column === 'isActive') {
+            orderByClause = dir === 'ASC'
+                ? 'ORDER BY isActive DESC, name ASC'  // Active first
+                : 'ORDER BY isActive ASC, name ASC';  // Inactive first
+        } else {
+            orderByClause = `ORDER BY ${column} ${dir}`;
         }
         
         // Get total count for pagination
@@ -50,7 +83,7 @@ exports.getAllSuppliers = async (req, res) => {
                 CASE WHEN isActive = 1 THEN "Active" ELSE "Inactive" END as status 
             FROM suppliers 
             ${whereClause}
-            ORDER BY isActive DESC, name
+            ${orderByClause}
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
@@ -128,6 +161,18 @@ exports.deleteSupplier = async (req, res) => {
     const { id } = req.params;
 
     try {
+        // Check if supplier has any products
+        const [productsCheck] = await db.query(
+            'SELECT COUNT(*) as product_count FROM products WHERE supplier_id = ? AND is_active = 1',
+            [id]
+        );
+        
+        if (productsCheck[0].product_count > 0) {
+            return res.status(400).json({ 
+                message: 'Cannot deactivate supplier with active products. Please deactivate all products first.' 
+            });
+        }
+        
         const [result] = await db.query(
             'UPDATE suppliers SET isActive = FALSE WHERE supplier_id = ?',
             [id]

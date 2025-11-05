@@ -19,7 +19,7 @@ const Categories = () => {
   const searchInputRef = useRef(null);
   
   // Sorting and filtering state
-  const [sortConfig, setSortConfig] = useState({ field: 'name', direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState({ field: 'category_id', direction: 'desc' });
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
@@ -67,6 +67,16 @@ const Categories = () => {
         if (searchTerm.trim()) {
           params.append('search', searchTerm.trim());
         }
+        
+        if (statusFilter && statusFilter !== 'all') {
+          params.append('status', statusFilter);
+        }
+
+        // Add sorting
+        if (sortConfig?.field) {
+          params.append('sortField', mapToApiSortField(sortConfig.field));
+          params.append('sortDirection', sortConfig.direction);
+        }
 
         const response = await fetch(`/api/categories?${params}`, {
           headers: {
@@ -94,7 +104,7 @@ const Categories = () => {
     }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortConfig]);
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
@@ -114,6 +124,15 @@ const Categories = () => {
 
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
+      }
+      
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+
+      if (sortConfig?.field) {
+        params.append('sortField', mapToApiSortField(sortConfig.field));
+        params.append('sortDirection', sortConfig.direction);
       }
 
       const response = await fetch(`/api/categories?${params}`, {
@@ -143,11 +162,18 @@ const Categories = () => {
     } finally {
       setLoadingCategories(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter, sortConfig]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on search
+  }, []);
+  
+  // Handle status filter changes
+  const handleStatusFilterChange = useCallback((newStatus) => {
+    setStatusFilter(newStatus);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on filter change
   }, []);
 
 
@@ -395,7 +421,13 @@ const Categories = () => {
     );
   };
 
-  // Handle column sorting
+  // Map UI field to API field
+  const mapToApiSortField = (field) => {
+    if (field === 'status') return 'status';
+    return field;
+  };
+
+  // Handle column sorting (server-side)
   const handleSort = (field) => {
     setSortConfig(prevConfig => {
       if (prevConfig.field === field) {
@@ -404,38 +436,8 @@ const Categories = () => {
         return { field, direction: 'asc' };
       }
     });
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
-
-  // Filter categories based on status
-  const filteredCategories = categories.filter(category => {
-    if (statusFilter === 'active') {
-      return category.status === 'Active';
-    } else if (statusFilter === 'inactive') {
-      return category.status === 'Inactive';
-    }
-    return true; // Show all if filter is 'all'
-  });
-
-  // Sort filtered categories
-  const sortedCategories = [...filteredCategories].sort((a, b) => {
-    const { field, direction } = sortConfig;
-    let aValue = a[field];
-    let bValue = b[field];
-
-    // Handle different data types
-    if (field === 'status') {
-      // Sort by status: Active comes first (A before I alphabetically)
-      aValue = aValue === 'Active' ? 'A' : 'I';
-      bValue = bValue === 'Active' ? 'A' : 'I';
-    } else if (typeof aValue === 'string') {
-      aValue = (aValue || '').toLowerCase();
-      bValue = (bValue || '').toLowerCase();
-    }
-
-    if (aValue < bValue) return direction === 'asc' ? -1 : 1;
-    if (aValue > bValue) return direction === 'asc' ? 1 : -1;
-    return 0;
-  });
 
   if (!isUserAdmin) {
     return null; // Should redirect, but return null just in case
@@ -494,21 +496,21 @@ const Categories = () => {
               <div className="status-filters" style={{ display: 'flex', gap: '10px', marginTop: '12px' }}>
                 <button 
                   className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
-                  onClick={() => setStatusFilter('all')}
+                  onClick={() => handleStatusFilterChange('all')}
                 >
-                  All ({categories.length})
+                  All ({pagination.totalItems})
                 </button>
                 <button 
                   className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
-                  onClick={() => setStatusFilter('active')}
+                  onClick={() => handleStatusFilterChange('active')}
                 >
-                  Active ({categories.filter(c => c.status === 'Active').length})
+                  Active
                 </button>
                 <button 
                   className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
-                  onClick={() => setStatusFilter('inactive')}
+                  onClick={() => handleStatusFilterChange('inactive')}
                 >
-                  Inactive ({categories.filter(c => c.status === 'Inactive').length})
+                  Inactive
                 </button>
               </div>
             </div>
@@ -563,12 +565,12 @@ const Categories = () => {
             </tr>
           </thead>
           <tbody>
-            {sortedCategories.length === 0 ? (
+            {categories.length === 0 ? (
               <tr>
                 <td colSpan="4" className="no-categories">No categories found.</td>
               </tr>
             ) : (
-              sortedCategories.map((category) => (
+              categories.map((category) => (
                 <tr key={category.category_id}>
                   <td>{category.category_id}</td>
                   <td>{category.name}</td>

@@ -17,7 +17,8 @@ const Suppliers = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const searchInputRef = useRef(null);
   const [sortField, setSortField] = useState('supplier_id');
-  const [sortDirection, setSortDirection] = useState('asc');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
@@ -30,6 +31,49 @@ const Suppliers = () => {
   const [editedSupplierAddress, setEditedSupplierAddress] = useState('');
   const [showEditModal, setShowEditModal] = useState(false);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [phoneValidationError, setPhoneValidationError] = useState('');
+  const [editPhoneValidationError, setEditPhoneValidationError] = useState('');
+
+  // Phone validation function (same as Signup)
+  const validatePhone = (phone) => {
+    if (!phone || !phone.trim()) return ''; // Phone is optional
+    const phoneDigits = phone.replace(/\D/g, '');
+    
+    if (phoneDigits.length < 7 || phoneDigits.length > 15) {
+      return 'Phone number must be between 7 and 15 digits. Examples: +1234567890, (123) 456-7890';
+    }
+    
+    if (phoneDigits.length === phoneDigits.split('').filter(d => d === phoneDigits[0]).length) {
+      return 'Phone number cannot be all the same digit';
+    }
+    
+    const isSequential = phoneDigits.split('').every((digit, index) => {
+      if (index === 0) return true;
+      const currentDigit = parseInt(digit);
+      const prevDigit = parseInt(phoneDigits[index - 1]);
+      return currentDigit === (prevDigit + 1) % 10;
+    });
+    
+    if (isSequential && phoneDigits.length >= 8) {
+      return 'Phone number cannot be sequential numbers';
+    }
+    
+    return '';
+  };
+
+  // Phone formatting function (same as Signup)
+  const formatPhoneNumber = (value) => {
+    const phoneNumber = value.replace(/\D/g, '');
+    if (phoneNumber.length <= 3) {
+      return phoneNumber;
+    } else if (phoneNumber.length <= 6) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3)}`;
+    } else if (phoneNumber.length <= 10) {
+      return `(${phoneNumber.slice(0, 3)}) ${phoneNumber.slice(3, 6)}-${phoneNumber.slice(6)}`;
+    } else {
+      return `+${phoneNumber.slice(0, phoneNumber.length - 10)} (${phoneNumber.slice(-10, -7)}) ${phoneNumber.slice(-7, -4)}-${phoneNumber.slice(-4)}`;
+    }
+  };
 
   // Auto-refocus search input after re-renders to maintain typing experience
   useEffect(() => {
@@ -65,6 +109,16 @@ const Suppliers = () => {
         if (searchTerm.trim()) {
           params.append('search', searchTerm.trim());
         }
+        
+        if (statusFilter && statusFilter !== 'all') {
+          params.append('status', statusFilter);
+        }
+
+        // Sorting
+        if (sortField) {
+          params.append('sortField', sortField);
+          params.append('sortDirection', sortDirection);
+        }
 
         const response = await fetch(`/api/suppliers?${params}`, {
           headers: {
@@ -92,7 +146,7 @@ const Suppliers = () => {
     }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, isUserAdmin, loadingSettings, navigate]);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortField, sortDirection]);
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
@@ -112,6 +166,15 @@ const Suppliers = () => {
 
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
+      }
+      
+      if (statusFilter && statusFilter !== 'all') {
+        params.append('status', statusFilter);
+      }
+
+      if (sortField) {
+        params.append('sortField', sortField);
+        params.append('sortDirection', sortDirection);
       }
 
       const response = await fetch(`/api/suppliers?${params}`, {
@@ -141,21 +204,30 @@ const Suppliers = () => {
     } finally {
       setLoadingSuppliers(false);
     }
-  }, [searchTerm]);
+  }, [searchTerm, statusFilter]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on search
+  }, []);
+  
+  // Handle status filter changes
+  const handleStatusFilterChange = useCallback((newStatus) => {
+    setStatusFilter(newStatus);
+    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on filter change
   }, []);
 
   // Sorting function
   const handleSort = (field) => {
+    let nextField = field;
+    let nextDir = 'asc';
     if (sortField === field) {
-      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDirection('asc');
+      nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
     }
+    setSortField(nextField);
+    setSortDirection(nextDir);
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
   };
 
   // Sort suppliers
@@ -212,9 +284,13 @@ const Suppliers = () => {
       setError('Supplier name cannot be empty.');
       return;
     }
+    if (phoneValidationError) {
+      setError(phoneValidationError);
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
-      await axios.post('/api/suppliers', { 
+      const res = await axios.post('/api/suppliers', { 
         name: newSupplierName, 
         email: newSupplierEmail, 
         phone: newSupplierPhone, 
@@ -222,14 +298,44 @@ const Suppliers = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const created = res?.data?.supplier || {
+        // Prefer server-provided ID; fallback to insertId; avoid negative temp IDs
+        supplier_id: (res?.data?.supplier_id ?? res?.data?.insertId) ?? undefined,
+        name: newSupplierName,
+        email: newSupplierEmail,
+        phone: newSupplierPhone,
+        address: newSupplierAddress,
+        isActive: 1,
+        status: 'Active'
+      };
+      // If we didn't get an ID back for some reason, refetch the current page to stay consistent
+      if (created.supplier_id === undefined) {
+        try {
+          const params = new URLSearchParams({
+            page: '1',
+            limit: '10'
+          });
+          const token2 = localStorage.getItem('token');
+          const resp = await fetch(`/api/suppliers?${params}`, {
+            headers: { 'Authorization': `Bearer ${token2}` }
+          });
+          const data = await resp.json();
+          setSuppliers(data.suppliers || data);
+          if (data.pagination) setPagination(data.pagination);
+        } catch (_) {
+          // As a last resort, still add the created supplier without ID to show immediate feedback
+          setSuppliers(prev => [created, ...prev]);
+        }
+      } else {
+        setSuppliers(prev => [created, ...prev]);
+      }
+      setPagination(prev => ({ ...prev, totalItems: (prev.totalItems || 0) + 1 }));
       setNewSupplierName('');
       setNewSupplierEmail('');
       setNewSupplierPhone('');
       setNewSupplierAddress('');
       setShowAddModal(false);
       setError(null);
-      // Refresh the current page
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Supplier added successfully!');
     } catch (err) {
       console.error('Error adding supplier:', err);
@@ -252,11 +358,15 @@ const Suppliers = () => {
       setError('Supplier name cannot be empty.');
       return;
     }
+    if (editPhoneValidationError) {
+      setError(editPhoneValidationError);
+      return;
+    }
     if (!editingSupplier) return;
 
     try {
       const token = localStorage.getItem('token');
-      await axios.put(`/api/suppliers/${editingSupplier.supplier_id}`, { 
+      const res = await axios.put(`/api/suppliers/${editingSupplier.supplier_id}`, { 
         name: editedSupplierName, 
         email: editedSupplierEmail, 
         phone: editedSupplierPhone, 
@@ -264,6 +374,14 @@ const Suppliers = () => {
       }, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      const updated = res?.data?.supplier || {
+        ...editingSupplier,
+        name: editedSupplierName,
+        email: editedSupplierEmail,
+        phone: editedSupplierPhone,
+        address: editedSupplierAddress
+      };
+      setSuppliers(prev => prev.map(s => (s.supplier_id === updated.supplier_id ? { ...s, ...updated } : s)));
       setEditingSupplier(null);
       setEditedSupplierName('');
       setEditedSupplierEmail('');
@@ -271,8 +389,6 @@ const Suppliers = () => {
       setEditedSupplierAddress('');
       setShowEditModal(false);
       setError(null);
-      // Refresh the current page
-      setPagination(prev => ({ ...prev, currentPage: 1 }));
       showSuccess('Supplier updated successfully!');
     } catch (err) {
       console.error('Error updating supplier:', err);
@@ -288,6 +404,7 @@ const Suppliers = () => {
     setEditedSupplierAddress('');
     setShowEditModal(false);
     setError(null);
+    setEditPhoneValidationError('');
   };
 
   const handleCloseAddModal = () => {
@@ -297,6 +414,7 @@ const Suppliers = () => {
     setNewSupplierAddress('');
     setShowAddModal(false);
     setError(null);
+    setPhoneValidationError('');
   };
 
   const handleDeleteSupplier = async (supplierId) => {
@@ -309,8 +427,8 @@ const Suppliers = () => {
           await axios.delete(`/api/suppliers/${supplierId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the data after deactivation
-          handlePageChange(pagination.currentPage);
+          // Flip status locally
+          setSuppliers(prev => prev.map(s => s.supplier_id === supplierId ? { ...s, isActive: 0, status: 'Inactive' } : s));
           showSuccess('Supplier deactivated successfully!');
         } catch (err) {
           console.error('Error deleting supplier:', err);
@@ -330,8 +448,8 @@ const Suppliers = () => {
           await axios.patch(`/api/suppliers/${supplierId}/restore`, {}, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          // Refresh the data after restoration
-          handlePageChange(pagination.currentPage);
+          // Flip status locally
+          setSuppliers(prev => prev.map(s => s.supplier_id === supplierId ? { ...s, isActive: 1, status: 'Active' } : s));
           showSuccess('Supplier restored successfully!');
         } catch (err) {
           console.error('Error restoring supplier:', err);
@@ -341,18 +459,20 @@ const Suppliers = () => {
     );
   };
 
-  if (loadingSettings || loadingSuppliers) {
-    return <div className="suppliers-loading">Loading Admin Panel...</div>;
-  }
-
   if (!isUserAdmin) {
     return null; // Should redirect, but return null just in case
   }
+  const isLoading = loadingSettings || loadingSuppliers;
+
+  // Render server-sorted suppliers directly
 
   return (
     <div className="suppliers-container">
       <h1 className="suppliers-title">Manage Suppliers</h1>
       <p className="suppliers-subtitle">Add, edit, or delete product suppliers.</p>
+      {isLoading && (
+        <div className="suppliers-loading" style={{ marginBottom: '10px' }}>Loading...</div>
+      )}
       
       {error && <p className="suppliers-error">{error}</p>}
 
@@ -394,6 +514,61 @@ const Suppliers = () => {
                 {pagination.totalItems} supplier{pagination.totalItems !== 1 ? 's' : ''} found
               </div>
             )}
+            
+            {/* Status Filter - Under Search Field */}
+            <div className="status-filters" style={{ display: 'flex', gap: '12px', marginTop: '12px', flexWrap: 'wrap' }}>
+              <button 
+                className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
+                onClick={() => handleStatusFilterChange('all')}
+                style={{
+                  padding: '8px 16px',
+                  border: `2px solid ${statusFilter === 'all' ? '#3b82f6' : '#e2e8f0'}`,
+                  borderRadius: '6px',
+                  backgroundColor: statusFilter === 'all' ? '#3b82f6' : 'white',
+                  color: statusFilter === 'all' ? 'white' : '#64748b',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                All ({pagination.totalItems})
+              </button>
+              <button 
+                className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
+                onClick={() => handleStatusFilterChange('active')}
+                style={{
+                  padding: '8px 16px',
+                  border: `2px solid ${statusFilter === 'active' ? '#3b82f6' : '#e2e8f0'}`,
+                  borderRadius: '6px',
+                  backgroundColor: statusFilter === 'active' ? '#3b82f6' : 'white',
+                  color: statusFilter === 'active' ? 'white' : '#64748b',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Active
+              </button>
+              <button 
+                className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
+                onClick={() => handleStatusFilterChange('inactive')}
+                style={{
+                  padding: '8px 16px',
+                  border: `2px solid ${statusFilter === 'inactive' ? '#3b82f6' : '#e2e8f0'}`,
+                  borderRadius: '6px',
+                  backgroundColor: statusFilter === 'inactive' ? '#3b82f6' : 'white',
+                  color: statusFilter === 'inactive' ? 'white' : '#64748b',
+                  fontSize: '14px',
+                  fontWeight: '500',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                Inactive
+              </button>
+            </div>
           </div>
           
         </div>
@@ -542,11 +717,17 @@ const Suppliers = () => {
                 <label className="form-label">Phone:</label>
                 <input
                   type="tel"
-                  placeholder="Enter phone number"
+                  placeholder="(123) 456-7890"
                   value={newSupplierPhone}
-                  onChange={(e) => setNewSupplierPhone(e.target.value)}
-                  className="form-input"
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setNewSupplierPhone(formatted);
+                    const error = validatePhone(formatted);
+                    setPhoneValidationError(error);
+                  }}
+                  className={`form-input ${phoneValidationError ? 'error' : ''}`}
                 />
+                {phoneValidationError && <span className="field-error">{phoneValidationError}</span>}
               </div>
               
               <div className="form-group">
@@ -614,10 +795,17 @@ const Suppliers = () => {
                 <label className="edit-form-label">Phone:</label>
                 <input
                   type="tel"
+                  placeholder="(123) 456-7890"
                   value={editedSupplierPhone}
-                  onChange={(e) => setEditedSupplierPhone(e.target.value)}
-                  className="edit-form-input"
+                  onChange={(e) => {
+                    const formatted = formatPhoneNumber(e.target.value);
+                    setEditedSupplierPhone(formatted);
+                    const error = validatePhone(formatted);
+                    setEditPhoneValidationError(error);
+                  }}
+                  className={`edit-form-input ${editPhoneValidationError ? 'error' : ''}`}
                 />
+                {editPhoneValidationError && <span className="field-error">{editPhoneValidationError}</span>}
               </div>
               
               <div className="edit-form-group">
@@ -654,6 +842,8 @@ const Suppliers = () => {
       <Pagination
         currentPage={pagination.currentPage}
         totalPages={pagination.totalPages}
+        totalItems={pagination.totalItems}
+        itemsPerPage={pagination.itemsPerPage}
         onPageChange={handlePageChange}
       />
     </div>

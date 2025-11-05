@@ -389,7 +389,8 @@
     background: white;
     border-radius: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-    margin: 40px 20px;
+    margin: 40px auto;
+    max-width: 600px;
 }
 
 .empty-cart h1 {

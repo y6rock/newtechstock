@@ -35,8 +35,8 @@ exports.createOrder = async (req, res) => {
             }
         }
 
-        // Determine initial order status based on payment method
-        const initialStatus = payment_method === 'paypal' ? 'pending' : 'confirmed';
+        // All orders start as Pending
+        const initialStatus = 'Pending';
         
         const orderSql = `
             INSERT INTO orders (user_id, total_amount, shipping_address, payment_method, promotion_id, status)
@@ -176,23 +176,89 @@ exports.updateOrderStatusAfterPayment = async (req, res) => {
 // Get order history for a user
 exports.getOrderHistory = async (req, res) => {
     const { userId } = req.params;
+    
+    // Validate userId
+    if (!userId || isNaN(userId)) {
+        return res.status(400).json({ message: 'Invalid user ID' });
+    }
+    
+    const userIdInt = parseInt(userId);
     if (req.user.user_id.toString() !== userId) {
         return res.status(403).json({ message: 'Forbidden' });
     }
 
     try {
-        const sql = `
-            SELECT o.order_id, o.order_date, o.total_amount, o.status, o.promotion_id,
-                   pr.code as promotion_code, pr.name as promotion_name,
-                   oi.product_id, oi.quantity, oi.price, p.name as product_name, p.image as product_image
+        const { page = 1, limit = 10 } = req.query;
+        const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        // Get total count of orders
+        const countSql = `SELECT COUNT(DISTINCT o.order_id) as total FROM orders o WHERE o.user_id = ?`;
+        const [countResult] = await db.query(countSql, [userIdInt]);
+        const totalItems = countResult[0].total;
+        const totalPages = Math.ceil(totalItems / parseInt(limit));
+
+        // Get paginated order IDs first
+        const orderIdsSql = `
+            SELECT DISTINCT o.order_id
             FROM orders o
-            JOIN order_items oi ON o.order_id = oi.order_id
-            JOIN products p ON oi.product_id = p.product_id
-            LEFT JOIN promotions pr ON o.promotion_id = pr.promotion_id
             WHERE o.user_id = ?
             ORDER BY o.order_date DESC
+            LIMIT ? OFFSET ?
         `;
-        const [rows] = await db.query(sql, [userId]);
+        const [orderIds] = await db.query(orderIdsSql, [userIdInt, parseInt(limit), offset]);
+        const orderIdList = orderIds.map(row => row.order_id);
+
+        if (orderIdList.length === 0) {
+            return res.json({
+                orders: [],
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages: 0,
+                    totalItems: 0,
+                    itemsPerPage: parseInt(limit)
+                }
+            });
+        }
+
+        // Get all items for these orders
+        // Ensure orderIdList contains valid integers
+        const validOrderIds = orderIdList.filter(id => id != null && !isNaN(id)).map(id => parseInt(id));
+        
+        if (validOrderIds.length === 0) {
+            return res.json({
+                orders: [],
+                pagination: {
+                    currentPage: parseInt(page),
+                    totalPages: 0,
+                    totalItems: 0,
+                    itemsPerPage: parseInt(limit)
+                }
+            });
+        }
+        
+        const placeholders = validOrderIds.map(() => '?').join(',');
+        // Simplified query - fetch all data and sort in JavaScript to avoid MySQL strict mode issues
+        const sql = `
+            SELECT 
+                o.order_id, 
+                o.order_date, 
+                o.total_amount, 
+                o.status, 
+                o.promotion_id,
+                pr.code as promotion_code, 
+                pr.name as promotion_name,
+                oi.product_id, 
+                oi.quantity, 
+                oi.price, 
+                COALESCE(p.name, 'Product Not Found') as product_name, 
+                COALESCE(p.image, '') as product_image
+            FROM orders o
+            LEFT JOIN order_items oi ON o.order_id = oi.order_id
+            LEFT JOIN products p ON oi.product_id = p.product_id
+            LEFT JOIN promotions pr ON o.promotion_id = pr.promotion_id
+            WHERE o.order_id IN (${placeholders})
+        `;
+        const [rows] = await db.query(sql, validOrderIds);
         
         // Group items by order
         const orders = {};
@@ -209,19 +275,51 @@ exports.getOrderHistory = async (req, res) => {
                     items: []
                 };
             }
-            orders[row.order_id].items.push({
-                product_id: row.product_id,
-                product_name: row.product_name,
-                product_image: row.product_image,
-                quantity: row.quantity,
-                price: row.price
-            });
+            // Only add item if product_id exists (not NULL)
+            if (row.product_id) {
+                orders[row.order_id].items.push({
+                    product_id: row.product_id,
+                    product_name: row.product_name,
+                    product_image: row.product_image,
+                    quantity: row.quantity,
+                    price: row.price
+                });
+            }
         });
 
-        res.json(Object.values(orders));
+        // Sort orders by date (newest first) and convert to array
+        const sortedOrders = Object.values(orders).sort((a, b) => {
+            const dateA = new Date(a.order_date);
+            const dateB = new Date(b.order_date);
+            if (dateB - dateA !== 0) {
+                return dateB - dateA; // Newest first
+            }
+            return b.order_id - a.order_id; // Higher ID first if same date
+        });
+
+        res.json({
+            orders: sortedOrders,
+            pagination: {
+                currentPage: parseInt(page),
+                totalPages,
+                totalItems,
+                itemsPerPage: parseInt(limit)
+            }
+        });
     } catch (err) {
         console.error('Error fetching order history:', err);
-        res.status(500).json({ message: 'Database error' });
+        console.error('Error details:', {
+            userId,
+            message: err.message,
+            sqlState: err.sqlState,
+            code: err.code,
+            errno: err.errno,
+            stack: err.stack
+        });
+        res.status(500).json({ 
+            message: 'Database error',
+            error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        });
     }
 };
 

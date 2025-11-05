@@ -182,7 +182,7 @@ export default function Dashboard() {
   };
 
   const sortedTopProducts = topProducts && topProducts.length > 0 
-    ? [...topProducts].sort((a, b) => (b.total_revenue || 0) - (a.total_revenue || 0))
+    ? [...topProducts].sort((a, b) => (b.total_sold || 0) - (a.total_sold || 0))
     : [];
 
   const topProductsBarData = {

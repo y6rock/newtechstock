@@ -7,7 +7,7 @@ import axios from 'axios';
 import './Profile.css';
 
 const Profile = () => {
-  const { user_id, username, loadingSettings, updateUsername } = useSettings();
+  const { user_id, username, loadingSettings, updateUsername, isUserAdmin } = useSettings();
   const { showSuccess, showError } = useToast();
   const navigate = useNavigate();
   const [profileData, setProfileData] = useState({
@@ -266,19 +266,21 @@ const Profile = () => {
   return (
     <div className="profile-container">
       {/* Tab Navigation */}
-      <div className="tab-navigation">
-        <div className="tab-container">
-          <button className="tab-button active">
-            Profile
-          </button>
-          <button
-            onClick={() => navigate('/order-history')}
-            className="tab-button inactive"
-          >
-            Order History
-          </button>
+      {!isUserAdmin && (
+        <div className="tab-navigation">
+          <div className="tab-container">
+            <button className="tab-button active">
+              Profile
+            </button>
+            <button
+              onClick={() => navigate('/order-history')}
+              className="tab-button inactive"
+            >
+              Order History
+            </button>
+          </div>
         </div>
-      </div>
+      )}
       {/* Profile Content */}
       <div className="profile-content">
           {/* Profile Picture Section */}

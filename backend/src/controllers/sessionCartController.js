@@ -1,4 +1,5 @@
 const dbSingleton = require('../../dbSingleton');
+const { applyPromotionAdvanced } = require('./promotionController');
 
 /**
  * Get session cart (works for both authenticated and anonymous users)
@@ -99,6 +100,7 @@ const addToSessionCart = async (req, res) => {
             req.session.cart.items[existingItemIndex].quantity = newQuantity;
             req.session.cart.items[existingItemIndex].price = product.price; // Update price
             req.session.cart.items[existingItemIndex].stock = product.stock; // Update stock
+            req.session.cart.items[existingItemIndex].category_id = product.category_id; // Update category_id
         } else {
             // Add new item
             req.session.cart.items.push({
@@ -108,6 +110,7 @@ const addToSessionCart = async (req, res) => {
                 image: product.image,
                 quantity: quantity,
                 stock: product.stock,
+                category_id: product.category_id,
                 category_name: product.category_name,
                 supplier_name: product.supplier_name
             });
@@ -416,11 +419,199 @@ const validateSessionCart = async (req, res) => {
     }
 };
 
+/**
+ * Apply promotion to session cart
+ */
+const applyPromotionToSessionCart = async (req, res) => {
+    try {
+        const { code } = req.body;
+        
+        if (!code) {
+            return res.status(400).json({ message: 'Promotion code is required' });
+        }
+
+        // Initialize session cart if it doesn't exist
+        if (!req.session.cart) {
+            req.session.cart = {
+                items: [],
+                appliedPromotion: null,
+                discountAmount: 0
+            };
+        }
+
+        if (!req.session.cart.items || req.session.cart.items.length === 0) {
+            return res.status(400).json({ message: 'Cart is empty' });
+        }
+
+        // Use the promotion controller's applyPromotionAdvanced function
+        // Create a mock request/response wrapper to reuse the logic
+        const mockReq = {
+            body: {
+                code: code,
+                cart: req.session.cart.items
+            }
+        };
+        
+        let promotionResult;
+        try {
+            // Call the promotion controller function directly
+            const db = dbSingleton.getConnection();
+            const [promotions] = await db.query(
+                'SELECT * FROM promotions WHERE code = ? AND is_active = TRUE',
+                [code]
+            );
+
+            if (promotions.length === 0) {
+                return res.status(404).json({ message: 'Invalid promotion code' });
+            }
+
+            const promotion = promotions[0];
+
+            // Check if promotion is currently active
+            const currentDate = new Date().toISOString().split('T')[0];
+            if (promotion.start_date > currentDate || promotion.end_date < currentDate) {
+                return res.status(400).json({ message: 'Promotion is not currently active' });
+            }
+
+            // Calculate total cart amount
+            const totalCartAmount = req.session.cart.items.reduce((total, item) => total + (item.price * item.quantity), 0);
+
+            // Check minimum purchase requirement
+            if (promotion.min_purchase && totalCartAmount < promotion.min_purchase) {
+                return res.status(400).json({ message: `Minimum purchase of ${promotion.min_purchase} required.` });
+            }
+
+            // Helper function to check if item is applicable
+            const isItemApplicable = (item, promotion) => {
+                const applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : [];
+                const applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : [];
+                
+                if (applicableProducts.length > 0 && applicableProducts.includes(item.product_id)) {
+                    return true;
+                }
+                
+                if (applicableCategories.length > 0 && applicableCategories.includes(item.category_id)) {
+                    return true;
+                }
+                
+                if (applicableProducts.length === 0 && applicableCategories.length === 0) {
+                    return true;
+                }
+                
+                return false;
+            };
+
+            // Check which items are applicable
+            let applicableItems = [];
+            req.session.cart.items.forEach(item => {
+                if (isItemApplicable(item, promotion)) {
+                    applicableItems.push(item);
+                }
+            });
+
+            if (applicableItems.length === 0) {
+                return res.status(400).json({ message: 'No items are eligible for this promotion.' });
+            }
+
+            // Check total quantity requirements
+            const totalApplicableQuantity = applicableItems.reduce((total, item) => total + item.quantity, 0);
+            
+            if (promotion.min_quantity && totalApplicableQuantity < promotion.min_quantity) {
+                return res.status(400).json({ 
+                    message: `Minimum quantity required: ${promotion.min_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+                });
+            }
+            
+            if (promotion.max_quantity && totalApplicableQuantity > promotion.max_quantity) {
+                return res.status(400).json({ 
+                    message: `Maximum quantity allowed: ${promotion.max_quantity}. You have ${totalApplicableQuantity} applicable items.` 
+                });
+            }
+
+            // Calculate discount
+            let discount = 0;
+            if (promotion.type === 'percentage') {
+                applicableItems.forEach(item => {
+                    discount += (item.price * item.quantity) * (promotion.value / 100);
+                });
+            } else if (promotion.type === 'fixed') {
+                const applicableTotal = applicableItems.reduce((total, item) => {
+                    return total + (item.price * item.quantity);
+                }, 0);
+
+                if (applicableTotal > 0) {
+                    applicableItems.forEach(item => {
+                        const itemTotal = item.price * item.quantity;
+                        const itemDiscount = (itemTotal / applicableTotal) * promotion.value;
+                        discount += itemDiscount;
+                    });
+                }
+            }
+
+            discount = Math.round(discount * 100) / 100;
+
+            // Store promotion in session
+            req.session.cart.appliedPromotion = {
+                promotion_id: promotion.promotion_id,
+                name: promotion.name,
+                code: promotion.code,
+                type: promotion.type,
+                value: promotion.value
+            };
+            req.session.cart.discountAmount = discount;
+
+            res.json({
+                appliedPromotion: req.session.cart.appliedPromotion,
+                discountAmount: discount
+            });
+
+        } catch (error) {
+            console.error('Error applying promotion:', error);
+            return res.status(500).json({ message: 'Internal server error' });
+        }
+
+    } catch (error) {
+        console.error('Error applying promotion to session cart:', error);
+        res.status(500).json({ message: 'Failed to apply promotion', error: error.message });
+    }
+};
+
+/**
+ * Remove promotion from session cart
+ */
+const removePromotionFromSessionCart = async (req, res) => {
+    try {
+        // Initialize session cart if it doesn't exist
+        if (!req.session.cart) {
+            req.session.cart = {
+                items: [],
+                appliedPromotion: null,
+                discountAmount: 0
+            };
+        }
+
+        req.session.cart.appliedPromotion = null;
+        req.session.cart.discountAmount = 0;
+
+        res.json({
+            message: 'Promotion removed successfully',
+            appliedPromotion: null,
+            discountAmount: 0
+        });
+
+    } catch (error) {
+        console.error('Error removing promotion from session cart:', error);
+        res.status(500).json({ message: 'Failed to remove promotion', error: error.message });
+    }
+};
+
 module.exports = {
     getSessionCart,
     addToSessionCart,
     updateSessionCartItem,
     removeFromSessionCart,
     clearSessionCart,
-    validateSessionCart
+    validateSessionCart,
+    applyPromotionToSessionCart,
+    removePromotionFromSessionCart
 };

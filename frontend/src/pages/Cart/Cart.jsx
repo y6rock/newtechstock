@@ -4,14 +4,14 @@ import { useSettings } from '../../context/SettingsContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaTag, FaTimes, FaSync } from 'react-icons/fa';
-import { formatPrice } from '../../utils/currency';
+import { formatPrice, formatPriceWithTax } from '../../utils/currency';
 import './Cart.css';
 
 const Cart = () => {
   const { 
     cartItems, removeFromCart, updateQuantity, clearCart, 
     appliedPromotion, discountAmount, applyPromotion, removePromotion,
-    validateCart, isValidating,
+    validateCart, refreshCart, isValidating,
     subtotal, subtotalAfterDiscount, vatAmount, netAmount, vat_rate, total 
   } = useCart();
   const { currency, username, user_id } = useSettings();
@@ -57,7 +57,10 @@ const Cart = () => {
         <h1>Your Shopping Cart</h1>
         {username && user_id && cartItems.length > 0 && (
           <button 
-            onClick={() => validateCart(true)} 
+            onClick={async () => {
+              await refreshCart();
+              await validateCart(true);
+            }}
             className="cart-refresh-button"
             disabled={isValidating}
             title="Refresh cart items and prices"
@@ -82,7 +85,7 @@ const Cart = () => {
               </div>
               <div className="cart-item-details">
                 <h3>{item.name}</h3>
-                <p className="cart-item-price">{formatPrice(item.price, currency)}</p>
+                <p className="cart-item-price">{formatPriceWithTax(item.price, currency, vat_rate)}</p>
                 <div className="cart-item-quantity">
                   <button onClick={() => updateQuantity(item.product_id, item.quantity - 1)} disabled={item.quantity <= 1}>-</button>
                   <span>{item.quantity}</span>
@@ -90,7 +93,7 @@ const Cart = () => {
                 </div>
               </div>
               <div className="cart-item-subtotal">
-                <p>{formatPrice(item.price * item.quantity, currency)}</p>
+                <p>{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</p>
                 <button className="cart-item-remove" onClick={() => removeFromCart(item.product_id)}>Remove</button>
               </div>
             </div>

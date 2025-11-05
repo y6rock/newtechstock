@@ -16,16 +16,46 @@ exports.getPublicCategories = async (req, res) => {
 // Get all categories (admin only) - shows both active and inactive
 exports.getAllCategories = async (req, res) => {
     try {
-        const { page = 1, limit = 10, search = '' } = req.query;
+        const { page = 1, limit = 10, search = '', status, sortField = 'category_id', sortDirection = 'desc' } = req.query;
         
-        let whereClause = '';
+        let whereConditions = [];
         let params = [];
         
         // Add search functionality if search parameter is provided
         if (search && search.trim()) {
-            whereClause = 'WHERE (name LIKE ? OR description LIKE ?)';
+            whereConditions.push('(name LIKE ? OR description LIKE ?)');
             const searchTerm = `%${search.trim()}%`;
-            params = [searchTerm, searchTerm];
+            params.push(searchTerm, searchTerm);
+        }
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereConditions.push('isActive = TRUE');
+            } else if (status === 'inactive') {
+                whereConditions.push('isActive = FALSE');
+            }
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+        // Sorting: whitelist and map UI fields to DB columns
+        const allowedSortFields = {
+            name: 'name',
+            category_id: 'category_id',
+            status: 'isActive'
+        };
+        const normalizedField = String(sortField || '').toLowerCase();
+        const column = allowedSortFields[normalizedField] || 'name';
+        const dir = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+        let orderByClause;
+        if (column === 'isActive') {
+            orderByClause = dir === 'ASC'
+                ? 'ORDER BY isActive DESC, name ASC'  // Active first
+                : 'ORDER BY isActive ASC, name ASC';  // Inactive first
+        } else {
+            orderByClause = `ORDER BY ${column} ${dir}`;
         }
         
         // Get total count for pagination
@@ -44,7 +74,7 @@ exports.getAllCategories = async (req, res) => {
                 CASE WHEN isActive = TRUE THEN "Active" ELSE "Inactive" END as status 
             FROM categories 
             ${whereClause}
-            ORDER BY name
+            ${orderByClause}
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
@@ -156,6 +186,18 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
     const { id } = req.params;
     try {
+        // Check if category has any products
+        const [productsCheck] = await db.query(
+            'SELECT COUNT(*) as product_count FROM products WHERE category_id = ? AND is_active = 1',
+            [id]
+        );
+        
+        if (productsCheck[0].product_count > 0) {
+            return res.status(400).json({ 
+                message: 'Cannot deactivate category with active products. Please deactivate all products first.' 
+            });
+        }
+        
         const [result] = await db.query('UPDATE categories SET isActive = FALSE WHERE category_id = ?', [id]);
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Category not found.' });

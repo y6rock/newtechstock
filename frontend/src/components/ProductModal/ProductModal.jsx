@@ -190,14 +190,30 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
               <label>Supplier</label>
               <select name="supplier_id" value={form.supplier_id} onChange={handleChange}>
                 <option value="">None</option>
-                {suppliers.map(s => <option key={s.supplier_id} value={s.supplier_id}>{s.name}</option>)}
+                {suppliers.map(s => (
+                  <option 
+                    key={s.supplier_id} 
+                    value={s.supplier_id}
+                    disabled={s.isActive === 0 || s.isActive === false}
+                  >
+                    {s.name}{s.isActive === 0 || s.isActive === false ? ' (Inactive)' : ''}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="form-group">
               <label>Category</label>
               <select name="category_id" value={form.category_id} onChange={handleChange}>
                 <option value="">None</option>
-                {categories.map(c => <option key={c.category_id} value={c.category_id}>{c.name}</option>)}
+                {categories.map(c => (
+                  <option 
+                    key={c.category_id} 
+                    value={c.category_id}
+                    disabled={c.isActive === 0 || c.isActive === false}
+                  >
+                    {c.name}{c.isActive === 0 || c.isActive === false ? ' (Inactive)' : ''}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

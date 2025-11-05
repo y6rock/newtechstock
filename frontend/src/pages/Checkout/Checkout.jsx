@@ -4,7 +4,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatPrice } from '../../utils/currency';
+import { formatPrice, formatPriceWithTax } from '../../utils/currency';
 import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
 
@@ -15,11 +15,10 @@ const Checkout = () => {
     const navigate = useNavigate();
 
     const [shippingAddress, setShippingAddress] = useState('');
-    const [paymentMethod, setPaymentMethod] = useState('credit_card');
+    const [paymentMethod, setPaymentMethod] = useState('paypal');
     const [orderError, setOrderError] = useState(null);
     const [isPlacingOrder, setIsPlacingOrder] = useState(false);
-    // eslint-disable-next-line no-unused-vars
-    const [showPayPal, setShowPayPal] = useState(false);
+    const [showPayPal, setShowPayPal] = useState(true);
     const [paypalLoading, setPaypalLoading] = useState(false);
     const [paypalOrderId, setPaypalOrderId] = useState(null);
 
@@ -204,7 +203,7 @@ const Checkout = () => {
                     {cartItems.map(item => (
                         <div key={item.product_id} className="summary-item">
                             <span>{item.name} (x{item.quantity})</span>
-                            <span>{formatPrice(item.price * item.quantity, currency)}</span>
+                            <span>{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</span>
                         </div>
                     ))}
                     <div className="summary-total">
@@ -250,45 +249,7 @@ const Checkout = () => {
                             required
                         />
                     </div>
-                    <div className="form-group">
-                        <label>Payment Method</label>
-                        <div className="payment-options">
-                            <label>
-                                <input
-                                    type="radio"
-                                    name="paymentMethod"
-                                    value="credit_card"
-                                    checked={paymentMethod === 'credit_card'}
-                                    onChange={(e) => {
-                                        setPaymentMethod(e.target.value);
-                                        setShowPayPal(false);
-                                    }}
-                                />
-                                Credit Card
-                            </label>
-                            <label>
-                                <input
-                                    type="radio"
-                                    name="paymentMethod"
-                                    value="paypal"
-                                    checked={paymentMethod === 'paypal'}
-                                    onChange={(e) => {
-                                        setPaymentMethod(e.target.value);
-                                        setShowPayPal(true);
-                                    }}
-                                />
-                                PayPal
-                            </label>
-                        </div>
-                    </div>
-
                     {orderError && <p className="error-message">{orderError}</p>}
-
-                    {paymentMethod === 'credit_card' && (
-                        <button type="submit" className="place-order-button" disabled={isPlacingOrder}>
-                            {isPlacingOrder ? 'Placing Order...' : `Place Order (${formatPrice(total, currency)})`}
-                        </button>
-                    )}
 
                     {paymentMethod === 'paypal' && (
                         <div className="paypal-container">
@@ -306,12 +267,14 @@ const Checkout = () => {
                                 createOrder={(data, actions) => {
                                     console.log('Creating PayPal order for:', total);
                                     setPaypalLoading(true);
+                                    // Round total to 2 decimal places for PayPal
+                                    const paypalAmount = Math.round((total + Number.EPSILON) * 100) / 100;
                                     return actions.order.create({
                                         purchase_units: [
                                             {
                                                 amount: {
-                                                    value: total.toString(),
-                                                    currency_code: "USD"
+                                                    value: paypalAmount.toFixed(2),
+                                                    currency_code: currency || "USD"
                                                 },
                                                 description: `TechStock Order - ${cartItems.length} items`
                                             }
@@ -324,6 +287,11 @@ const Checkout = () => {
                                     return actions.order.capture().then((details) => {
                                         console.log('PayPal payment captured:', details);
                                         handlePayPalPayment(details);
+                                    }).catch((error) => {
+                                        console.error('PayPal capture error:', error);
+                                        setPaypalLoading(false);
+                                        setOrderError('Payment capture failed. Please try again.');
+                                        showError('Payment capture failed. Please try again.');
                                     });
                                 }}
                                 onError={(err) => {

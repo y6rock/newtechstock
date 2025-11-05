@@ -147,7 +147,7 @@ exports.getTopProducts = async (req, res) => {
 // Get all orders with optional user filter and pagination
 exports.getOrders = async (req, res) => {
     try {
-        const { userId, page = 1, limit = 10, search = '' } = req.query;
+        const { userId, page = 1, limit = 10, search = '', status, sortField = 'order_date', sortDirection = 'desc' } = req.query;
         const offset = (page - 1) * limit;
         
         let whereConditions = [];
@@ -164,6 +164,12 @@ exports.getOrders = async (req, res) => {
             params.push(searchPattern, searchPattern, searchPattern);
         }
         
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            whereConditions.push('o.status = ?');
+            params.push(status);
+        }
+        
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
         // Get total count
@@ -177,6 +183,24 @@ exports.getOrders = async (req, res) => {
         const totalItems = countResult[0].total;
         const totalPages = Math.ceil(totalItems / limit);
         
+        // Sorting whitelist/mapping
+        const allowedSortFields = {
+            order_id: 'o.order_id',
+            customer_name: 'u.name',
+            customer_email: 'u.email',
+            total_amount: 'o.total_amount',
+            status: 'o.status',
+            order_date: 'o.order_date'
+        };
+        const normalizedField = String(sortField || '').trim();
+        const column = allowedSortFields[normalizedField] || 'o.order_date';
+        const dir = String(sortDirection || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+        // For status sorting, add secondary stable sort by order_date desc
+        const orderByClause = column === 'o.status'
+            ? `ORDER BY ${column} ${dir}, o.order_date DESC`
+            : `ORDER BY ${column} ${dir}`;
+
         // Get paginated orders
         let sql = `
             SELECT 
@@ -191,7 +215,7 @@ exports.getOrders = async (req, res) => {
             FROM orders o
             LEFT JOIN users u ON o.user_id = u.user_id
             ${whereClause}
-            ORDER BY o.order_date DESC
+            ${orderByClause}
             LIMIT ? OFFSET ?
         `;
         
@@ -213,17 +237,39 @@ exports.getOrders = async (req, res) => {
     }
 };
 
-// Get order status distribution
+// Get order status distribution (with optional filters)
 exports.getOrderStatusDistribution = async (req, res) => {
     try {
+        const { status, search } = req.query;
+        
+        let whereConditions = [];
+        let params = [];
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            whereConditions.push('o.status = ?');
+            params.push(status);
+        }
+        
+        // Add search filter if provided
+        if (search && search.trim()) {
+            whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR o.order_id LIKE ?)');
+            const searchPattern = `%${search.trim()}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
         const [statusData] = await db.query(`
             SELECT 
-                status,
+                o.status,
                 COUNT(*) as count
-            FROM orders
-            GROUP BY status
+            FROM orders o
+            LEFT JOIN users u ON o.user_id = u.user_id
+            ${whereClause}
+            GROUP BY o.status
             ORDER BY count DESC
-        `);
+        `, params);
 
         res.json(statusData);
     } catch (error) {
@@ -235,8 +281,8 @@ exports.getOrderStatusDistribution = async (req, res) => {
 // Get all customers (non-admin users) with their order stats
 exports.getCustomers = async (req, res) => {
     try {
-        const { q, page = 1, limit = 10, status } = req.query; // Search query, pagination parameters, and status filter
-        console.log('getCustomers - Request params:', { q, page, limit, status }); // Debug log
+        const { q, page = 1, limit = 10, status, sortField = 'user_id', sortDirection = 'desc' } = req.query; // Search, pagination, filter, sorting
+        console.log('getCustomers - Request params:', { q, page, limit, status, sortField, sortDirection }); // Debug log
         
         let whereClause = "WHERE u.role != 'admin'";
         let params = [];
@@ -268,6 +314,31 @@ exports.getCustomers = async (req, res) => {
         const totalItems = countResult[0].total;
         const totalPages = Math.ceil(totalItems / parseInt(limit));
         const offset = (parseInt(page) - 1) * parseInt(limit);
+
+        // Sorting whitelist/mapping
+        const allowedSortFields = {
+            user_id: 'u.user_id',
+            username: 'u.name',
+            email: 'u.email',
+            phone: 'u.phone',
+            order_count: 'order_count',
+            total_spent: 'total_spent',
+            isActive: 'u.isActive',
+            status: 'u.isActive'
+        };
+        const normalizedField = String(sortField || '').trim();
+        const column = allowedSortFields[normalizedField] || 'u.name';
+        const dir = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+
+        let orderByClause;
+        if (column === 'u.isActive') {
+            // Group by status with stable secondary by name
+            orderByClause = dir === 'ASC'
+                ? 'ORDER BY u.isActive DESC, u.name ASC' // Active first
+                : 'ORDER BY u.isActive ASC, u.name ASC';  // Inactive first
+        } else {
+            orderByClause = `ORDER BY ${column} ${dir}`;
+        }
         
         // Get paginated customers
         const [customers] = await db.query(`
@@ -284,7 +355,7 @@ exports.getCustomers = async (req, res) => {
             LEFT JOIN orders o ON u.user_id = o.user_id
             ${whereClause}
             GROUP BY u.user_id, u.name, u.email, u.phone, u.isActive
-            ORDER BY u.isActive DESC, u.name
+            ${orderByClause}
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
@@ -327,14 +398,16 @@ exports.deleteCustomer = async (req, res) => {
             return res.status(403).json({ message: "Cannot delete admin users" });
         }
         
-        // Check if user has any orders
+        // Check if user has any orders that are not Delivered
         const [ordersCheck] = await db.query(`
-            SELECT COUNT(*) as order_count FROM orders WHERE user_id = ?
+            SELECT COUNT(*) as non_delivered_count 
+            FROM orders 
+            WHERE user_id = ? AND status != 'Delivered'
         `, [userId]);
         
-        if (ordersCheck[0].order_count > 0) {
+        if (ordersCheck[0].non_delivered_count > 0) {
             return res.status(400).json({ 
-                message: "Cannot delete customer with existing orders. Please handle their orders first." 
+                message: "Cannot delete customer with non-delivered orders. All orders must be in Delivered status first." 
             });
         }
         

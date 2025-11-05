@@ -2,8 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
-import { formatPrice } from '../../utils/currency';
-import { FaArrowLeft, FaHeart, FaShare, FaShoppingCart } from 'react-icons/fa';
+import { formatPrice, formatPriceWithTax } from '../../utils/currency';
+import { FaArrowLeft, FaShare, FaShoppingCart } from 'react-icons/fa';
 import './ProductDetails.css';
 
 
@@ -11,12 +11,11 @@ export default function ProductDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { addToCart } = useCart();
-  const { user_id, currency } = useSettings();
+  const { user_id, currency, vat_rate } = useSettings();
   const [product, setProduct] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(true);
   const [cartMsg, setCartMsg] = useState('');
-  const [isWishlisted, setIsWishlisted] = useState(false);
 
   useEffect(() => {
     async function fetchProduct() {
@@ -43,10 +42,6 @@ export default function ProductDetails() {
     }
     addToCart(product, quantity);
     setCartMsg('Added to cart!');
-  };
-
-  const toggleWishlist = () => {
-    setIsWishlisted(!isWishlisted);
   };
 
   const shareProduct = () => {
@@ -137,7 +132,7 @@ export default function ProductDetails() {
             </h1>
 
             <div className="product-price-main">
-              {formatPrice(product.price, currency)}
+              {formatPriceWithTax(product.price, currency, vat_rate)}
             </div>
           </div>
 
@@ -213,13 +208,6 @@ export default function ProductDetails() {
               >
                 <FaShoppingCart />
                 {!hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Out of Stock' : 'Add to Cart'}
-              </button>
-
-              <button
-                onClick={toggleWishlist}
-                className={`wishlist-button ${isWishlisted ? 'active' : ''}`}
-              >
-                <FaHeart />
               </button>
 
               <button

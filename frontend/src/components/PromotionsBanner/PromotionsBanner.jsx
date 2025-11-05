@@ -98,11 +98,13 @@ const PromotionsBanner = () => {
       return `${items[0]} & ${items[1]}`;
     }
 
-    if (items.length <= 3) {
+    if (items.length <= 5) {
+      // Show all items if 5 or fewer
       return `${items.slice(0, -1).join(', ')} & ${items[items.length - 1]}`;
     }
 
-    return `${items.slice(0, 2).join(', ')} & ${items.length - 2} more`;
+    // For more than 5 items, show first 4 and count
+    return `${items.slice(0, 4).join(', ')}, & ${items.length - 4} more`;
   };
 
   const handlePromotionCodeClick = (promotion) => {

@@ -28,8 +28,8 @@ const Customers = () => {
     const [showOrdersModal, setShowOrdersModal] = useState(false);
     const [expandedOrderId, setExpandedOrderId] = useState(null);
     const [orderItems, setOrderItems] = useState({});
-    const [sortField, setSortField] = useState('username');
-    const [sortDirection, setSortDirection] = useState('asc');
+    const [sortField, setSortField] = useState('user_id');
+    const [sortDirection, setSortDirection] = useState('desc');
 
     // Fetch customers with optional search query, status filter, and pagination
     const fetchCustomers = useCallback(async (searchQuery = '', page = 1, status = 'all') => {
@@ -52,7 +52,12 @@ const Customers = () => {
             if (status && status !== 'all') {
                 params.append('status', status);
             }
-                
+            // Sorting params
+            if (sortField) {
+                params.append('sortField', sortField);
+                params.append('sortDirection', sortDirection);
+            }
+            
             const response = await fetch(`/api/admin/customers?${params}`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
@@ -84,7 +89,7 @@ const Customers = () => {
         } finally {
             setIsSearching(false);
         }
-    }, [showError]);
+    }, [showError, sortField, sortDirection]);
 
     // Handle page changes
     const handlePageChange = useCallback((newPage) => {
@@ -100,6 +105,11 @@ const Customers = () => {
             params.set('status', statusFilter);
         } else {
             params.delete('status');
+        }
+        // persist sorting in URL
+        if (sortField) {
+            params.set('sortField', sortField);
+            params.set('sortDirection', sortDirection);
         }
         setSearchParams(params);
 
@@ -123,7 +133,12 @@ const Customers = () => {
                 if (statusFilter && statusFilter !== 'all') {
                     pageParams.append('status', statusFilter);
                 }
-
+                // Sorting
+                if (sortField) {
+                    pageParams.append('sortField', sortField);
+                    pageParams.append('sortDirection', sortDirection);
+                }
+                
                 const response = await fetch(`/api/admin/customers?${pageParams}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -173,6 +188,10 @@ const Customers = () => {
         } else {
             params.delete('search');
         }
+        if (sortField) {
+            params.set('sortField', sortField);
+            params.set('sortDirection', sortDirection);
+        }
         setSearchParams(params);
         
         // Immediately fetch customers with new filter to ensure responsive UI
@@ -196,7 +215,12 @@ const Customers = () => {
                 if (newStatus && newStatus !== 'all') {
                     fetchParams.append('status', newStatus);
                 }
-
+                // Sorting
+                if (sortField) {
+                    fetchParams.append('sortField', sortField);
+                    fetchParams.append('sortDirection', sortDirection);
+                }
+                
                 const response = await fetch(`/api/admin/customers?${fetchParams}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
@@ -250,6 +274,11 @@ const Customers = () => {
 
                         if (searchTerm.trim()) {
                             searchParams.append('q', searchTerm.trim());
+                        }
+
+                        if (sortField) {
+                            searchParams.append('sortField', sortField);
+                            searchParams.append('sortDirection', sortDirection);
                         }
 
                         const response = await fetch(`/api/admin/customers?${searchParams}`, {
@@ -318,6 +347,11 @@ const Customers = () => {
                             params.append('status', currentStatus);
                         }
 
+                        if (sortField) {
+                            params.append('sortField', sortField);
+                            params.append('sortDirection', sortDirection);
+                        }
+
                         const response = await fetch(`/api/admin/customers?${params}`, {
                             headers: {
                                 'Authorization': `Bearer ${token}`
@@ -375,8 +409,14 @@ const Customers = () => {
                 const page = parseInt(searchParams.get('page')) || 1;
                 const search = searchParams.get('search') || '';
                 const status = searchParams.get('status') || 'all';
+                const urlSortField = searchParams.get('sortField') || null;
+                const urlSortDirection = searchParams.get('sortDirection') || null;
                 setSearchTerm(search);
                 setStatusFilter(status);
+                if (urlSortField) {
+                    setSortField(urlSortField);
+                    setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
+                }
 
                 const params = new URLSearchParams({
                     page: page.toString(),
@@ -389,6 +429,13 @@ const Customers = () => {
                 
                 if (status && status !== 'all') {
                     params.append('status', status);
+                }
+                if (urlSortField) {
+                    params.append('sortField', urlSortField);
+                    params.append('sortDirection', urlSortDirection === 'desc' ? 'desc' : 'asc');
+                } else if (sortField) {
+                    params.append('sortField', sortField);
+                    params.append('sortDirection', sortDirection);
                 }
 
                 const response = await fetch(`/api/admin/customers?${params}`, {
@@ -427,12 +474,25 @@ const Customers = () => {
 
     // Sorting function
     const handleSort = (field) => {
+        let nextField = field;
+        let nextDir = 'asc';
         if (sortField === field) {
-            setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
-        } else {
-            setSortField(field);
-            setSortDirection('asc');
+            nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
         }
+        setSortField(nextField);
+        setSortDirection(nextDir);
+
+        // Update URL and refetch by triggering effects/fetchers
+        const params = new URLSearchParams(searchParams);
+        params.set('page', '1');
+        if (searchTerm) params.set('search', searchTerm); else params.delete('search');
+        if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
+        params.set('sortField', nextField);
+        params.set('sortDirection', nextDir);
+        setSearchParams(params);
+
+        // Immediate fetch to make it responsive
+        fetchCustomers(searchTerm, 1, statusFilter);
     };
 
     const fetchCustomerOrders = async (userId) => {
@@ -572,31 +632,7 @@ const Customers = () => {
         return null;
     }
 
-    // Client-side sorting (since backend search is already applied)
-    const sortedCustomers = [...customers].sort((a, b) => {
-        let aValue = a[sortField];
-        let bValue = b[sortField];
-        
-        // Handle different data types
-        if (sortField === 'total_spent') {
-            aValue = parseFloat(aValue) || 0;
-            bValue = parseFloat(bValue) || 0;
-        } else if (sortField === 'order_count') {
-            aValue = parseInt(aValue) || 0;
-            bValue = parseInt(bValue) || 0;
-        } else if (sortField === 'isActive') {
-            // isActive is stored as 0 or 1 in the database (TINYINT)
-            aValue = aValue === 0 ? 0 : 1;
-            bValue = bValue === 0 ? 0 : 1;
-        } else if (typeof aValue === 'string') {
-            aValue = (aValue || '').toLowerCase();
-            bValue = (bValue || '').toLowerCase();
-        }
-        
-        if (aValue < bValue) return sortDirection === 'asc' ? -1 : 1;
-        if (aValue > bValue) return sortDirection === 'asc' ? 1 : -1;
-        return 0;
-    });
+    // Render server-sorted customers directly
 
     // Show loading state while settings are loading or if not admin
     if (loadingSettings || !isUserAdmin) {
@@ -789,7 +825,7 @@ const Customers = () => {
                         </tr>
                     </thead>
                     <tbody>
-                        {sortedCustomers.map((customer) => (
+                        {customers.map((customer) => (
                             <tr key={customer.user_id} className={`table-body-row ${customer.isActive === 0 ? 'inactive-row' : ''}`}>
                                 <td className="table-body-cell">{customer.username || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.email || 'N/A'}</td>
@@ -828,7 +864,7 @@ const Customers = () => {
                                 </td>
                             </tr>
                         ))}
-                        {sortedCustomers.length === 0 && (
+                        {customers.length === 0 && (
                             <tr>
                                 <td colSpan="7" className="no-customers">No customers found.</td>
                             </tr>

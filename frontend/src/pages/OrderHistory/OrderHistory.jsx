@@ -3,6 +3,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useNavigate, Link } from 'react-router-dom';
 import { formatPrice } from '../../utils/currency';
 import { formatDateTimeFull } from '../../utils/dateFormat';
+import Pagination from '../../components/Pagination/Pagination';
 import './OrderHistory.css';
 
 const OrderHistory = ({ userId }) => {
@@ -11,6 +12,7 @@ const OrderHistory = ({ userId }) => {
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [error, setError] = useState(null);
+  const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
 
   // Use the userId prop if provided, otherwise fallback to contextUserId
   const currentUserId = userId || contextUserId;
@@ -29,13 +31,13 @@ const OrderHistory = ({ userId }) => {
       return;
     }
 
-    const fetchOrders = async () => {
+    const fetchOrders = async (page = 1) => {
       setLoadingOrders(true);
       setError(null);
       try {
         const token = localStorage.getItem('token');
-        // Corrected API call to include /history/:userId
-        const response = await fetch(`/api/orders/history/${currentUserId}`, {
+        // API call with pagination
+        const response = await fetch(`/api/orders/history/${currentUserId}?page=${page}&limit=10`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },
@@ -46,12 +48,16 @@ const OrderHistory = ({ userId }) => {
           throw new Error(errorData.message || 'Failed to fetch orders.');
         }
         const data = await response.json();
-        const ordersArray = Array.isArray(data) ? data : [];
+        
+        // Handle both old format (array) and new format (object with orders and pagination)
+        const ordersArray = Array.isArray(data) ? data : (data.orders || []);
+        const paginationData = data.pagination || { currentPage: 1, totalPages: 1, totalItems: ordersArray.length, itemsPerPage: 10 };
         
         // Sort orders by date (newest first)
         const sortedOrders = ordersArray.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
         
         setOrders(sortedOrders);
+        setPagination(paginationData);
         console.log('Fetched orders:', sortedOrders);
       } catch (err) {
         console.error('Error fetching orders:', err);
@@ -62,8 +68,12 @@ const OrderHistory = ({ userId }) => {
       }
     };
 
-    fetchOrders();
+    fetchOrders(1);
   }, [currentUserId, loadingSettings, navigate, userId]);
+
+  const handlePageChange = (newPage) => {
+    fetchOrders(newPage);
+  };
 
   if (loadingOrders) {
     return <div className="loading">Loading order history...</div>;
@@ -159,6 +169,19 @@ const OrderHistory = ({ userId }) => {
           </div>
         )}
       </div>
+
+      {/* Pagination */}
+      {orders.length > 0 && (
+        <div style={{ padding: '20px', display: 'flex', justifyContent: 'center' }}>
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            totalItems={pagination.totalItems}
+            itemsPerPage={pagination.itemsPerPage}
+            onPageChange={handlePageChange}
+          />
+        </div>
+      )}
     </div>
   );
 };
