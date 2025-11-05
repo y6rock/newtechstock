@@ -198,11 +198,12 @@ exports.getOrderHistory = async (req, res) => {
         const totalPages = Math.ceil(totalItems / parseInt(limit));
 
         // Get paginated order IDs first
+        // Include order_date in SELECT to avoid MySQL strict mode error with DISTINCT + ORDER BY
         const orderIdsSql = `
-            SELECT DISTINCT o.order_id
+            SELECT o.order_id, o.order_date
             FROM orders o
             WHERE o.user_id = ?
-            ORDER BY o.order_date DESC
+            ORDER BY o.order_date DESC, o.order_id DESC
             LIMIT ? OFFSET ?
         `;
         const [orderIds] = await db.query(orderIdsSql, [userIdInt, parseInt(limit), offset]);
