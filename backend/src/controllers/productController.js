@@ -379,6 +379,8 @@ exports.getAllProductsAdmin = async (req, res) => {
         const orderByColumn = allowedSortFields[normalizedField] || 'p.name';
         const direction = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
         
+        console.log('Sort params received:', { sortField, normalizedField, orderByColumn, direction });
+        
         // Get total count for pagination
         const [countResult] = await db.query(`
             SELECT COUNT(*) as total
@@ -397,16 +399,23 @@ exports.getAllProductsAdmin = async (req, res) => {
         let orderByClause;
         if (orderByColumn === 'p.is_active') {
             // For status sorting, group strictly by status, then by name for stability.
-            // Asc: Active first, then Inactive (business expectation).
-            // Desc: Inactive first, then Active.
+            // is_active: 1 = Active, 0 = Inactive
+            // ASC direction: Active (1) first, then Inactive (0) - use DESC to put 1 before 0
+            // DESC direction: Inactive (0) first, then Active (1) - use ASC to put 0 before 1
             if (direction === 'ASC') {
+                // Active first: ORDER BY is_active DESC puts 1 (Active) before 0 (Inactive)
                 orderByClause = 'ORDER BY p.is_active DESC, p.name ASC';
             } else {
+                // Inactive first: ORDER BY is_active ASC puts 0 (Inactive) before 1 (Active)
                 orderByClause = 'ORDER BY p.is_active ASC, p.name ASC';
             }
+            console.log('Status sorting applied:', { direction, orderByClause, sortField, normalizedField });
         } else {
             orderByClause = `ORDER BY ${orderByColumn} ${direction}`;
         }
+        
+        console.log('Final SQL ORDER BY clause:', orderByClause);
+        console.log('Query params:', { page, limit, offset, whereClause, orderByClause });
 
         const [products] = await db.query(`
             SELECT 

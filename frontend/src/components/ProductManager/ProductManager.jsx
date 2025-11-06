@@ -62,27 +62,24 @@ function ProductManager() {
     return field;
   };
 
-  // Handle column sorting (server-side)
+  // Handle column sorting (server-side) - URL is the single source of truth
   const handleSort = (field) => {
-    const next = (prevConfig => {
-      if (prevConfig.field === field) {
-        return { field, direction: prevConfig.direction === 'asc' ? 'desc' : 'asc' };
-      } else {
-        return { field, direction: 'asc' };
-      }
-    })(sortConfig);
-    setSortConfig(next);
-    // Reset to first page on sort change and refetch
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
-    const currentSearch = searchParams.get('search') || '';
-    // Persist sort in URL
+    const urlSortField = searchParams.get('sortField');
+    const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+    const currentUiField = (urlSortField === 'category_name') ? 'category_id'
+      : (urlSortField === 'supplier_name') ? 'supplier_id'
+      : (urlSortField === 'status') ? 'is_active'
+      : urlSortField || sortConfig.field;
+
+    const isSameField = currentUiField === field;
+    const nextDirection = isSameField ? (urlSortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
+
     const params = new URLSearchParams(searchParams);
     params.set('page', '1');
-    params.set('sortField', mapToApiSortField(next.field));
-    params.set('sortDirection', next.direction);
-    if (currentSearch) params.set('search', currentSearch); else params.delete('search');
+    params.set('sortField', mapToApiSortField(field));
+    params.set('sortDirection', nextDirection);
     setSearchParams(params);
-    // Rely on URL/sortConfig effects to trigger refetch with fresh state
+    // sortConfig will be synced from URL in the URL sync effect
   };
 
   // Fetch global statistics for products (with current filters)
@@ -166,10 +163,12 @@ function ProductManager() {
         params.append('supplier', supplierFilter);
       }
 
-      // Add sorting params
-      if (sortConfig?.field) {
-        params.append('sortField', mapToApiSortField(sortConfig.field));
-        params.append('sortDirection', sortConfig.direction);
+      // Add sorting params from URL only
+      const urlSortField = searchParams.get('sortField');
+      const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+      if (urlSortField) {
+        params.append('sortField', urlSortField);
+        params.append('sortDirection', urlSortDirection);
       }
       
       console.log('Fetching products with params:', params.toString());
@@ -202,7 +201,7 @@ function ProductManager() {
       console.error('Error fetching initial product data:', err);
       setError('Failed to load necessary data. Please try again.');
     }
-  }, [isUserAdmin, loadingSettings, navigate, sortConfig]);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -219,10 +218,12 @@ function ProductManager() {
     } else {
       params.delete('search');
     }
-    // Keep sort in URL
-    if (sortConfig?.field) {
-      params.set('sortField', mapToApiSortField(sortConfig.field));
-      params.set('sortDirection', sortConfig.direction);
+    // Keep sort in URL (use existing URL values only)
+    const existingUrlSortField = searchParams.get('sortField');
+    const existingUrlSortDirection = searchParams.get('sortDirection');
+    if (existingUrlSortField && existingUrlSortDirection) {
+      params.set('sortField', existingUrlSortField);
+      params.set('sortDirection', existingUrlSortDirection);
     }
     
     console.log('New params:', params.toString());
@@ -233,7 +234,7 @@ function ProductManager() {
       return { ...prev, currentPage: newPage };
     });
     console.log('=== END PAGE CHANGE DEBUG ===');
-  }, [searchParams, setSearchParams, searchTerm, pagination, sortConfig]);
+  }, [searchParams, setSearchParams, searchTerm, pagination]);
 
   // Handle search term changes
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -271,13 +272,15 @@ function ProductManager() {
     console.log('Current filter state:', { statusFilter, categoryFilter, supplierFilter });
     console.log('Current pagination state:', pagination);
     
+    // Do not write URL from state; URL is the source of truth
+
     // Only update if URL params differ from current state or if it's initial load
     const shouldUpdate = isInitialLoad.current || 
       currentSearch !== searchTerm ||
       urlStatusFilter !== statusFilter ||
       urlCategoryFilter !== categoryFilter ||
       urlSupplierFilter !== supplierFilter ||
-      (urlSortField && (mapToApiSortField(sortConfig.field) !== urlSortField || sortConfig.direction !== (urlSortDirection || 'asc'))) ||
+      (urlSortField && (!sortConfig.field || mapToApiSortField(sortConfig.field) !== urlSortField || sortConfig.direction !== (urlSortDirection || 'asc'))) ||
       currentPage !== pagination.currentPage;
     
     if (!shouldUpdate && !isInitialLoad.current) {
@@ -343,23 +346,16 @@ function ProductManager() {
             params.append('supplier', urlSupplierFilter);
           }
 
-          // Add sort from URL directly (avoids race with setSortConfig)
+          // Add sort from URL directly
           if (urlSortField) {
             params.append('sortField', urlSortField);
             params.append('sortDirection', (urlSortDirection === 'desc' ? 'desc' : 'asc'));
-          } else if (sortConfig?.field) {
-            params.append('sortField', mapToApiSortField(sortConfig.field));
-            params.append('sortDirection', sortConfig.direction);
-          }
-
-          // Add sorting params from current sortConfig
-          if (sortConfig?.field) {
-            params.append('sortField', mapToApiSortField(sortConfig.field));
-            params.append('sortDirection', sortConfig.direction);
           }
           
+          const productsUrl = `/api/products/admin/all?${params.toString()}`;
+          console.log('Fetching products with URL:', productsUrl);
           const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-            fetch(`/api/products/admin/all?${params}`, { headers }),
+            fetch(productsUrl, { headers }),
             fetch('/api/suppliers', { headers }),
             fetch('/api/categories', { headers })
           ]);
@@ -406,7 +402,7 @@ function ProductManager() {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, searchParams]);
 
-  // Refetch when sorting changes
+  // Refetch when sorting changes (via URL sync updating sortConfig)
   useEffect(() => {
     if (isInitialLoad.current) return;
     const currentSearch = searchParams.get('search') || '';
@@ -476,10 +472,12 @@ function ProductManager() {
           params.append('supplier', supplierFilter);
         }
 
-        // Add sorting params
-        if (sortConfig?.field) {
-          params.append('sortField', mapToApiSortField(sortConfig.field));
-          params.append('sortDirection', sortConfig.direction);
+        // Add sorting params from URL only
+        const urlSortField = searchParams.get('sortField');
+        const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+        if (urlSortField) {
+          params.append('sortField', urlSortField);
+          params.append('sortDirection', urlSortDirection);
         }
         
         console.log('Fetching products with filters:', params.toString());
