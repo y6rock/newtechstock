@@ -59,23 +59,11 @@ const Home = () => {
     return laptopsImage;
   };
 
-  // Default descriptions for categories that don't have one
-  const getDefaultDescription = (categoryName) => {
-    const name = categoryName.toLowerCase();
-    if (name.includes('laptop')) return 'Powerful laptops for work, gaming, and creativity. From ultrabooks to gaming rigs, find the perfect portable computing solution.';
-    if (name.includes('smartphone') || name.includes('phone')) return 'Stay connected with cutting-edge smartphones featuring advanced cameras, powerful processors, and stunning displays.';
-    if (name.includes('desktop')) return 'High-performance desktop systems for gaming, content creation, and professional workloads. Build your dream setup.';
-    if (name.includes('mouse')) return 'Precision gaming mice with customizable DPI, programmable buttons, and ergonomic designs for a competitive advantage.';
-    if (name.includes('keyboard')) return 'Premium mechanical keyboards with tactile switches, RGB lighting, and durability for gaming and productivity.';
-    if (name.includes('monitor')) return 'Crystal-clear displays for gaming, design, and productivity. From 4K to ultrawide, enhance your visual experience.';
-    return `Discover our premium ${categoryName.toLowerCase()} collection with the latest technology and best value.`;
-  };
-
   // Process categories from database
   const displayCategories = categories.map(category => ({
     id: category.category_id,
     name: category.name,
-    description: category.description || getDefaultDescription(category.name),
+    description: category.description || '',
     imageUrl: category.image || getFallbackImage(category.name)
   }));
 

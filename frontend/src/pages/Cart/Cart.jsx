@@ -59,7 +59,7 @@ const Cart = () => {
           <button 
             onClick={async () => {
               await refreshCart();
-              await validateCart(true);
+              await validateCart(true, true); // Force validation (bypass throttling)
             }}
             className="cart-refresh-button"
             disabled={isValidating}

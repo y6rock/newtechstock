@@ -131,11 +131,11 @@ export const CartProvider = ({ children }) => {
   };
 
   // Cart validation and synchronization function
-  const validateCart = async (showNotifications = true) => {
+  const validateCart = async (showNotifications = true, force = false) => {
     if (cartItems.length === 0) return;
 
     const now = Date.now();
-    if (now - lastValidationTime.current < 60000) { // Throttle to once per minute
+    if (!force && now - lastValidationTime.current < 60000) { // Throttle to once per minute (unless forced)
       return;
     }
     lastValidationTime.current = now;

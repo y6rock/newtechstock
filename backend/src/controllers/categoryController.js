@@ -186,7 +186,7 @@ exports.updateCategory = async (req, res) => {
 exports.deleteCategory = async (req, res) => {
     const { id } = req.params;
     try {
-        // Check if category has any products
+        // Check if category has any active products
         const [productsCheck] = await db.query(
             'SELECT COUNT(*) as product_count FROM products WHERE category_id = ? AND is_active = 1',
             [id]
@@ -235,6 +235,21 @@ exports.toggleCategoryStatus = async (req, res) => {
         }
         
         const newStatus = !current[0].isActive;
+        
+        // If deactivating, check if category has any active products
+        if (!newStatus) {
+            const [productsCheck] = await db.query(
+                'SELECT COUNT(*) as product_count FROM products WHERE category_id = ? AND is_active = 1',
+                [id]
+            );
+            
+            if (productsCheck[0].product_count > 0) {
+                return res.status(400).json({ 
+                    message: 'Cannot deactivate category with active products. Please deactivate all products first.' 
+                });
+            }
+        }
+        
         const [result] = await db.query('UPDATE categories SET isActive = ? WHERE category_id = ?', [newStatus, id]);
         
         res.json({ 

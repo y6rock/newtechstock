@@ -166,7 +166,7 @@ exports.deleteSupplier = async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Check if supplier has any products
+        // Check if supplier has any active products
         const [productsCheck] = await db.query(
             'SELECT COUNT(*) as product_count FROM products WHERE supplier_id = ? AND is_active = 1',
             [id]

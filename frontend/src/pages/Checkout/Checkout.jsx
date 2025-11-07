@@ -4,7 +4,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { formatPrice, formatPriceWithTax } from '../../utils/currency';
+import { formatPrice, formatPriceWithTax, formatPriceConverted } from '../../utils/currency';
 import { convertFromILS } from '../../utils/exchangeRate';
 import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
@@ -209,31 +209,31 @@ const Checkout = () => {
                     ))}
                     <div className="summary-total">
                         <strong>Subtotal:</strong>
-                        <strong>{formatPrice(subtotal, currency)}</strong>
+                        <strong>{formatPriceConverted(subtotal, currency)}</strong>
                     </div>
                     {discountAmount > 0 && (
                         <div className="summary-item discount">
                             <span>Discount ({appliedPromotion.name})</span>
-                            <span>-{formatPrice(discountAmount, currency)}</span>
+                            <span>-{formatPriceConverted(discountAmount, currency)}</span>
                         </div>
                     )}
                     {discountAmount > 0 && (
                         <div className="summary-item">
                             <span>Subtotal after discount:</span>
-                            <span>{formatPrice(subtotalAfterDiscount, currency)}</span>
+                            <span>{formatPriceConverted(subtotalAfterDiscount, currency)}</span>
                         </div>
                     )}
                     <div className="summary-item">
                         <span>Net Amount (excluding VAT):</span>
-                        <span>{formatPrice(netAmount, currency)}</span>
+                        <span>{formatPriceConverted(netAmount, currency)}</span>
                     </div>
                     <div className="summary-item">
                         <span>VAT ({vat_rate}%):</span>
-                        <span>{formatPrice(vatAmount, currency)}</span>
+                        <span>{formatPriceConverted(vatAmount, currency)}</span>
                     </div>
                     <div className="summary-total">
                         <strong>Total:</strong>
-                        <strong>{formatPrice(total, currency)}</strong>
+                        <strong>{formatPriceConverted(total, currency)}</strong>
                     </div>
                 </div>
 
@@ -255,7 +255,7 @@ const Checkout = () => {
                     {paymentMethod === 'paypal' && (
                         <div className="paypal-container">
                             <div className="paypal-payment-info">
-                                <p>PayPal payment for: {formatPrice(total, currency)}</p>
+                                <p>PayPal payment for: {formatPriceConverted(total, currency)}</p>
                             </div>
                             
                             {paypalLoading && (
@@ -266,14 +266,18 @@ const Checkout = () => {
                             
                             <PayPalButtons
                                 createOrder={async (data, actions) => {
-                                    console.log('Creating PayPal order for:', total, 'ILS');
+                                    console.log('=== PayPal Order Creation ===');
+                                    console.log('Total in ILS (from cart):', total);
+                                    console.log('Currency from settings:', currency);
                                     setPaypalLoading(true);
                                     // Convert total from ILS to target currency for PayPal
                                     const convertedTotal = await convertFromILS(total, currency || 'ILS');
+                                    console.log('Converted total:', convertedTotal);
                                     // Round total to 2 decimal places for PayPal
                                     const paypalAmount = Math.round((convertedTotal + Number.EPSILON) * 100) / 100;
-                                    console.log('PayPal amount after conversion:', paypalAmount, currency);
-                                    return actions.order.create({
+                                    console.log('PayPal amount (rounded):', paypalAmount);
+                                    console.log('Currency code to send:', currency || "USD");
+                                    const orderData = {
                                         purchase_units: [
                                             {
                                                 amount: {
@@ -283,7 +287,9 @@ const Checkout = () => {
                                                 description: `TechStock Order - ${cartItems.length} items`
                                             }
                                         ]
-                                    });
+                                    };
+                                    console.log('Final PayPal order data:', JSON.stringify(orderData, null, 2));
+                                    return actions.order.create(orderData);
                                 }}
                                 onApprove={(data, actions) => {
                                     console.log('PayPal order approved:', data);
