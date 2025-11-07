@@ -7,21 +7,22 @@ import Pagination from '../../../components/Pagination/Pagination';
 import './Orders.css';
 
 const Orders = () => {
+  const { isUserAdmin, loadingSettings, currency } = useSettings();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  
   const [orders, setOrders] = useState([]);
   const [stats, setStats] = useState({ total_orders: 0, pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [selectedOrder, setSelectedOrder] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const searchInputRef = useRef(null);
   const [sortField, setSortField] = useState('order_date');
   const [sortDirection, setSortDirection] = useState('desc');
-  const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'pending', 'processing', 'shipped', 'delivered'
+  const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all'); // 'all', 'pending', 'processing', 'shipped', 'delivered'
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
-  const { isUserAdmin, loadingSettings, currency } = useSettings();
-  const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
   
   const processStats = (distribution) => {
     const newStats = { pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 };
@@ -40,14 +41,19 @@ const Orders = () => {
   };
 
 
-  // Sync sort state from URL for UI display
+  // Sync sort and filter state from URL for UI display
   useEffect(() => {
     const urlSortField = searchParams.get('sortField');
     const urlSortDirection = searchParams.get('sortDirection');
+    const urlStatus = searchParams.get('status') || 'all';
+    const urlSearch = searchParams.get('search') || '';
+    
     if (urlSortField) {
       setSortField(urlSortField);
       setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
     }
+    setStatusFilter(urlStatus);
+    setSearchTerm(urlSearch);
   }, [searchParams]);
 
   // Sorting function - URL is the single source of truth
@@ -90,6 +96,9 @@ const Orders = () => {
       return;
     }
 
+    // Read search from URL for debounce calculation (needs to be outside setTimeout)
+    const urlSearch = searchParams.get('search') || '';
+
     const timeoutId = setTimeout(async () => {
       try {
         setLoading(true);
@@ -101,18 +110,19 @@ const Orders = () => {
           'Content-Type': 'application/json'
         };
 
-        // Read page from URL (single source of truth)
+        // Read page, status, and search from URL (single source of truth)
         const urlPage = parseInt(searchParams.get('page')) || 1;
+        const urlStatus = searchParams.get('status') || 'all';
 
         const params = new URLSearchParams({
           page: urlPage.toString(),
           limit: '10'
         });
-        if (searchTerm.trim()) {
-          params.append('search', searchTerm.trim());
+        if (urlSearch.trim()) {
+          params.append('search', urlSearch.trim());
         }
-        if (statusFilter && statusFilter !== 'all') {
-          params.append('status', statusFilter);
+        if (urlStatus && urlStatus !== 'all') {
+          params.append('status', urlStatus);
         }
         // Sorting from URL only (single source of truth)
         const urlSortField = searchParams.get('sortField');
@@ -154,33 +164,17 @@ const Orders = () => {
       } finally {
         setLoading(false);
       }
-    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
+    }, urlSearch.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, searchParams]);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]); // URL is single source of truth, no need for searchTerm/statusFilter in deps
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
     // Update URL parameters for pagination
     const params = new URLSearchParams(searchParams);
     params.set('page', newPage.toString());
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
-    }
-    if (statusFilter && statusFilter !== 'all') {
-      params.set('status', statusFilter);
-    } else {
-      params.delete('status');
-    }
-    // Keep sort in URL (use existing URL values only)
-    const existingUrlSortField = searchParams.get('sortField');
-    const existingUrlSortDirection = searchParams.get('sortDirection');
-    if (existingUrlSortField && existingUrlSortDirection) {
-      params.set('sortField', existingUrlSortField);
-      params.set('sortDirection', existingUrlSortDirection);
-    }
+    // Keep existing search, status, and sort from URL
     setSearchParams(params);
 
     try {
@@ -197,15 +191,21 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
 
+      // Read all params from URL (single source of truth)
+      const urlSearch = searchParams.get('search') || '';
+      const urlStatus = searchParams.get('status') || 'all';
+      const existingUrlSortField = searchParams.get('sortField');
+      const existingUrlSortDirection = searchParams.get('sortDirection');
+
       const fetchParams = new URLSearchParams({
         page: newPage.toString(),
         limit: '10'
       });
-      if (searchTerm.trim()) {
-        fetchParams.append('search', searchTerm.trim());
+      if (urlSearch.trim()) {
+        fetchParams.append('search', urlSearch.trim());
       }
-      if (statusFilter && statusFilter !== 'all') {
-        fetchParams.append('status', statusFilter);
+      if (urlStatus && urlStatus !== 'all') {
+        fetchParams.append('status', urlStatus);
       }
       // Sorting from URL only (single source of truth)
       if (existingUrlSortField && existingUrlSortDirection) {
@@ -258,9 +258,7 @@ const Orders = () => {
   
   // Handle status filter changes
   const handleStatusFilterChange = useCallback((newStatus) => {
-    setStatusFilter(newStatus);
-    
-    // Update URL to persist filter and preserve sort
+    // Update URL to persist filter and preserve sort/search
     const params = new URLSearchParams(searchParams);
     params.set('page', '1');
     if (newStatus && newStatus !== 'all') {
@@ -268,20 +266,10 @@ const Orders = () => {
     } else {
       params.delete('status');
     }
-    if (searchTerm) {
-      params.set('search', searchTerm);
-    } else {
-      params.delete('search');
-    }
-    // Keep sort in URL (use existing URL values only)
-    const existingUrlSortField = searchParams.get('sortField');
-    const existingUrlSortDirection = searchParams.get('sortDirection');
-    if (existingUrlSortField && existingUrlSortDirection) {
-      params.set('sortField', existingUrlSortField);
-      params.set('sortDirection', existingUrlSortDirection);
-    }
+    // Keep existing search and sort from URL
     setSearchParams(params);
-  }, [searchTerm, searchParams, setSearchParams]);
+    // State will be synced from URL via useEffect
+  }, [searchParams, setSearchParams]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -306,8 +294,10 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
       
-      // Read page and sort from URL (single source of truth)
+      // Read page, status, search, and sort from URL (single source of truth)
       const urlPage = parseInt(searchParams.get('page')) || pagination.currentPage;
+      const urlSearch = searchParams.get('search') || '';
+      const urlStatus = searchParams.get('status') || 'all';
       const urlSortField = searchParams.get('sortField');
       const urlSortDirection = searchParams.get('sortDirection');
       
@@ -315,11 +305,11 @@ const Orders = () => {
         page: urlPage.toString(),
         limit: '10'
       });
-      if (searchTerm.trim()) {
-        ordersParams.append('search', searchTerm.trim());
+      if (urlSearch.trim()) {
+        ordersParams.append('search', urlSearch.trim());
       }
-      if (statusFilter && statusFilter !== 'all') {
-        ordersParams.append('status', statusFilter);
+      if (urlStatus && urlStatus !== 'all') {
+        ordersParams.append('status', urlStatus);
       }
       if (urlSortField && urlSortDirection) {
         ordersParams.append('sortField', urlSortField);
@@ -328,11 +318,11 @@ const Orders = () => {
       const ordersUrl = `/api/admin/orders?${ordersParams.toString()}`;
       
       const distributionParams = new URLSearchParams();
-      if (searchTerm.trim()) {
-        distributionParams.append('search', searchTerm.trim());
+      if (urlSearch.trim()) {
+        distributionParams.append('search', urlSearch.trim());
       }
-      if (statusFilter && statusFilter !== 'all') {
-        distributionParams.append('status', statusFilter);
+      if (urlStatus && urlStatus !== 'all') {
+        distributionParams.append('status', urlStatus);
       }
       const distributionUrl = `/api/admin/order-status-distribution?${distributionParams.toString()}`;
       const [ordersRes, distributionRes] = await Promise.all([
@@ -415,13 +405,9 @@ const Orders = () => {
       </div>
 
       <div className="orders-filters">
-        {/* Main filters row */}
-        <div className="filter-row main-filters">
-        </div>
-        
-        {/* Search row */}
-        <div className="filter-row search-row">
-          <div className="filter-group search-group" style={{ position: 'relative' }}>
+        {/* Search and Filter Header */}
+        <div className="orders-header-filters">
+          <div className="search-input-wrapper">
             <input
               id="search-term"
               type="text"
@@ -429,117 +415,39 @@ const Orders = () => {
               value={searchTerm}
               onChange={(e) => handleSearchChange(e.target.value)}
               ref={searchInputRef}
-              style={{
-                width: '100%',
-                maxWidth: '400px',
-                padding: '14px 20px 14px 55px',
-                border: '2px solid #e1e5e9',
-                borderRadius: '12px',
-                fontSize: '16px',
-                backgroundColor: '#ffffff',
-                outline: 'none',
-                transition: 'all 0.3s ease',
-                boxSizing: 'border-box'
-              }}
+              className="orders-search-input"
             />
-            <span style={{
-              position: 'absolute',
-              left: '20px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              color: '#9ca3af',
-              fontSize: '16px',
-              pointerEvents: 'none',
-              zIndex: 1
-            }}>
-              🔍
-            </span>
+            <span className="search-icon">🔍</span>
           </div>
           
-          {/* Status Filter - Under Search Field */}
-          <div className="status-filters" style={{ display: 'flex', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+          <div className="filter-buttons">
             <button 
               className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('all')}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${statusFilter === 'all' ? '#3b82f6' : '#e2e8f0'}`,
-                borderRadius: '6px',
-                backgroundColor: statusFilter === 'all' ? '#3b82f6' : 'white',
-                color: statusFilter === 'all' ? 'white' : '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
             >
               All ({pagination.totalItems})
             </button>
             <button 
               className={`filter-btn ${statusFilter === 'pending' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('pending')}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${statusFilter === 'pending' ? '#3b82f6' : '#e2e8f0'}`,
-                borderRadius: '6px',
-                backgroundColor: statusFilter === 'pending' ? '#3b82f6' : 'white',
-                color: statusFilter === 'pending' ? 'white' : '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
             >
               Pending
             </button>
             <button 
               className={`filter-btn ${statusFilter === 'processing' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('processing')}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${statusFilter === 'processing' ? '#3b82f6' : '#e2e8f0'}`,
-                borderRadius: '6px',
-                backgroundColor: statusFilter === 'processing' ? '#3b82f6' : 'white',
-                color: statusFilter === 'processing' ? 'white' : '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
             >
               Processing
             </button>
             <button 
               className={`filter-btn ${statusFilter === 'shipped' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('shipped')}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${statusFilter === 'shipped' ? '#3b82f6' : '#e2e8f0'}`,
-                borderRadius: '6px',
-                backgroundColor: statusFilter === 'shipped' ? '#3b82f6' : 'white',
-                color: statusFilter === 'shipped' ? 'white' : '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
             >
               Shipped
             </button>
             <button 
               className={`filter-btn ${statusFilter === 'delivered' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('delivered')}
-              style={{
-                padding: '8px 16px',
-                border: `2px solid ${statusFilter === 'delivered' ? '#3b82f6' : '#e2e8f0'}`,
-                borderRadius: '6px',
-                backgroundColor: statusFilter === 'delivered' ? '#3b82f6' : 'white',
-                color: statusFilter === 'delivered' ? 'white' : '#64748b',
-                fontSize: '14px',
-                fontWeight: '500',
-                cursor: 'pointer',
-                transition: 'all 0.2s ease'
-              }}
             >
               Delivered
             </button>

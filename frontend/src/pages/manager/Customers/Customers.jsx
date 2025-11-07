@@ -30,6 +30,48 @@ const Customers = () => {
     const [orderItems, setOrderItems] = useState({});
     const [sortField, setSortField] = useState('user_id');
     const [sortDirection, setSortDirection] = useState('desc');
+    const [customerStats, setCustomerStats] = useState({
+        totalCustomers: 0,
+        activeCustomers: 0,
+        inactiveCustomers: 0
+    });
+
+    // Fetch customer statistics
+    const fetchCustomerStats = useCallback(async (searchQuery = '', status = 'all') => {
+        try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+                return;
+            }
+            
+            const params = new URLSearchParams();
+            if (searchQuery.trim()) {
+                params.append('search', searchQuery.trim());
+            }
+            if (status && status !== 'all') {
+                params.append('status', status);
+            }
+            
+            const response = await fetch(`/api/admin/customer-stats?${params}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            setCustomerStats({
+                totalCustomers: data.totalCustomers || 0,
+                activeCustomers: data.activeCustomers || 0,
+                inactiveCustomers: data.inactiveCustomers || 0
+            });
+        } catch (error) {
+            console.error('Error fetching customer statistics:', error);
+        }
+    }, []);
 
     // Fetch customers with optional search query, status filter, and pagination
     // URL is the single source of truth for sorting
@@ -251,6 +293,9 @@ const Customers = () => {
                         currentPage: 1
                     }));
                 }
+                
+                // Fetch customer statistics
+                await fetchCustomerStats(searchTerm, newStatus);
             } catch (error) {
                 console.error('Error fetching customers with filter:', error);
                 showError('Failed to fetch customers');
@@ -260,7 +305,7 @@ const Customers = () => {
         };
         
         fetchWithFilter();
-    }, [searchParams, setSearchParams, searchTerm, showError]);
+    }, [searchParams, setSearchParams, searchTerm, showError, fetchCustomerStats]);
 
     // Debounced search effect - optimized to prevent input focus loss and infinite loops
     useEffect(() => {
@@ -476,6 +521,9 @@ const Customers = () => {
                         currentPage: page
                     }));
                 }
+                
+                // Fetch customer statistics
+                await fetchCustomerStats(search, status);
             } catch (error) {
                 console.error('Error loading customers:', error);
                 showError('Failed to load customers');
@@ -483,7 +531,7 @@ const Customers = () => {
         };
 
         loadCustomers();
-    }, [isUserAdmin, loadingSettings, navigate, searchParams, showError]);
+    }, [isUserAdmin, loadingSettings, navigate, searchParams, showError, fetchCustomerStats]);
 
     // Sorting function - URL is the single source of truth
     const handleSort = (field) => {
@@ -725,7 +773,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            All Customers ({pagination.totalItems})
+                            All Customers ({customerStats.totalCustomers})
                         </button>
                         <button
                             onClick={() => handleStatusFilterChange('active')}
@@ -741,7 +789,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Active Only ({customers.filter(c => c.isActive !== 0).length})
+                            Active Only ({customerStats.activeCustomers})
                         </button>
                         <button
                             onClick={() => handleStatusFilterChange('inactive')}
@@ -757,7 +805,7 @@ const Customers = () => {
                                 transition: 'all 0.2s ease'
                             }}
                         >
-                            Inactive Only ({customers.filter(c => c.isActive === 0).length})
+                            Inactive Only ({customerStats.inactiveCustomers})
                         </button>
                     </div>
                 </div>

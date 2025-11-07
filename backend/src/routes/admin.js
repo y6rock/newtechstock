@@ -7,6 +7,7 @@ const {
     getOrders,
     getOrderStatusDistribution,
     getCustomers,
+    getCustomerStats,
     deleteCustomer,
     restoreCustomer,
     getLowStockProducts
@@ -31,6 +32,9 @@ router.get('/order-status-distribution', authenticateToken, requireAdmin, getOrd
 
 // Get all customers (non-admin users) with their order stats
 router.get('/customers', authenticateToken, requireAdmin, getCustomers);
+
+// Get customer statistics (total, active, inactive)
+router.get('/customer-stats', authenticateToken, requireAdmin, getCustomerStats);
 
 // Delete customer (user)
 router.delete('/customers/:userId', authenticateToken, requireAdmin, deleteCustomer);

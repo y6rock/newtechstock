@@ -418,6 +418,55 @@ exports.getCustomers = async (req, res) => {
     }
 };
 
+// Get customer statistics (total, active, inactive)
+exports.getCustomerStats = async (req, res) => {
+    try {
+        const { status, search } = req.query;
+        
+        let whereConditions = [];
+        let params = [];
+        
+        // Base condition: exclude admins
+        whereConditions.push("u.role != 'admin'");
+        
+        // Add status filter if provided
+        if (status && status !== 'all') {
+            if (status === 'active') {
+                whereConditions.push('u.isActive = 1');
+            } else if (status === 'inactive') {
+                whereConditions.push('u.isActive = 0');
+            }
+        }
+        
+        // Add search filter if provided
+        if (search && search.trim()) {
+            whereConditions.push('(u.name LIKE ? OR u.email LIKE ? OR u.phone LIKE ?)');
+            const searchPattern = `%${search.trim()}%`;
+            params.push(searchPattern, searchPattern, searchPattern);
+        }
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+        
+        const [stats] = await db.query(`
+            SELECT 
+                COUNT(*) as total_customers,
+                SUM(CASE WHEN u.isActive = 1 THEN 1 ELSE 0 END) as active_customers,
+                SUM(CASE WHEN u.isActive = 0 THEN 1 ELSE 0 END) as inactive_customers
+            FROM users u
+            ${whereClause}
+        `, params);
+        
+        res.json({
+            totalCustomers: stats[0].total_customers || 0,
+            activeCustomers: stats[0].active_customers || 0,
+            inactiveCustomers: stats[0].inactive_customers || 0
+        });
+    } catch (err) {
+        console.error('Error fetching customer statistics:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
 // Delete customer (user)
 exports.deleteCustomer = async (req, res) => {
     try {
