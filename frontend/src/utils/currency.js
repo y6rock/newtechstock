@@ -1,5 +1,6 @@
 // src/utils/currency.js
 import { calculatePriceWithTax } from './tax';
+import { convertFromILSSync } from './exchangeRate';
 
 export const getCurrencySymbol = (currencyCode) => {
     const symbols = {
@@ -38,23 +39,41 @@ export const formatPrice = (price, currencyCode) => {
 };
 
 /**
- * Format price with tax included for customer display
- * @param {number} basePrice - Base price without tax
- * @param {string} currencyCode - Currency code
- * @param {number} taxRate - Tax rate percentage (default 18%)
- * @returns {string} Formatted price with tax
+ * Convert price from ILS (base currency) to target currency and format
+ * @param {number} priceInILS - Price in Israeli Shekels (stored in database)
+ * @param {string} currencyCode - Target currency code
+ * @returns {string} Formatted price in target currency
  */
-export const formatPriceWithTax = (basePrice, currencyCode, taxRate = 18) => {
-    const priceWithTax = calculatePriceWithTax(basePrice, taxRate);
+export const formatPriceConverted = (priceInILS, currencyCode) => {
+    // Convert from ILS to target currency
+    const convertedPrice = convertFromILSSync(priceInILS, currencyCode);
+    return formatPrice(convertedPrice, currencyCode);
+};
+
+/**
+ * Format price with tax included for customer display
+ * Converts from ILS (base) to target currency, then adds tax
+ * @param {number} basePriceInILS - Base price in ILS (without tax)
+ * @param {string} currencyCode - Target currency code
+ * @param {number} taxRate - Tax rate percentage (default 18%)
+ * @returns {string} Formatted price with tax in target currency
+ */
+export const formatPriceWithTax = (basePriceInILS, currencyCode, taxRate = 18) => {
+    // First convert from ILS to target currency
+    const convertedBasePrice = convertFromILSSync(basePriceInILS, currencyCode);
+    // Then add tax
+    const priceWithTax = calculatePriceWithTax(convertedBasePrice, taxRate);
     return formatPrice(priceWithTax, currencyCode);
 };
 
 /**
  * Format base price (without tax) for admin display
- * @param {number} basePrice - Base price without tax
- * @param {string} currencyCode - Currency code
- * @returns {string} Formatted base price
+ * Converts from ILS (base) to target currency
+ * @param {number} basePriceInILS - Base price in ILS (without tax)
+ * @param {string} currencyCode - Target currency code
+ * @returns {string} Formatted base price in target currency
  */
-export const formatBasePrice = (basePrice, currencyCode) => {
-    return formatPrice(basePrice, currencyCode);
+export const formatBasePrice = (basePriceInILS, currencyCode) => {
+    const convertedPrice = convertFromILSSync(basePriceInILS, currencyCode);
+    return formatPrice(convertedPrice, currencyCode);
 }; 

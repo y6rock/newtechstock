@@ -5,6 +5,7 @@ import { useToast } from '../../context/ToastContext';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { formatPrice, formatPriceWithTax } from '../../utils/currency';
+import { convertFromILS } from '../../utils/exchangeRate';
 import { PayPalButtons } from '@paypal/react-paypal-js';
 import './Checkout.css';
 
@@ -264,11 +265,14 @@ const Checkout = () => {
                             )}
                             
                             <PayPalButtons
-                                createOrder={(data, actions) => {
-                                    console.log('Creating PayPal order for:', total);
+                                createOrder={async (data, actions) => {
+                                    console.log('Creating PayPal order for:', total, 'ILS');
                                     setPaypalLoading(true);
+                                    // Convert total from ILS to target currency for PayPal
+                                    const convertedTotal = await convertFromILS(total, currency || 'ILS');
                                     // Round total to 2 decimal places for PayPal
-                                    const paypalAmount = Math.round((total + Number.EPSILON) * 100) / 100;
+                                    const paypalAmount = Math.round((convertedTotal + Number.EPSILON) * 100) / 100;
+                                    console.log('PayPal amount after conversion:', paypalAmount, currency);
                                     return actions.order.create({
                                         purchase_units: [
                                             {

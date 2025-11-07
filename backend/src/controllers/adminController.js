@@ -183,23 +183,61 @@ exports.getOrders = async (req, res) => {
         const totalItems = countResult[0].total;
         const totalPages = Math.ceil(totalItems / limit);
         
-        // Sorting whitelist/mapping
+        // Sorting whitelist/mapping (case-insensitive)
         const allowedSortFields = {
-            order_id: 'o.order_id',
-            customer_name: 'u.name',
-            customer_email: 'u.email',
-            total_amount: 'o.total_amount',
-            status: 'o.status',
-            order_date: 'o.order_date'
+            'order_id': 'o.order_id',
+            'orderid': 'o.order_id',
+            'customer_name': 'u.name',
+            'customername': 'u.name',
+            'customer_email': 'u.email',
+            'customeremail': 'u.email',
+            'total_amount': 'o.total_amount',
+            'totalamount': 'o.total_amount',
+            'status': 'o.status',
+            'order_date': 'o.order_date',
+            'orderdate': 'o.order_date'
         };
-        const normalizedField = String(sortField || '').trim();
+        const normalizedField = String(sortField || '').toLowerCase().trim();
         const column = allowedSortFields[normalizedField] || 'o.order_date';
         const dir = String(sortDirection || '').toLowerCase() === 'asc' ? 'ASC' : 'DESC';
 
-        // For status sorting, add secondary stable sort by order_date desc
-        const orderByClause = column === 'o.status'
-            ? `ORDER BY ${column} ${dir}, o.order_date DESC`
-            : `ORDER BY ${column} ${dir}`;
+        console.log('Sort params received:', { sortField, normalizedField, column, dir });
+
+        // For status sorting, group by status with custom ordering
+        // Status order: Pending -> Processing -> Shipped -> Delivered -> Cancelled
+        let orderByClause;
+        if (column === 'o.status') {
+            // Group statuses together with custom ordering
+            if (dir === 'ASC') {
+                // ASC: Pending first, then Processing, Shipped, Delivered, Cancelled
+                orderByClause = `ORDER BY 
+                    CASE o.status
+                        WHEN 'Pending' THEN 1
+                        WHEN 'Processing' THEN 2
+                        WHEN 'Shipped' THEN 3
+                        WHEN 'Delivered' THEN 4
+                        WHEN 'Cancelled' THEN 5
+                        ELSE 6
+                    END ASC, 
+                    o.order_date DESC`;
+            } else {
+                // DESC: Cancelled first, then Delivered, Shipped, Processing, Pending
+                orderByClause = `ORDER BY 
+                    CASE o.status
+                        WHEN 'Pending' THEN 1
+                        WHEN 'Processing' THEN 2
+                        WHEN 'Shipped' THEN 3
+                        WHEN 'Delivered' THEN 4
+                        WHEN 'Cancelled' THEN 5
+                        ELSE 6
+                    END DESC, 
+                    o.order_date DESC`;
+            }
+        } else {
+            orderByClause = `ORDER BY ${column} ${dir}`;
+        }
+        
+        console.log('Final SQL ORDER BY clause:', orderByClause);
 
         // Get paginated orders
         let sql = `

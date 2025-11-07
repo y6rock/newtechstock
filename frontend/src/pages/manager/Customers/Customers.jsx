@@ -32,6 +32,7 @@ const Customers = () => {
     const [sortDirection, setSortDirection] = useState('desc');
 
     // Fetch customers with optional search query, status filter, and pagination
+    // URL is the single source of truth for sorting
     const fetchCustomers = useCallback(async (searchQuery = '', page = 1, status = 'all') => {
         try {
             setIsSearching(true);
@@ -52,10 +53,13 @@ const Customers = () => {
             if (status && status !== 'all') {
                 params.append('status', status);
             }
-            // Sorting params
-            if (sortField) {
-                params.append('sortField', sortField);
-                params.append('sortDirection', sortDirection);
+            
+            // Read sort from URL only (single source of truth)
+            const urlSortField = searchParams.get('sortField');
+            const urlSortDirection = searchParams.get('sortDirection');
+            if (urlSortField && urlSortDirection) {
+                params.append('sortField', urlSortField);
+                params.append('sortDirection', urlSortDirection);
             }
             
             const response = await fetch(`/api/admin/customers?${params}`, {
@@ -89,7 +93,7 @@ const Customers = () => {
         } finally {
             setIsSearching(false);
         }
-    }, [showError, sortField, sortDirection]);
+    }, [showError, searchParams]);
 
     // Handle page changes
     const handlePageChange = useCallback((newPage) => {
@@ -106,10 +110,12 @@ const Customers = () => {
         } else {
             params.delete('status');
         }
-        // persist sorting in URL
-        if (sortField) {
-            params.set('sortField', sortField);
-            params.set('sortDirection', sortDirection);
+        // Keep sort in URL (use existing URL values only)
+        const existingUrlSortField = searchParams.get('sortField');
+        const existingUrlSortDirection = searchParams.get('sortDirection');
+        if (existingUrlSortField && existingUrlSortDirection) {
+            params.set('sortField', existingUrlSortField);
+            params.set('sortDirection', existingUrlSortDirection);
         }
         setSearchParams(params);
 
@@ -133,10 +139,10 @@ const Customers = () => {
                 if (statusFilter && statusFilter !== 'all') {
                     pageParams.append('status', statusFilter);
                 }
-                // Sorting
-                if (sortField) {
-                    pageParams.append('sortField', sortField);
-                    pageParams.append('sortDirection', sortDirection);
+                // Sorting from URL only
+                if (existingUrlSortField && existingUrlSortDirection) {
+                    pageParams.append('sortField', existingUrlSortField);
+                    pageParams.append('sortDirection', existingUrlSortDirection);
                 }
                 
                 const response = await fetch(`/api/admin/customers?${pageParams}`, {
@@ -188,9 +194,12 @@ const Customers = () => {
         } else {
             params.delete('search');
         }
-        if (sortField) {
-            params.set('sortField', sortField);
-            params.set('sortDirection', sortDirection);
+        // Keep sort in URL (use existing URL values only)
+        const existingUrlSortField = searchParams.get('sortField');
+        const existingUrlSortDirection = searchParams.get('sortDirection');
+        if (existingUrlSortField && existingUrlSortDirection) {
+            params.set('sortField', existingUrlSortField);
+            params.set('sortDirection', existingUrlSortDirection);
         }
         setSearchParams(params);
         
@@ -215,10 +224,10 @@ const Customers = () => {
                 if (newStatus && newStatus !== 'all') {
                     fetchParams.append('status', newStatus);
                 }
-                // Sorting
-                if (sortField) {
-                    fetchParams.append('sortField', sortField);
-                    fetchParams.append('sortDirection', sortDirection);
+                // Sorting from URL only
+                if (existingUrlSortField && existingUrlSortDirection) {
+                    fetchParams.append('sortField', existingUrlSortField);
+                    fetchParams.append('sortDirection', existingUrlSortDirection);
                 }
                 
                 const response = await fetch(`/api/admin/customers?${fetchParams}`, {
@@ -267,21 +276,24 @@ const Customers = () => {
                             throw new Error('No token found');
                         }
 
-                        const searchParams = new URLSearchParams({
+                        const fetchParams = new URLSearchParams({
                             page: '1',
                             limit: '10'
                         });
 
                         if (searchTerm.trim()) {
-                            searchParams.append('q', searchTerm.trim());
+                            fetchParams.append('q', searchTerm.trim());
                         }
 
-                        if (sortField) {
-                            searchParams.append('sortField', sortField);
-                            searchParams.append('sortDirection', sortDirection);
+                        // Sorting from URL only
+                        const urlSortField = searchParams.get('sortField');
+                        const urlSortDirection = searchParams.get('sortDirection');
+                        if (urlSortField && urlSortDirection) {
+                            fetchParams.append('sortField', urlSortField);
+                            fetchParams.append('sortDirection', urlSortDirection);
                         }
 
-                        const response = await fetch(`/api/admin/customers?${searchParams}`, {
+                        const response = await fetch(`/api/admin/customers?${fetchParams}`, {
                             headers: {
                                 'Authorization': `Bearer ${token}`
                             }
@@ -347,9 +359,12 @@ const Customers = () => {
                             params.append('status', currentStatus);
                         }
 
-                        if (sortField) {
-                            params.append('sortField', sortField);
-                            params.append('sortDirection', sortDirection);
+                        // Sorting from URL only
+                        const urlSortField = searchParams.get('sortField');
+                        const urlSortDirection = searchParams.get('sortDirection');
+                        if (urlSortField && urlSortDirection) {
+                            params.append('sortField', urlSortField);
+                            params.append('sortDirection', urlSortDirection);
                         }
 
                         const response = await fetch(`/api/admin/customers?${params}`, {
@@ -430,12 +445,10 @@ const Customers = () => {
                 if (status && status !== 'all') {
                     params.append('status', status);
                 }
-                if (urlSortField) {
+                // Sorting from URL only (single source of truth)
+                if (urlSortField && urlSortDirection) {
                     params.append('sortField', urlSortField);
                     params.append('sortDirection', urlSortDirection === 'desc' ? 'desc' : 'asc');
-                } else if (sortField) {
-                    params.append('sortField', sortField);
-                    params.append('sortDirection', sortDirection);
                 }
 
                 const response = await fetch(`/api/admin/customers?${params}`, {
@@ -472,27 +485,24 @@ const Customers = () => {
         loadCustomers();
     }, [isUserAdmin, loadingSettings, navigate, searchParams, showError]);
 
-    // Sorting function
+    // Sorting function - URL is the single source of truth
     const handleSort = (field) => {
-        let nextField = field;
-        let nextDir = 'asc';
-        if (sortField === field) {
-            nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
-        }
-        setSortField(nextField);
-        setSortDirection(nextDir);
+        const urlSortField = searchParams.get('sortField');
+        const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+        const currentField = urlSortField || sortField;
+        
+        const isSameField = currentField === field;
+        const nextDirection = isSameField ? (urlSortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
 
-        // Update URL and refetch by triggering effects/fetchers
+        // Update URL only (sortConfig will be synced from URL in the URL sync effect)
         const params = new URLSearchParams(searchParams);
         params.set('page', '1');
         if (searchTerm) params.set('search', searchTerm); else params.delete('search');
         if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
-        params.set('sortField', nextField);
-        params.set('sortDirection', nextDir);
+        params.set('sortField', field);
+        params.set('sortDirection', nextDirection);
         setSearchParams(params);
-
-        // Immediate fetch to make it responsive
-        fetchCustomers(searchTerm, 1, statusFilter);
+        // Rely on URL sync effect to trigger refetch
     };
 
     const fetchCustomerOrders = async (userId) => {

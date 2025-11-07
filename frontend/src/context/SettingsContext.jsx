@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
 import axios from 'axios';
+import { getExchangeRates } from '../utils/exchangeRate';
 
 const SettingsContext = createContext();
 
@@ -19,6 +20,8 @@ export const SettingsProvider = ({ children }) => {
       if (response.data && Object.keys(response.data).length > 0) {
         setSiteSettings(response.data);
       }
+      // Fetch exchange rates after settings are loaded
+      await getExchangeRates();
     } catch (error) {
       console.error("SettingsContext: Failed to fetch site settings.", error);
     }

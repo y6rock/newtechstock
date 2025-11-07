@@ -39,18 +39,23 @@ exports.getAllSuppliers = async (req, res) => {
         
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
-        // Sorting whitelist/mapping
+        // Sorting whitelist/mapping (case-insensitive)
         const allowedSortFields = {
-            supplier_id: 'supplier_id',
-            name: 'name',
-            email: 'email',
-            phone: 'phone',
-            status: 'isActive',
-            isActive: 'isActive'
+            'supplier_id': 'supplier_id',
+            'supplierid': 'supplier_id',
+            'name': 'name',
+            'email': 'email',
+            'phone': 'phone',
+            'address': 'address',
+            'status': 'isActive',
+            'isactive': 'isActive',
+            'is_active': 'isActive'
         };
         const normalizedField = String(sortField || '').toLowerCase();
-        const column = allowedSortFields[normalizedField] || 'name';
+        const column = allowedSortFields[normalizedField] || 'supplier_id';
         const dir = String(sortDirection || '').toLowerCase() === 'desc' ? 'DESC' : 'ASC';
+        
+        console.log('Sort params received:', { sortField, normalizedField, column, dir });
 
         let orderByClause;
         if (column === 'isActive') {

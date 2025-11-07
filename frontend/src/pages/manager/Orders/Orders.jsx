@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { formatPrice } from '../../../utils/currency';
 import { formatDate, formatDateTime } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
@@ -21,6 +21,7 @@ const Orders = () => {
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   const { isUserAdmin, loadingSettings, currency } = useSettings();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   
   const processStats = (distribution) => {
     const newStats = { pending_orders: 0, processing_orders: 0, shipped_orders: 0, delivered_orders: 0 };
@@ -39,16 +40,34 @@ const Orders = () => {
   };
 
 
-  // Sorting function
-  const handleSort = (field) => {
-    let nextField = field;
-    let nextDir = 'asc';
-    if (sortField === field) {
-      nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
+  // Sync sort state from URL for UI display
+  useEffect(() => {
+    const urlSortField = searchParams.get('sortField');
+    const urlSortDirection = searchParams.get('sortDirection');
+    if (urlSortField) {
+      setSortField(urlSortField);
+      setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
     }
-    setSortField(nextField);
-    setSortDirection(nextDir);
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+  }, [searchParams]);
+
+  // Sorting function - URL is the single source of truth
+  const handleSort = (field) => {
+    const urlSortField = searchParams.get('sortField');
+    const urlSortDirection = searchParams.get('sortDirection') || 'desc';
+    const currentField = urlSortField || sortField;
+    
+    const isSameField = currentField === field;
+    const nextDirection = isSameField ? (urlSortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
+
+    // Update URL only (sortField/sortDirection will be synced from URL for UI display)
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (searchTerm) params.set('search', searchTerm); else params.delete('search');
+    if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
+    params.set('sortField', field);
+    params.set('sortDirection', nextDirection);
+    setSearchParams(params);
+    // Rely on URL sync effect to trigger refetch
   };
 
   // Render server-sorted orders directly
@@ -82,8 +101,11 @@ const Orders = () => {
           'Content-Type': 'application/json'
         };
 
+        // Read page from URL (single source of truth)
+        const urlPage = parseInt(searchParams.get('page')) || 1;
+
         const params = new URLSearchParams({
-          page: pagination.currentPage.toString(),
+          page: urlPage.toString(),
           limit: '10'
         });
         if (searchTerm.trim()) {
@@ -92,10 +114,12 @@ const Orders = () => {
         if (statusFilter && statusFilter !== 'all') {
           params.append('status', statusFilter);
         }
-        // Sorting
-        if (sortField) {
-          params.append('sortField', sortField);
-          params.append('sortDirection', sortDirection);
+        // Sorting from URL only (single source of truth)
+        const urlSortField = searchParams.get('sortField');
+        const urlSortDirection = searchParams.get('sortDirection');
+        if (urlSortField && urlSortDirection) {
+          params.append('sortField', urlSortField);
+          params.append('sortDirection', urlSortDirection);
         }
         const ordersUrl = `/api/admin/orders?${params.toString()}`;
         const distributionUrl = `/api/admin/order-status-distribution?${params.toString()}`;
@@ -113,7 +137,12 @@ const Orders = () => {
 
         // Handle both old format (array) and new format (object with orders array)
         const orders = ordersData.orders || ordersData;
-        const paginationData = ordersData.pagination || { currentPage: 1, totalPages: 1, totalItems: orders.length, itemsPerPage: 10 };
+        const paginationData = ordersData.pagination || { 
+          currentPage: urlPage, 
+          totalPages: 1, 
+          totalItems: orders.length, 
+          itemsPerPage: 10 
+        };
         
         setOrders(orders);
         setPagination(paginationData);
@@ -128,10 +157,32 @@ const Orders = () => {
     }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortField, sortDirection]);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
+    // Update URL parameters for pagination
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    if (statusFilter && statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    } else {
+      params.delete('status');
+    }
+    // Keep sort in URL (use existing URL values only)
+    const existingUrlSortField = searchParams.get('sortField');
+    const existingUrlSortDirection = searchParams.get('sortDirection');
+    if (existingUrlSortField && existingUrlSortDirection) {
+      params.set('sortField', existingUrlSortField);
+      params.set('sortDirection', existingUrlSortDirection);
+    }
+    setSearchParams(params);
+
     try {
       setLoading(true);
       setError(null);
@@ -146,22 +197,23 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
 
-      const params = new URLSearchParams({
+      const fetchParams = new URLSearchParams({
         page: newPage.toString(),
         limit: '10'
       });
       if (searchTerm.trim()) {
-        params.append('search', searchTerm.trim());
+        fetchParams.append('search', searchTerm.trim());
       }
       if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+        fetchParams.append('status', statusFilter);
       }
-      if (sortField) {
-        params.append('sortField', sortField);
-        params.append('sortDirection', sortDirection);
+      // Sorting from URL only (single source of truth)
+      if (existingUrlSortField && existingUrlSortDirection) {
+        fetchParams.append('sortField', existingUrlSortField);
+        fetchParams.append('sortDirection', existingUrlSortDirection);
       }
-      const ordersUrl = `/api/admin/orders?${params.toString()}`;
-      const distributionUrl = `/api/admin/order-status-distribution?${params.toString()}`;
+      const ordersUrl = `/api/admin/orders?${fetchParams.toString()}`;
+      const distributionUrl = `/api/admin/order-status-distribution?${fetchParams.toString()}`;
       const [ordersRes, distributionRes] = await Promise.all([
         fetch(ordersUrl, { headers }),
         fetch(distributionUrl, { headers })
@@ -196,7 +248,7 @@ const Orders = () => {
     } finally {
       setLoading(false);
     }
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, searchParams, setSearchParams]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -207,8 +259,29 @@ const Orders = () => {
   // Handle status filter changes
   const handleStatusFilterChange = useCallback((newStatus) => {
     setStatusFilter(newStatus);
-    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on filter change
-  }, []);
+    
+    // Update URL to persist filter and preserve sort
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (newStatus && newStatus !== 'all') {
+      params.set('status', newStatus);
+    } else {
+      params.delete('status');
+    }
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    // Keep sort in URL (use existing URL values only)
+    const existingUrlSortField = searchParams.get('sortField');
+    const existingUrlSortDirection = searchParams.get('sortDirection');
+    if (existingUrlSortField && existingUrlSortDirection) {
+      params.set('sortField', existingUrlSortField);
+      params.set('sortDirection', existingUrlSortDirection);
+    }
+    setSearchParams(params);
+  }, [searchTerm, searchParams, setSearchParams]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -233,7 +306,27 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
       
-      const ordersUrl = `/api/admin/orders?page=${pagination.currentPage}&limit=10${searchTerm.trim() ? `&search=${encodeURIComponent(searchTerm.trim())}` : ''}`;
+      // Read page and sort from URL (single source of truth)
+      const urlPage = parseInt(searchParams.get('page')) || pagination.currentPage;
+      const urlSortField = searchParams.get('sortField');
+      const urlSortDirection = searchParams.get('sortDirection');
+      
+      const ordersParams = new URLSearchParams({
+        page: urlPage.toString(),
+        limit: '10'
+      });
+      if (searchTerm.trim()) {
+        ordersParams.append('search', searchTerm.trim());
+      }
+      if (statusFilter && statusFilter !== 'all') {
+        ordersParams.append('status', statusFilter);
+      }
+      if (urlSortField && urlSortDirection) {
+        ordersParams.append('sortField', urlSortField);
+        ordersParams.append('sortDirection', urlSortDirection);
+      }
+      const ordersUrl = `/api/admin/orders?${ordersParams.toString()}`;
+      
       const distributionParams = new URLSearchParams();
       if (searchTerm.trim()) {
         distributionParams.append('search', searchTerm.trim());

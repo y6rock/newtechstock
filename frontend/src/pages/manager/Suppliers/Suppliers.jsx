@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import axios from 'axios';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Suppliers.css';
 
@@ -10,6 +10,7 @@ const Suppliers = () => {
   const { isUserAdmin, loadingSettings } = useSettings();
   const { showSuccess, showError, showConfirm } = useToast();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
 
   const [suppliers, setSuppliers] = useState([]);
   const [loadingSuppliers, setLoadingSuppliers] = useState(true);
@@ -82,6 +83,16 @@ const Suppliers = () => {
     }
   });
 
+  // Sync sort state from URL for UI display
+  useEffect(() => {
+    const urlSortField = searchParams.get('sortField');
+    const urlSortDirection = searchParams.get('sortDirection');
+    if (urlSortField) {
+      setSortField(urlSortField);
+      setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
+    }
+  }, [searchParams]);
+
   // Ref-based search implementation - no re-renders during typing
   useEffect(() => {
     if (!isUserAdmin || loadingSettings) {
@@ -101,8 +112,11 @@ const Suppliers = () => {
           throw new Error('No token found');
         }
 
+        // Read page from URL (single source of truth)
+        const urlPage = parseInt(searchParams.get('page')) || 1;
+
         const params = new URLSearchParams({
-          page: pagination.currentPage.toString(),
+          page: urlPage.toString(),
           limit: '10'
         });
 
@@ -114,10 +128,12 @@ const Suppliers = () => {
           params.append('status', statusFilter);
         }
 
-        // Sorting
-        if (sortField) {
-          params.append('sortField', sortField);
-          params.append('sortDirection', sortDirection);
+        // Sorting from URL only (single source of truth)
+        const urlSortField = searchParams.get('sortField');
+        const urlSortDirection = searchParams.get('sortDirection');
+        if (urlSortField && urlSortDirection) {
+          params.append('sortField', urlSortField);
+          params.append('sortDirection', urlSortDirection);
         }
 
         const response = await fetch(`/api/suppliers?${params}`, {
@@ -136,6 +152,13 @@ const Suppliers = () => {
         
         if (data.pagination) {
           setPagination(data.pagination);
+        } else {
+          // Fallback: update pagination with URL page
+          const urlPage = parseInt(searchParams.get('page')) || 1;
+          setPagination(prev => ({
+            ...prev,
+            currentPage: urlPage
+          }));
         }
       } catch (error) {
         console.error('Error fetching suppliers:', error);
@@ -146,10 +169,32 @@ const Suppliers = () => {
     }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
 
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortField, sortDirection]);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, searchParams]);
 
   // Handle page changes - inline fetch to avoid dependency issues
   const handlePageChange = useCallback(async (newPage) => {
+    // Update URL parameters for pagination
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    if (searchTerm) {
+      params.set('search', searchTerm);
+    } else {
+      params.delete('search');
+    }
+    if (statusFilter && statusFilter !== 'all') {
+      params.set('status', statusFilter);
+    } else {
+      params.delete('status');
+    }
+    // Keep sort in URL (use existing URL values only)
+    const existingUrlSortField = searchParams.get('sortField');
+    const existingUrlSortDirection = searchParams.get('sortDirection');
+    if (existingUrlSortField && existingUrlSortDirection) {
+      params.set('sortField', existingUrlSortField);
+      params.set('sortDirection', existingUrlSortDirection);
+    }
+    setSearchParams(params);
+
     try {
       setLoadingSuppliers(true);
       setError(null);
@@ -159,25 +204,26 @@ const Suppliers = () => {
         throw new Error('No token found');
       }
 
-      const params = new URLSearchParams({
+      const fetchParams = new URLSearchParams({
         page: newPage.toString(),
         limit: '10'
       });
 
       if (searchTerm.trim()) {
-        params.append('search', searchTerm.trim());
+        fetchParams.append('search', searchTerm.trim());
       }
       
       if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+        fetchParams.append('status', statusFilter);
       }
 
-      if (sortField) {
-        params.append('sortField', sortField);
-        params.append('sortDirection', sortDirection);
+      // Sorting from URL only (single source of truth)
+      if (existingUrlSortField && existingUrlSortDirection) {
+        fetchParams.append('sortField', existingUrlSortField);
+        fetchParams.append('sortDirection', existingUrlSortDirection);
       }
 
-      const response = await fetch(`/api/suppliers?${params}`, {
+      const response = await fetch(`/api/suppliers?${fetchParams}`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -204,7 +250,7 @@ const Suppliers = () => {
     } finally {
       setLoadingSuppliers(false);
     }
-  }, [searchTerm, statusFilter]);
+  }, [searchTerm, statusFilter, searchParams, setSearchParams]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -218,16 +264,24 @@ const Suppliers = () => {
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on filter change
   }, []);
 
-  // Sorting function
+  // Sorting function - URL is the single source of truth
   const handleSort = (field) => {
-    let nextField = field;
-    let nextDir = 'asc';
-    if (sortField === field) {
-      nextDir = sortDirection === 'asc' ? 'desc' : 'asc';
-    }
-    setSortField(nextField);
-    setSortDirection(nextDir);
-    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    const urlSortField = searchParams.get('sortField');
+    const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+    const currentField = urlSortField || sortField;
+    
+    const isSameField = currentField === field;
+    const nextDirection = isSameField ? (urlSortDirection === 'asc' ? 'desc' : 'asc') : 'asc';
+
+    // Update URL only (sortField/sortDirection will be synced from URL for UI display)
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (searchTerm) params.set('search', searchTerm); else params.delete('search');
+    if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
+    params.set('sortField', field);
+    params.set('sortDirection', nextDirection);
+    setSearchParams(params);
+    // Rely on URL sync effect to trigger refetch
   };
 
   // Sort suppliers

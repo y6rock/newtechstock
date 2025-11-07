@@ -2,6 +2,7 @@ const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
 const dbSingleton = require('../dbSingleton.js');
+const { convertFromILS } = require('./exchangeRate');
 
 class InvoiceGenerator {
     constructor() {
@@ -47,6 +48,17 @@ class InvoiceGenerator {
         // Get the current currency symbol and VAT rate
         const currencySymbol = await this.getCurrencySymbol();
         const vatRate = await this.getVatRate();
+        
+        // Get currency code for conversion
+        let currencyCode = 'ILS';
+        try {
+            const [rows] = await this.db.query('SELECT currency FROM settings LIMIT 1');
+            if (rows.length > 0 && rows[0].currency) {
+                currencyCode = rows[0].currency;
+            }
+        } catch (err) {
+            console.error('Error fetching currency code:', err);
+        }
 
         // Create the PDF
         const fileName = `invoice_${order_id}_${Date.now()}.pdf`;
@@ -161,11 +173,25 @@ class InvoiceGenerator {
 
         let yPosition = tableHeaderY + 25;
 
-        // Items with alternating row colors
-        items.forEach((item, index) => {
-            const price = parseFloat(item.price) || 0;
+        // Convert all item prices from ILS to target currency before rendering
+        const convertedItems = await Promise.all(items.map(async (item) => {
+            const priceInILS = parseFloat(item.price) || 0;
             const quantity = parseInt(item.quantity) || 0;
-            const total = price * quantity;
+            const convertedPrice = await convertFromILS(priceInILS, currencyCode);
+            const convertedTotal = convertedPrice * quantity;
+            return {
+                ...item,
+                price: convertedPrice,
+                total: convertedTotal,
+                quantity
+            };
+        }));
+
+        // Items with alternating row colors
+        convertedItems.forEach((item, index) => {
+            const price = item.price;
+            const quantity = item.quantity;
+            const total = item.total;
 
             // Alternating row background
             if (index % 2 === 0) {
@@ -193,9 +219,10 @@ class InvoiceGenerator {
             yPosition += 25;
         });
 
-        // Calculate subtotal
-        const subtotal = items.reduce((sum, item) => sum + (parseFloat(item.price) * parseInt(item.quantity)), 0);
-        const subtotalAfterDiscount = subtotal - (discount_amount || 0);
+        // Calculate subtotal (using converted prices)
+        const subtotal = convertedItems.reduce((sum, item) => sum + item.total, 0);
+        const convertedDiscountAmount = await convertFromILS(discount_amount || 0, currencyCode);
+        const subtotalAfterDiscount = subtotal - convertedDiscountAmount;
         const netAmount = subtotalAfterDiscount;
         const vatAmount = netAmount * (vatRate / 100);
 
@@ -212,13 +239,13 @@ class InvoiceGenerator {
             .text(`${currencySymbol}${subtotal.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
 
         // Show discount if applicable
-        if (promotion && discount_amount > 0) {
+        if (promotion && convertedDiscountAmount > 0) {
             this.doc
                 .moveDown(0.3)
                 .fillColor('#6b7280')
                 .text(`Discount (${promotion.name}):`, summaryX, this.doc.y)
                 .fillColor('#dc2626')
-                .text(`-${currencySymbol}${discount_amount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' })
+                .text(`-${currencySymbol}${convertedDiscountAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' })
                 .moveDown(0.3)
                 .fillColor('#6b7280')
                 .text('Subtotal after discount:', summaryX, this.doc.y)
@@ -254,14 +281,16 @@ class InvoiceGenerator {
             .stroke()
             .moveDown(0.3);
 
-        // Total amount
+        // Total amount (convert from ILS)
+        const convertedTotalAmount = await convertFromILS(parseFloat(total_amount || 0), currencyCode);
+        const finalTotal = netAmount + vatAmount; // Use calculated total for consistency
         this.doc
             .fontSize(16)
             .fillColor('#1f2937')
             .text('Total Amount:', summaryX, this.doc.y)
             .fontSize(18)
             .fillColor('#059669')
-            .text(`${currencySymbol}${parseFloat(total_amount || 0).toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+            .text(`${currencySymbol}${finalTotal.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
 
         // Footer section
         this.doc
