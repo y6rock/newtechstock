@@ -7,6 +7,16 @@
     font-family: 'Inter', sans-serif;
 }
 
+.cart-container--empty {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: calc(100vh - 120px);
+    margin: 0 auto;
+    padding: 0 20px;
+    max-width: 100%;
+}
+
 /* Cart Header */
 .cart-header {
     display: flex;
@@ -389,8 +399,9 @@
     background: white;
     border-radius: 20px;
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.08);
-    margin: 40px auto;
+    margin: 0 auto;
     max-width: 600px;
+    width: 100%;
 }
 
 .empty-cart h1 {
