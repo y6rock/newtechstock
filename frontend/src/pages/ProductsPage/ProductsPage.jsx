@@ -193,7 +193,7 @@ const ProductsPage = () => {
         console.log('ProductsPage: Categories fetched from backend:', res.data);
         const categoriesData = Array.isArray(res.data) ? res.data : [];
         setCategories([
-          { category_id: 'All Products', name: 'All Products' },
+          { category_id: 'All Products', name: 'All Products', isActive: true },
           ...categoriesData
         ]);
       })
@@ -205,7 +205,8 @@ const ProductsPage = () => {
         const manufacturerList = res.data.map(supplier => ({
           // Use the numeric supplier_id for filtering and the name for display
           id: String(supplier.supplier_id ?? supplier.id ?? supplier.ID ?? supplier.SupplierID),
-          name: supplier.name || supplier.supplier_name || supplier.Name
+          name: supplier.name || supplier.supplier_name || supplier.Name,
+          isActive: supplier.isActive !== undefined ? supplier.isActive : true
         }));
         setManufacturers(manufacturerList);
       })
@@ -260,6 +261,12 @@ const ProductsPage = () => {
 
   const handleManufacturerChange = (e) => {
     const { value, checked } = e.target;
+
+    // Prevent selecting inactive manufacturers
+    const manufacturer = manufacturers.find(m => String(m.id) === value);
+    if (manufacturer && (manufacturer.isActive === false || manufacturer.isActive === 0)) {
+      return; // Don't allow selection of inactive manufacturers
+    }
 
     // value holds the supplier_id (string)
     setSelectedManufacturers(prev => {
@@ -364,15 +371,20 @@ const ProductsPage = () => {
       {/* Categories Filter */}
       <div className="categories-filter">
         <div className="categories-filter-buttons">
-          {categories.map(cat => (
-            <button
-              key={cat.category_id}
-              onClick={() => handleCategoryChange(cat.name)}
-              className={`category-button ${selectedCategory === cat.name ? 'active' : ''}`}
-            >
-              {cat.name}
-            </button>
-          ))}
+          {categories.map(cat => {
+            const isInactive = cat.isActive === false || cat.isActive === 0;
+            return (
+              <button
+                key={cat.category_id}
+                onClick={() => !isInactive && handleCategoryChange(cat.name)}
+                disabled={isInactive}
+                className={`category-button ${selectedCategory === cat.name ? 'active' : ''} ${isInactive ? 'inactive' : ''}`}
+                title={isInactive ? 'This category is inactive' : ''}
+              >
+                {cat.name}{isInactive ? ' (Inactive)' : ''}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -447,26 +459,29 @@ const ProductsPage = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {manufacturers.map(manufacturer => {
                 const isChecked = selectedManufacturers.includes(String(manufacturer.id));
+                const isInactive = manufacturer.isActive === false || manufacturer.isActive === 0;
                 return (
                   <div key={manufacturer.id} style={{ display: 'flex', alignItems: 'center' }}>
                     <label style={{ 
                       display: 'flex', 
                       alignItems: 'center', 
                       gap: '8px', 
-                      cursor: 'pointer', 
+                      cursor: isInactive ? 'not-allowed' : 'pointer', 
                       fontSize: '0.9em', 
-                      color: '#333',
-                      transition: 'color 0.2s ease'
+                      color: isInactive ? '#999' : '#333',
+                      transition: 'color 0.2s ease',
+                      opacity: isInactive ? 0.6 : 1
                     }}>
                       <input
                         type="checkbox"
                         value={manufacturer.id}
                         checked={isChecked}
+                        disabled={isInactive}
                         onChange={handleManufacturerChange}
                         style={{
                           width: '18px',
                           height: '18px',
-                          cursor: 'pointer',
+                          cursor: isInactive ? 'not-allowed' : 'pointer',
                           marginRight: '8px',
                           appearance: 'none',
                           WebkitAppearance: 'none',
@@ -475,10 +490,11 @@ const ProductsPage = () => {
                           borderRadius: '3px',
                           backgroundColor: isChecked ? '#4a90e2' : 'white',
                           position: 'relative',
-                          transition: 'all 0.2s ease'
+                          transition: 'all 0.2s ease',
+                          opacity: isInactive ? 0.5 : 1
                         }}
                       />
-                      <span>{manufacturer.name}</span>
+                      <span>{manufacturer.name}{isInactive ? ' (Inactive)' : ''}</span>
                     </label>
                   </div>
                 );

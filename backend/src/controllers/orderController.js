@@ -74,19 +74,19 @@ exports.createOrder = async (req, res) => {
         const [userResult] = await connection.query('SELECT name, email FROM users WHERE user_id = ?', [user_id]);
         const user = userResult[0];
 
-        // Get order items with product names for invoice
+        // Get order items with product names and category_id for invoice
         const [itemsResult] = await connection.query(`
-            SELECT oi.product_id, oi.quantity, oi.price, p.name as product_name
+            SELECT oi.product_id, oi.quantity, oi.price, p.name as product_name, p.category_id
             FROM order_items oi
             JOIN products p ON oi.product_id = p.product_id
             WHERE oi.order_id = ?
         `, [orderId]);
 
-        // Get promotion details if applied
+        // Get promotion details if applied (including applicable products and categories)
         let promotionDetails = null;
         if (promotion_id) {
             const [promotionResult] = await connection.query(
-                'SELECT name, type, value FROM promotions WHERE promotion_id = ?',
+                'SELECT name, type, value, applicable_products, applicable_categories FROM promotions WHERE promotion_id = ?',
                 [promotion_id]
             );
             if (promotionResult.length > 0) {
@@ -94,15 +94,51 @@ exports.createOrder = async (req, res) => {
             }
         }
 
-        // Calculate discount amount (if promotion was applied)
+        // Calculate discount amount (if promotion was applied) - only for applicable items
         let discountAmount = 0;
         if (promotionDetails) {
-            const subtotal = itemsResult.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            // Parse applicable products and categories
+            const applicableProducts = promotionDetails.applicable_products ? JSON.parse(promotionDetails.applicable_products) : [];
+            const applicableCategories = promotionDetails.applicable_categories ? JSON.parse(promotionDetails.applicable_categories) : [];
+            
+            // Filter items to only those applicable to the promotion
+            const applicableItems = itemsResult.filter(item => {
+                // Check if item is in applicable products
+                if (applicableProducts.length > 0 && applicableProducts.includes(item.product_id)) {
+                    return true;
+                }
+                
+                // Get item's category_id from products table
+                // Note: itemsResult already has product_id, we need category_id
+                // We'll need to join with products table or get category_id from items
+                // For now, let's check if we have category_id in itemsResult
+                // If not, we'll need to fetch it
+                if (applicableCategories.length > 0) {
+                    // Check if item has category_id (it should from the JOIN in the query above)
+                    if (item.category_id && applicableCategories.includes(item.category_id)) {
+                        return true;
+                    }
+                }
+                
+                return false;
+            });
+            
+            // Calculate subtotal only for applicable items
+            const applicableSubtotal = applicableItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+            
             if (promotionDetails.type === 'percentage') {
-                discountAmount = subtotal * (promotionDetails.value / 100);
+                discountAmount = applicableSubtotal * (promotionDetails.value / 100);
             } else if (promotionDetails.type === 'fixed') {
-                discountAmount = parseFloat(promotionDetails.value);
+                // For fixed discount, distribute proportionally among applicable items
+                if (applicableSubtotal > 0) {
+                    discountAmount = Math.min(parseFloat(promotionDetails.value), applicableSubtotal);
+                } else {
+                    discountAmount = 0;
+                }
             }
+            
+            // Round to 2 decimal places
+            discountAmount = Math.round(discountAmount * 100) / 100;
         }
 
         // Prepare order data for invoice

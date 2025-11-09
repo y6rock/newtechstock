@@ -2,10 +2,10 @@ const dbSingleton = require('../../dbSingleton.js');
 
 const db = dbSingleton.getConnection();
 
-// Get all suppliers (public) - shows only active suppliers
+// Get all suppliers (public) - returns all suppliers including inactive for filtering
 exports.getPublicSuppliers = async (req, res) => {
     try {
-        const [suppliers] = await db.query('SELECT supplier_id, name FROM suppliers WHERE isActive = TRUE ORDER BY name');
+        const [suppliers] = await db.query('SELECT supplier_id, name, isActive FROM suppliers ORDER BY isActive DESC, name');
         res.json(suppliers);
     } catch (err) {
         console.error("Error fetching public suppliers:", err);

@@ -17,11 +17,7 @@ function isItemApplicable(item, promotion) {
         return true;
     }
     
-    // If no specific products or categories, promotion applies to all
-    if (applicableProducts.length === 0 && applicableCategories.length === 0) {
-        return true;
-    }
-    
+    // Promotions must be for specific products or categories (no general promotions)
     return false;
 }
 
@@ -113,6 +109,17 @@ exports.createPromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Validate that promotion is for specific products or categories (not general)
+        const products = applicableProducts || [];
+        const categories = applicableCategories || [];
+        
+        if ((!Array.isArray(products) || products.length === 0) && 
+            (!Array.isArray(categories) || categories.length === 0)) {
+            return res.status(400).json({ 
+                message: 'Promotion must be applied to at least one specific product or category. General promotions are not allowed.' 
+            });
+        }
+
         // Check if promotion name already exists
         const [existingPromotion] = await db.query(
             'SELECT promotion_id FROM promotions WHERE name = ?',
@@ -134,8 +141,8 @@ exports.createPromotion = async (req, res) => {
         const [result] = await db.query(sql, [
             name, code, description, type, value,
             startDate, endDate, minQuantity, maxQuantity, isActive,
-            JSON.stringify(applicableProducts || []),
-            JSON.stringify(applicableCategories || [])
+            JSON.stringify(products),
+            JSON.stringify(categories)
         ]);
 
         res.status(201).json({ 
@@ -158,6 +165,17 @@ exports.updatePromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Validate that promotion is for specific products or categories (not general)
+        const products = applicableProducts || [];
+        const categories = applicableCategories || [];
+        
+        if ((!Array.isArray(products) || products.length === 0) && 
+            (!Array.isArray(categories) || categories.length === 0)) {
+            return res.status(400).json({ 
+                message: 'Promotion must be applied to at least one specific product or category. General promotions are not allowed.' 
+            });
+        }
+
         // Check if another promotion with the same name exists (excluding current promotion)
         const [existingPromotion] = await db.query(
             'SELECT promotion_id FROM promotions WHERE name = ? AND promotion_id != ?',
@@ -181,8 +199,8 @@ exports.updatePromotion = async (req, res) => {
         const [result] = await db.query(sql, [
             name, code, description, type, value,
             startDate, endDate, minQuantity, maxQuantity, isActive,
-            JSON.stringify(applicableProducts || []),
-            JSON.stringify(applicableCategories || []),
+            JSON.stringify(products),
+            JSON.stringify(categories),
             id
         ]);
 

@@ -2,10 +2,10 @@ const dbSingleton = require('../../dbSingleton.js');
 
 const db = dbSingleton.getConnection();
 
-// Get all categories (public)
+// Get all categories (public) - returns all categories including inactive for filtering
 exports.getPublicCategories = async (req, res) => {
     try {
-        const [categories] = await db.query('SELECT * FROM categories WHERE isActive = TRUE ORDER BY name');
+        const [categories] = await db.query('SELECT *, isActive FROM categories ORDER BY isActive DESC, name');
         res.json(categories);
     } catch (err) {
         console.error('Database error in GET /categories/public:', err);

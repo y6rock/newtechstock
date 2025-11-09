@@ -560,10 +560,7 @@ const applyPromotionToSessionCart = async (req, res) => {
                     return true;
                 }
                 
-                if (applicableProducts.length === 0 && applicableCategories.length === 0) {
-                    return true;
-                }
-                
+                // Promotions must be for specific products or categories (no general promotions)
                 return false;
             };
 
