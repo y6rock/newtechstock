@@ -17,7 +17,7 @@ const OrderHistory = ({ userId }) => {
   // Use the userId prop if provided, otherwise fallback to contextUserId
   const currentUserId = userId || contextUserId;
 
-  useEffect(() => {
+  const fetchOrders = async (page = 1) => {
     if (loadingSettings) {
       // Still loading settings, wait for user_id to be available
       return;
@@ -31,43 +31,43 @@ const OrderHistory = ({ userId }) => {
       return;
     }
 
-    const fetchOrders = async (page = 1) => {
-      setLoadingOrders(true);
-      setError(null);
-      try {
-        const token = localStorage.getItem('token');
-        // API call with pagination
-        const response = await fetch(`/api/orders/history/${currentUserId}?page=${page}&limit=10`, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
+    setLoadingOrders(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem('token');
+      // API call with pagination
+      const response = await fetch(`/api/orders/history/${currentUserId}?page=${page}&limit=10`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
 
-        if (!response.ok) {
-          const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response.' }));
-          throw new Error(errorData.message || 'Failed to fetch orders.');
-        }
-        const data = await response.json();
-        
-        // Handle both old format (array) and new format (object with orders and pagination)
-        const ordersArray = Array.isArray(data) ? data : (data.orders || []);
-        const paginationData = data.pagination || { currentPage: 1, totalPages: 1, totalItems: ordersArray.length, itemsPerPage: 10 };
-        
-        // Sort orders by date (newest first)
-        const sortedOrders = ordersArray.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
-        
-        setOrders(sortedOrders);
-        setPagination(paginationData);
-        console.log('Fetched orders:', sortedOrders);
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError(`Failed to load orders: ${err.message}`);
-        setOrders([]); // Defensive: always set to array
-      } finally {
-        setLoadingOrders(false);
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ message: 'Failed to parse error response.' }));
+        throw new Error(errorData.message || 'Failed to fetch orders.');
       }
-    };
+      const data = await response.json();
+      
+      // Handle both old format (array) and new format (object with orders and pagination)
+      const ordersArray = Array.isArray(data) ? data : (data.orders || []);
+      const paginationData = data.pagination || { currentPage: 1, totalPages: 1, totalItems: ordersArray.length, itemsPerPage: 10 };
+      
+      // Sort orders by date (newest first)
+      const sortedOrders = ordersArray.sort((a, b) => new Date(b.order_date) - new Date(a.order_date));
+      
+      setOrders(sortedOrders);
+      setPagination(paginationData);
+      console.log('Fetched orders:', sortedOrders);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError(`Failed to load orders: ${err.message}`);
+      setOrders([]); // Defensive: always set to array
+    } finally {
+      setLoadingOrders(false);
+    }
+  };
 
+  useEffect(() => {
     fetchOrders(1);
   }, [currentUserId, loadingSettings, navigate, userId]);
 

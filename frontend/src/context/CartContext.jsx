@@ -17,8 +17,24 @@ export const CartProvider = ({ children }) => {
   const lastValidationTime = useRef(0);
 
   // Load cart from server session when component mounts or user_id changes
+  // When user_id changes, clear local cart state first, then load new user's cart
   useEffect(() => {
     if (!isInitialMount.current) {
+      // Clear local cart state when user changes
+      setCartItems([]);
+      setAppliedPromotion(null);
+      setDiscountAmount(0);
+      
+      // Clear all localStorage cart backups (cleanup old user data)
+      if (typeof Storage !== 'undefined') {
+        Object.keys(localStorage).forEach(key => {
+          if (key.startsWith('cart_backup_')) {
+            localStorage.removeItem(key);
+          }
+        });
+      }
+      
+      // Load new user's cart
       loadCartFromServer();
     }
     isInitialMount.current = false;
@@ -67,7 +83,10 @@ export const CartProvider = ({ children }) => {
   const loadCartFromServer = async () => {
     setIsLoading(true);
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.get('/api/session-cart', {
+        headers,
         withCredentials: true // Important for session cookies
       });
 
@@ -142,9 +161,12 @@ export const CartProvider = ({ children }) => {
 
     setIsValidating(true);
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.post('/api/session-cart/validate', {
         cartItems: cartItems
       }, {
+        headers,
         withCredentials: true
       });
 
@@ -207,10 +229,13 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.post('/api/session-cart/add', {
         product_id: product.product_id,
         quantity: quantity
       }, {
+        headers,
         withCredentials: true
       });
 
@@ -245,8 +270,11 @@ export const CartProvider = ({ children }) => {
   // Remove from cart - now uses session-based API
   const removeFromCart = async (productId) => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.delete('/api/session-cart/remove', {
         data: { product_id: productId },
+        headers,
         withCredentials: true
       });
 
@@ -291,10 +319,13 @@ export const CartProvider = ({ children }) => {
     }
 
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.put('/api/session-cart/update', {
         product_id: productId,
         quantity: newQuantity
       }, {
+        headers,
         withCredentials: true
       });
 
@@ -336,7 +367,10 @@ export const CartProvider = ({ children }) => {
   // Clear cart - now uses session-based API
   const clearCart = async () => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       await axios.delete('/api/session-cart/clear', {
+        headers,
         withCredentials: true
       });
 
@@ -361,9 +395,12 @@ export const CartProvider = ({ children }) => {
   // Apply promotion - now uses session-based API
   const applyPromotion = async (promotionCode) => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.post('/api/session-cart/promotion', {
         code: promotionCode
       }, {
+        headers,
         withCredentials: true
       });
 
@@ -403,7 +440,10 @@ export const CartProvider = ({ children }) => {
   // Remove promotion - now uses session-based API
   const removePromotion = async () => {
     try {
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       await axios.delete('/api/session-cart/promotion', {
+        headers,
         withCredentials: true
       });
 

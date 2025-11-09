@@ -1,28 +1,100 @@
 const dbSingleton = require('../../dbSingleton');
 const { applyPromotionAdvanced } = require('./promotionController');
+const jwt = require('jsonwebtoken');
+
+/**
+ * Helper function to get user ID from request
+ * Tries to get from req.user (if authenticated via middleware) or from token in header
+ * Returns user_id if authenticated, or 'anonymous' for anonymous users
+ */
+const getUserId = (req) => {
+    // First try req.user (set by authenticateToken middleware)
+    if (req.user?.user_id) {
+        const userId = String(req.user.user_id);
+        console.log('Cart: User ID from req.user:', userId);
+        return userId;
+    }
+    
+    // Try to extract from Authorization header token
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (token) {
+            const decoded = jwt.verify(token, process.env.JWT_SECRET);
+            if (decoded.user_id) {
+                const userId = String(decoded.user_id);
+                console.log('Cart: User ID from token:', userId);
+                return userId;
+            }
+        }
+    } catch (error) {
+        // Token invalid or missing, continue to anonymous
+        console.log('Cart: No valid token found, using anonymous');
+    }
+    
+    console.log('Cart: Using anonymous user');
+    return 'anonymous';
+};
+
+/**
+ * Helper function to get user-specific cart from session
+ * Loads the cart for the current user into req.session.cart
+ */
+const loadUserCart = (req) => {
+    const userId = getUserId(req);
+    
+    // Initialize userCarts object if it doesn't exist
+    if (!req.session.userCarts) {
+        req.session.userCarts = {};
+    }
+    
+    // If user's cart doesn't exist, create empty one
+    if (!req.session.userCarts[userId]) {
+        req.session.userCarts[userId] = {
+            items: [],
+            appliedPromotion: null,
+            discountAmount: 0
+        };
+        console.log(`Cart: Created new cart for user ${userId}`);
+    } else {
+        console.log(`Cart: Loaded existing cart for user ${userId} with ${req.session.userCarts[userId].items.length} items`);
+    }
+    
+    // Load user's cart into active cart
+    req.session.cart = req.session.userCarts[userId];
+    
+    return userId;
+};
+
+/**
+ * Helper function to save current cart back to user-specific storage
+ */
+const saveUserCart = (req) => {
+    const userId = getUserId(req);
+    
+    if (!req.session.userCarts) {
+        req.session.userCarts = {};
+    }
+    
+    // Save current cart to user's storage
+    if (req.session.cart) {
+        req.session.userCarts[userId] = req.session.cart;
+        console.log(`Cart: Saved cart for user ${userId} with ${req.session.cart.items.length} items`);
+    }
+};
 
 /**
  * Get session cart (works for both authenticated and anonymous users)
  */
 const getSessionCart = async (req, res) => {
     try {
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
-
-        // Session cart is now fully session-based
-        // No database integration needed
+        const userId = loadUserCart(req);
 
         res.json({
             cartItems: req.session.cart.items || [],
             appliedPromotion: req.session.cart.appliedPromotion,
             discountAmount: req.session.cart.discountAmount || 0,
-            sessionId: req.sessionID // Include session ID for debugging
+            sessionId: req.sessionID,
+            userId: userId // Include userId for debugging
         });
 
     } catch (error) {
@@ -46,14 +118,8 @@ const addToSessionCart = async (req, res) => {
             return res.status(400).json({ message: 'Quantity must be greater than 0' });
         }
 
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
+        // Load user's cart
+        loadUserCart(req);
 
         const db = dbSingleton.getConnection();
 
@@ -116,6 +182,9 @@ const addToSessionCart = async (req, res) => {
             });
         }
 
+        // Save cart back to user storage
+        saveUserCart(req);
+
         res.json({ 
             message: 'Item added to cart successfully',
             cartItems: req.session.cart.items
@@ -142,14 +211,8 @@ const updateSessionCartItem = async (req, res) => {
             return res.status(400).json({ message: 'Quantity cannot be negative' });
         }
 
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
+        // Load user's cart
+        loadUserCart(req);
 
         const itemIndex = req.session.cart.items.findIndex(item => item.product_id === product_id);
         
@@ -177,6 +240,9 @@ const updateSessionCartItem = async (req, res) => {
             req.session.cart.items[itemIndex].stock = products[0].stock;
         }
 
+        // Save cart back to user storage
+        saveUserCart(req);
+
         res.json({ 
             message: 'Cart item updated successfully',
             cartItems: req.session.cart.items
@@ -199,14 +265,8 @@ const removeFromSessionCart = async (req, res) => {
             return res.status(400).json({ message: 'Product ID is required' });
         }
 
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
+        // Load user's cart
+        loadUserCart(req);
 
         const itemIndex = req.session.cart.items.findIndex(item => item.product_id === product_id);
         
@@ -215,6 +275,9 @@ const removeFromSessionCart = async (req, res) => {
         }
 
         req.session.cart.items.splice(itemIndex, 1);
+
+        // Save cart back to user storage
+        saveUserCart(req);
 
         res.json({ 
             message: 'Item removed from cart successfully',
@@ -232,11 +295,18 @@ const removeFromSessionCart = async (req, res) => {
  */
 const clearSessionCart = async (req, res) => {
     try {
+        // Load user's cart first
+        loadUserCart(req);
+        
+        // Clear the cart
         req.session.cart = {
             items: [],
             appliedPromotion: null,
             discountAmount: 0
         };
+
+        // Save cleared cart back to user storage
+        saveUserCart(req);
 
         res.json({ message: 'Cart cleared successfully' });
 
@@ -393,10 +463,12 @@ const validateSessionCart = async (req, res) => {
             validatedCart.push(updatedItem);
         }
         
-        // Update session cart with validated items
-        if (req.session.cart) {
-            req.session.cart.items = validatedCart;
-        }
+        // Load user's cart and update with validated items
+        loadUserCart(req);
+        req.session.cart.items = validatedCart;
+        
+        // Save cart back to user storage
+        saveUserCart(req);
         
         res.json({
             validatedCart,
@@ -430,14 +502,8 @@ const applyPromotionToSessionCart = async (req, res) => {
             return res.status(400).json({ message: 'Promotion code is required' });
         }
 
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
+        // Load user's cart
+        loadUserCart(req);
 
         if (!req.session.cart.items || req.session.cart.items.length === 0) {
             return res.status(400).json({ message: 'Cart is empty' });
@@ -560,6 +626,9 @@ const applyPromotionToSessionCart = async (req, res) => {
             };
             req.session.cart.discountAmount = discount;
 
+            // Save cart back to user storage
+            saveUserCart(req);
+
             res.json({
                 appliedPromotion: req.session.cart.appliedPromotion,
                 discountAmount: discount
@@ -581,17 +650,14 @@ const applyPromotionToSessionCart = async (req, res) => {
  */
 const removePromotionFromSessionCart = async (req, res) => {
     try {
-        // Initialize session cart if it doesn't exist
-        if (!req.session.cart) {
-            req.session.cart = {
-                items: [],
-                appliedPromotion: null,
-                discountAmount: 0
-            };
-        }
+        // Load user's cart
+        loadUserCart(req);
 
         req.session.cart.appliedPromotion = null;
         req.session.cart.discountAmount = 0;
+
+        // Save cart back to user storage
+        saveUserCart(req);
 
         res.json({
             message: 'Promotion removed successfully',

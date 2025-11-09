@@ -5,6 +5,7 @@ import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
 import { formatNumberWithCommas, formatPriceWithTax } from '../../utils/currency';
+import Pagination from '../../components/Pagination/Pagination';
 
 import './ProductsPage.css';
 
@@ -47,7 +48,7 @@ const ProductsPage = () => {
     currentPage: 1,
     totalPages: 1,
     totalItems: 0,
-    itemsPerPage: 50
+    itemsPerPage: 10
   });
 
   const [selectedCategory, setSelectedCategory] = useState('All Products');
@@ -61,8 +62,9 @@ const ProductsPage = () => {
   const sliderRef = useRef(null);
   
   // Function to fetch products with current filters
-  const fetchProducts = useCallback(async () => {
+  const fetchProducts = useCallback(async (pageOverride = null) => {
     try {
+      const pageToUse = pageOverride !== null ? pageOverride : pagination.currentPage;
       const params = new URLSearchParams();
       
       if (selectedCategory && selectedCategory !== 'All Products') {
@@ -70,9 +72,15 @@ const ProductsPage = () => {
         console.log('Adding category filter:', selectedCategory);
       }
       
-      if (maxPrice && maxPrice < priceStats.maxPrice) {
+      // Only add maxPrice filter if it's actually filtering (less than the max available price)
+      // Also check if priceStats.maxPrice is valid (greater than 0) to avoid sending invalid filters
+      // Use a small epsilon to handle floating point comparison issues
+      // Allow maxPrice to be 0 (user can set slider to 0 to filter out all products)
+      if (priceStats.maxPrice > 0 && maxPrice !== null && maxPrice !== undefined && maxPrice < priceStats.maxPrice - 0.01) {
         params.append('maxPrice', maxPrice.toString());
-        console.log('Adding maxPrice filter:', maxPrice);
+        console.log('Adding maxPrice filter:', maxPrice, '(max available:', priceStats.maxPrice, ')');
+      } else {
+        console.log('Skipping maxPrice filter - maxPrice:', maxPrice, 'priceStats.maxPrice:', priceStats.maxPrice);
       }
       
       if (selectedManufacturers.length > 0) {
@@ -85,22 +93,28 @@ const ProductsPage = () => {
         console.log('Adding search filter:', searchTerm);
       }
       
-      params.append('page', pagination.currentPage.toString());
-      params.append('limit', '50');
+      params.append('page', pageToUse.toString());
+      params.append('limit', '10');
       
       console.log('Fetching products with params:', params.toString());
       const response = await axios.get(`/api/products?${params}`);
       console.log('ProductsPage: Products fetched with filters:', response.data);
       
-      if (response.data.products) {
+      if (response.data && response.data.products) {
         setProducts(response.data.products);
-        setPagination(response.data.pagination);
-      } else {
+        if (response.data.pagination) {
+          setPagination(response.data.pagination);
+        }
+      } else if (Array.isArray(response.data)) {
         // Fallback for old API format
         setProducts(response.data);
+      } else {
+        console.warn('Unexpected response format:', response.data);
+        setProducts([]);
       }
     } catch (error) {
       console.error('ProductsPage: Error fetching products:', error);
+      setProducts([]);
     } finally {
       setLoading(false);
     }
@@ -151,10 +165,16 @@ const ProductsPage = () => {
       setPriceStats(response.data);
       setPriceRange({ min: response.data.minPrice, max: response.data.maxPrice });
       // Update maxPrice to new max if it's within the new range, otherwise clamp it
+      // Also update if maxPrice is still at default value (1000) and actual max is higher
       const newMaxPrice = response.data.maxPrice;
       setMaxPrice(prevMax => {
         if (prevMax > newMaxPrice) {
           return newMaxPrice; // Clamp to new max if it's lower
+        }
+        // If maxPrice is still at default (1000) and actual max is higher, update it
+        // This ensures no price filter is applied by default
+        if (prevMax === 1000 && newMaxPrice > 1000) {
+          return newMaxPrice;
         }
         return prevMax; // Keep current value if it's still valid
       });
@@ -197,11 +217,13 @@ const ProductsPage = () => {
     fetchPriceStats();
   }, [selectedCategory, selectedManufacturers, fetchPriceStats]);
 
-  // Fetch products when filters change (but not when search term changes)
+  // Fetch products when filters change (but not when search term or page changes - page changes are handled directly)
   useEffect(() => {
     console.log('fetchProducts useEffect triggered');
+    // Reset to page 1 when filters change
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
     fetchProducts();
-  }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, fetchProducts]);
+  }, [selectedCategory, maxPrice, selectedManufacturers, fetchProducts]);
 
   // Debounced search effect - only calls API, doesn't update URL
   useEffect(() => {
@@ -267,6 +289,17 @@ const ProductsPage = () => {
     }
     setSearchParams(params);
   }, [setSearchParams]);
+
+  const handlePageChange = async (newPage) => {
+    // Scroll to top of product grid when page changes
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    
+    // Update pagination state first
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    
+    // Fetch products for the new page using fetchProducts with page override
+    await fetchProducts(newPage);
+  };
 
   const handleAddToCart = (product) => {
     if (!username || !user_id) {
@@ -545,6 +578,19 @@ const ProductsPage = () => {
               })
             )}
           </div>
+          
+          {/* Pagination */}
+          {!loading && products.length > 0 && pagination.totalPages > 1 && (
+            <div style={{ padding: '40px 20px', display: 'flex', justifyContent: 'center' }}>
+              <Pagination
+                currentPage={pagination.currentPage}
+                totalPages={pagination.totalPages}
+                totalItems={pagination.totalItems}
+                itemsPerPage={pagination.itemsPerPage}
+                onPageChange={handlePageChange}
+              />
+            </div>
+          )}
         </div>
       </div>
     </div>

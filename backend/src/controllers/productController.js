@@ -26,12 +26,13 @@ exports.getAllProducts = async (req, res) => {
         }
         
         // Price range filter
-        if (minPrice && !isNaN(parseFloat(minPrice))) {
+        if (minPrice !== undefined && minPrice !== null && minPrice !== '' && !isNaN(parseFloat(minPrice))) {
             whereConditions.push('p.price >= ?');
             params.push(parseFloat(minPrice));
         }
         
-        if (maxPrice && !isNaN(parseFloat(maxPrice))) {
+        // Allow maxPrice to be 0 (user can set slider to 0 to filter out all products)
+        if (maxPrice !== undefined && maxPrice !== null && maxPrice !== '' && !isNaN(parseFloat(maxPrice))) {
             whereConditions.push('p.price <= ?');
             params.push(parseFloat(maxPrice));
         }

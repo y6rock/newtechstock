@@ -24,6 +24,8 @@ export default function Header() {
   }, []);
 
   const handleLogout = () => {
+    // Don't clear cart on logout - it's saved per user in session
+    // The cart will be automatically loaded when the user logs back in
     localStorage.removeItem('token');
     navigate('/'); // Redirect to Home page first
     reEvaluateToken(); // This will clear the state and refresh user data
