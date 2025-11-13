@@ -278,10 +278,22 @@ exports.getOrders = async (req, res) => {
 // Get order status distribution (with optional filters)
 exports.getOrderStatusDistribution = async (req, res) => {
     try {
-        const { status, search } = req.query;
+        const { status, search, startDate, endDate } = req.query;
         
         let whereConditions = [];
         let params = [];
+        
+        // Add date range filter if provided
+        if (startDate && endDate) {
+            whereConditions.push('DATE(o.order_date) BETWEEN ? AND ?');
+            params.push(startDate, endDate);
+        } else if (startDate) {
+            whereConditions.push('DATE(o.order_date) >= ?');
+            params.push(startDate);
+        } else if (endDate) {
+            whereConditions.push('DATE(o.order_date) <= ?');
+            params.push(endDate);
+        }
         
         // Add status filter if provided
         if (status && status !== 'all') {

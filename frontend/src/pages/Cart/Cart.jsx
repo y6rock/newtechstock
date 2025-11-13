@@ -87,7 +87,7 @@ const Cart = () => {
               </div>
               <div className="cart-item-details">
                 <h3>{item.name}</h3>
-                <p className="cart-item-price">{formatPriceWithTax(item.price, currency, vat_rate)}</p>
+                <p className="cart-item-price">{formatPriceConverted(item.price, currency)}</p>
                 <div className="cart-item-quantity">
                   <button onClick={() => updateQuantity(item.product_id, item.quantity - 1)} disabled={item.quantity <= 1}>-</button>
                   <span>{item.quantity}</span>
@@ -95,7 +95,7 @@ const Cart = () => {
                 </div>
               </div>
               <div className="cart-item-subtotal">
-                <p>{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</p>
+                <p>{formatPriceConverted(item.price * item.quantity, currency)}</p>
                 <button className="cart-item-remove" onClick={() => removeFromCart(item.product_id)}>Remove</button>
               </div>
             </div>
@@ -103,20 +103,10 @@ const Cart = () => {
         </div>
         <div className="cart-summary">
           <h2>Cart Summary</h2>
-          <div className="summary-row">
-            <span>Subtotal</span>
-            <span>{formatPriceConverted(subtotal, currency)}</span>
-          </div>
           {discountAmount > 0 && (
             <div className="summary-row discount">
               <span>Discount ({appliedPromotion.name})</span>
               <span>-{formatPriceConverted(discountAmount, currency)}</span>
-            </div>
-          )}
-          {discountAmount > 0 && (
-            <div className="summary-row">
-              <span>Subtotal after discount</span>
-              <span>{formatPriceConverted(subtotalAfterDiscount, currency)}</span>
             </div>
           )}
           <div className="summary-row">
@@ -124,7 +114,7 @@ const Cart = () => {
             <span>{formatPriceConverted(netAmount, currency)}</span>
           </div>
           <div className="summary-row">
-            <span>VAT ({vat_rate}%)</span>
+            <span>VAT Rate: {vat_rate}%</span>
             <span>{formatPriceConverted(vatAmount, currency)}</span>
           </div>
           <div className="summary-row">

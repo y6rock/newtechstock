@@ -228,7 +228,7 @@ const Checkout = () => {
                         <span>{formatPriceConverted(netAmount, currency)}</span>
                     </div>
                     <div className="summary-item">
-                        <span>VAT ({vat_rate}%):</span>
+                        <span>VAT Rate: {vat_rate}%</span>
                         <span>{formatPriceConverted(vatAmount, currency)}</span>
                     </div>
                     <div className="summary-total">

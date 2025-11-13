@@ -27,18 +27,21 @@ class InvoiceGenerator {
             const [rows] = await this.db.query('SELECT currency FROM settings LIMIT 1');
             if (rows.length > 0 && rows[0].currency) {
                 const currency = rows[0].currency;
+                // For ILS, use "ILS" or "Shekels" text instead of symbol for better PDF compatibility
+                if (currency === 'ILS') {
+                    return 'ILS'; // Use "ILS" text instead of symbol for better PDF font support
+                }
                 const currencySymbols = {
                     'USD': '$',
                     'EUR': '€',
-                    'GBP': '£',
-                    'ILS': '₪'
+                    'GBP': '£'
                 };
                 return currencySymbols[currency] || currency;
             }
         } catch (err) {
             console.error('Error fetching currency:', err);
         }
-        return '₪'; // Default to ILS if no settings found
+        return 'ILS'; // Default to ILS text if no settings found
     }
 
     async generateInvoice(orderData, userData) {

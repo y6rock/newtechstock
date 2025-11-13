@@ -490,6 +490,7 @@ export const CartProvider = ({ children }) => {
     subtotalAfterDiscount,
     netAmount,
     vatAmount,
+    vat_rate,
     total,
     totalItems,
     isLoading,

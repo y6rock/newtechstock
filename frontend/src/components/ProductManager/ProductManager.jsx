@@ -133,6 +133,62 @@ function ProductManager() {
   };
 
 
+  // Helper function to fetch all suppliers (handles pagination)
+  const fetchAllSuppliers = useCallback(async (headers) => {
+    try {
+      const firstPageRes = await fetch('/api/suppliers?limit=10000&page=1', { headers });
+      if (!firstPageRes.ok) throw new Error('Failed to fetch suppliers');
+      const firstPageData = await firstPageRes.json();
+      
+      let allSuppliers = firstPageData.suppliers || (Array.isArray(firstPageData) ? firstPageData : []);
+      
+      // If there are more pages, fetch them all
+      if (firstPageData.pagination && firstPageData.pagination.totalPages > 1) {
+        const additionalPages = await Promise.all(
+          Array.from({ length: firstPageData.pagination.totalPages - 1 }, (_, i) => 
+            fetch(`/api/suppliers?limit=10000&page=${i + 2}`, { headers })
+              .then(res => res.json())
+              .then(data => data.suppliers || [])
+          )
+        );
+        allSuppliers = [...allSuppliers, ...additionalPages.flat()];
+      }
+      
+      return allSuppliers;
+    } catch (err) {
+      console.error('Error fetching all suppliers:', err);
+      return [];
+    }
+  }, []);
+
+  // Helper function to fetch all categories (handles pagination)
+  const fetchAllCategories = useCallback(async (headers) => {
+    try {
+      const firstPageRes = await fetch('/api/categories?limit=10000&page=1', { headers });
+      if (!firstPageRes.ok) throw new Error('Failed to fetch categories');
+      const firstPageData = await firstPageRes.json();
+      
+      let allCategories = firstPageData.categories || (Array.isArray(firstPageData) ? firstPageData : []);
+      
+      // If there are more pages, fetch them all
+      if (firstPageData.pagination && firstPageData.pagination.totalPages > 1) {
+        const additionalPages = await Promise.all(
+          Array.from({ length: firstPageData.pagination.totalPages - 1 }, (_, i) => 
+            fetch(`/api/categories?limit=10000&page=${i + 2}`, { headers })
+              .then(res => res.json())
+              .then(data => data.categories || [])
+          )
+        );
+        allCategories = [...allCategories, ...additionalPages.flat()];
+      }
+      
+      return allCategories;
+    } catch (err) {
+      console.error('Error fetching all categories:', err);
+      return [];
+    }
+  }, []);
+
   const fetchProductData = useCallback(async (pageOverride = null, searchOverride = null) => {
     if (loadingSettings || !isUserAdmin) {
       if (!loadingSettings && !isUserAdmin) navigate('/');
@@ -184,23 +240,22 @@ function ProductManager() {
       console.log('API URL:', `/api/products/admin/all?${params}`);
       console.log('Headers:', headers);
       
-      const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-        fetch(`/api/products/admin/all?${params}`, { headers }),
-        fetch('/api/suppliers?limit=1000&page=1', { headers }), // Fetch all suppliers for modal
-        fetch('/api/categories?limit=1000&page=1', { headers }) // Fetch all categories for modal
-      ]);
-
-      if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+      const productsRes = await fetch(`/api/products/admin/all?${params}`, { headers });
+      if (!productsRes.ok) {
         throw new Error('Failed to fetch initial product data.');
       }
 
       const productsData = await productsRes.json();
-      const suppliersData = await suppliersRes.json();
-      const categoriesData = await categoriesRes.json();
-
       setProducts(productsData.products || productsData);
-      setSuppliers(suppliersData.suppliers || suppliersData);
-      setCategories(categoriesData.categories || categoriesData);
+      
+      // Fetch all suppliers and categories using helper functions
+      const [allSuppliers, allCategories] = await Promise.all([
+        fetchAllSuppliers(headers),
+        fetchAllCategories(headers)
+      ]);
+      
+      setSuppliers(allSuppliers);
+      setCategories(allCategories);
       
       if (productsData.pagination) {
         setPagination(productsData.pagination);
@@ -364,23 +419,23 @@ function ProductManager() {
           
           const productsUrl = `/api/products/admin/all?${params.toString()}`;
           console.log('Fetching products with URL:', productsUrl);
-          const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-            fetch(productsUrl, { headers }),
-            fetch('/api/suppliers', { headers }),
-            fetch('/api/categories', { headers })
-          ]);
+          const productsRes = await fetch(productsUrl, { headers });
 
-          if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+          if (!productsRes.ok) {
             throw new Error('Failed to fetch product data.');
           }
 
           const productsData = await productsRes.json();
-          const suppliersData = await suppliersRes.json();
-          const categoriesData = await categoriesRes.json();
-
           setProducts(productsData.products || productsData);
-          setSuppliers(suppliersData.suppliers || suppliersData);
-          setCategories(categoriesData.categories || categoriesData);
+          
+          // Fetch all suppliers and categories using helper functions
+          const [allSuppliers, allCategories] = await Promise.all([
+            fetchAllSuppliers(headers),
+            fetchAllCategories(headers)
+          ]);
+          
+          setSuppliers(allSuppliers);
+          setCategories(allCategories);
           
           if (productsData.pagination) {
             setPagination(productsData.pagination);
@@ -643,23 +698,23 @@ function ProductManager() {
         console.log('Filter API URL:', `/api/products/admin/all?${params}`);
         console.log('Filter Headers:', headers);
         
-          const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-            fetch(`/api/products/admin/all?${params}`, { headers }),
-            fetch('/api/suppliers?limit=1000&page=1', { headers }), // Fetch all suppliers for modal
-            fetch('/api/categories?limit=1000&page=1', { headers }) // Fetch all categories for modal
-          ]);
+          const productsRes = await fetch(`/api/products/admin/all?${params}`, { headers });
 
-        if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
+        if (!productsRes.ok) {
           throw new Error('Failed to fetch product data.');
         }
 
         const productsData = await productsRes.json();
-        const suppliersData = await suppliersRes.json();
-        const categoriesData = await categoriesRes.json();
-
         setProducts(productsData.products || productsData);
-        setSuppliers(suppliersData.suppliers || suppliersData);
-        setCategories(categoriesData.categories || categoriesData);
+        
+        // Fetch all suppliers and categories using helper functions
+        const [allSuppliers, allCategories] = await Promise.all([
+          fetchAllSuppliers(headers),
+          fetchAllCategories(headers)
+        ]);
+        
+        setSuppliers(allSuppliers);
+        setCategories(allCategories);
         
         if (productsData.pagination) {
           setPagination(productsData.pagination);
