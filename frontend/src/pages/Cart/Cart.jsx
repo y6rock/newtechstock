@@ -72,7 +72,7 @@ const Cart = () => {
               </div>
               <div className="cart-item-details">
                 <h3>{item.name}</h3>
-                <p className="cart-item-price">{formatPriceConverted(item.price, currency)}</p>
+                <p className="cart-item-price">{formatPriceWithTax(item.price, currency, vat_rate)}</p>
                 <div className="cart-item-quantity">
                   <button onClick={() => updateQuantity(item.product_id, item.quantity - 1)} disabled={item.quantity <= 1}>-</button>
                   <span>{item.quantity}</span>
@@ -80,7 +80,7 @@ const Cart = () => {
                 </div>
               </div>
               <div className="cart-item-subtotal">
-                <p>{formatPriceConverted(item.price * item.quantity, currency)}</p>
+                <p>{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</p>
                 <button className="cart-item-remove" onClick={() => removeFromCart(item.product_id)}>Remove</button>
               </div>
             </div>

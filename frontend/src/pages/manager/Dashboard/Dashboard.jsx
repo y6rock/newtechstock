@@ -17,7 +17,8 @@ import {
   Title
 } from 'chart.js';
 import axios from 'axios';
-import { formatPrice } from '../../../utils/currency';
+import { formatPrice, formatPriceConverted } from '../../../utils/currency';
+import { convertFromILSSync } from '../../../utils/exchangeRate';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Title);
 
@@ -128,7 +129,7 @@ export default function Dashboard() {
     datasets: [
       {
         label: 'Total Sales',
-        data: salesData.length > 0 ? salesData.map(d => d.total_revenue) : [0],
+        data: salesData.length > 0 ? salesData.map(d => convertFromILSSync(d.total_revenue, currency)) : [0],
         borderColor: '#007bff',
         backgroundColor: 'rgba(0,123,255,0.1)',
         tension: 0.3,
@@ -153,6 +154,7 @@ export default function Dashboard() {
         beginAtZero: true,
         ticks: {
           callback: function(value) {
+            // Data is already converted, just format it
             return formatPrice(value, currency);
           }
         }
@@ -171,6 +173,7 @@ export default function Dashboard() {
               if (context.dataset.label === 'Order Count') {
                 label += context.parsed.y;
               } else {
+                // Data is already converted, just format it
                 label += formatPrice(context.parsed.y, currency);
               }
             }
@@ -195,15 +198,51 @@ export default function Dashboard() {
       },
       {
         label: 'Total Sales',
-        data: sortedTopProducts.length > 0 ? sortedTopProducts.map(p => p.total_revenue) : [0],
+        data: sortedTopProducts.length > 0 ? sortedTopProducts.map(p => convertFromILSSync(p.total_revenue, currency)) : [0],
         backgroundColor: '#007bff',
       }
     ]
   };
   const topProductsBarOptions = {
     responsive: true,
-    plugins: { legend: { position: 'top' } },
-    scales: { y: { beginAtZero: true } }
+    plugins: { 
+      legend: { position: 'top' },
+      tooltip: {
+        callbacks: {
+          label: function(context) {
+            let label = context.dataset.label || '';
+            if (label) {
+              label += ': ';
+            }
+            if (context.parsed.y !== null) {
+              if (context.dataset.label === 'Total Sales') {
+                // Data is already converted, just format it
+                label += formatPrice(context.parsed.y, currency);
+              } else {
+                label += context.parsed.y;
+              }
+            }
+            return label;
+          }
+        }
+      }
+    },
+    scales: { 
+      y: { 
+        beginAtZero: true,
+        ticks: {
+          callback: function(value, index, ticks) {
+            // Check if this is the Total Sales dataset by checking the dataset index
+            // For bar charts, we need to check which dataset this tick belongs to
+            // Since we have two datasets, we'll convert for the second one (Total Sales)
+            // Actually, we can't easily determine which dataset, so let's convert all y-axis values
+            // But wait, "Units Sold" shouldn't be converted. Let's use a different approach.
+            // We'll only convert in tooltips, not in axis labels for this chart
+            return value;
+          }
+        }
+      } 
+    }
   };
 
   const orderStatusPieData = {
@@ -264,7 +303,7 @@ export default function Dashboard() {
                         </span>
                       )}
                       <span className="product-price">
-                        {formatPrice(product.price, currency)}
+                        {formatPriceConverted(product.price, currency)}
                       </span>
                     </div>
                   </div>
@@ -350,7 +389,7 @@ export default function Dashboard() {
       <div className="stats-container">
         <div className="stat-card">
           <h3>Total Revenue</h3>
-          <p className="stat-number">{formatPrice(stats.total_revenue, currency)}</p>
+          <p className="stat-number">{formatPriceConverted(stats.total_revenue, currency)}</p>
         </div>
         <div className="stat-card">
           <h3>Total Orders</h3>
