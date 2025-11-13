@@ -134,7 +134,7 @@ const ProductsPage = () => {
         setLoading(false);
       }
     }
-  }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, priceStats.maxPrice, searchTerm]);
+  }, [selectedCategory, maxPrice, selectedManufacturers, priceStats.maxPrice, searchTerm]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -252,7 +252,7 @@ const ProductsPage = () => {
     console.log('fetchProducts useEffect triggered');
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
-    fetchProducts();
+    fetchProducts(1);
   }, [selectedCategory, maxPrice, selectedManufacturers, fetchProducts]);
 
   // Handle search term changes - simple state update, no URL updates during typing
@@ -295,7 +295,7 @@ const ProductsPage = () => {
   useEffect(() => {
     if (priceStats.maxPrice > 0) {
       console.log('Initial fetch triggered after price stats loaded');
-      fetchProducts();
+      fetchProducts(1);
     }
   }, [priceStats.maxPrice, fetchProducts]);
 
