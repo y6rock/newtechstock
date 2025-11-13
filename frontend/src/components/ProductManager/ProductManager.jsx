@@ -27,8 +27,8 @@ function ProductManager() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [error, setError] = useState('');
   
-  // Sorting state
-  const [sortConfig, setSortConfig] = useState({ field: 'product_id', direction: 'desc' });
+  // Sorting state - default to stock (low to high)
+  const [sortConfig, setSortConfig] = useState({ field: 'stock', direction: 'asc' });
   
   const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const { showSuccess, showError, showConfirm } = useToast();
@@ -207,8 +207,8 @@ function ProductManager() {
       const urlStatusFilter = searchParams.get('status') || 'all';
       const urlCategoryFilter = searchParams.get('category') || 'all';
       const urlSupplierFilter = searchParams.get('supplier') || 'all';
-      const urlSortField = searchParams.get('sortField');
-      const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+      const urlSortField = searchParams.get('sortField') || 'stock'; // Default to stock
+      const urlSortDirection = searchParams.get('sortDirection') || 'asc'; // Default to ascending (low to high)
       
       const params = new URLSearchParams({
         page: urlPage.toString(),
@@ -232,11 +232,9 @@ function ProductManager() {
         params.append('supplier', urlSupplierFilter);
       }
 
-      // Add sorting params from URL
-      if (urlSortField) {
-        params.append('sortField', urlSortField);
-        params.append('sortDirection', urlSortDirection);
-      }
+      // Add sorting params (always include, default to stock/asc)
+      params.append('sortField', urlSortField);
+      params.append('sortDirection', urlSortDirection);
       
       console.log('Fetching products with params:', params.toString());
       console.log('API URL:', `/api/products/admin/all?${params}`);
@@ -336,6 +334,15 @@ function ProductManager() {
     console.log('Current filter state:', { statusFilter, categoryFilter, supplierFilter });
     console.log('Current pagination state:', pagination);
     
+    // Set default sort (stock, low to high) on initial load if no sort in URL
+    if (isInitialLoad.current && !urlSortField) {
+      const params = new URLSearchParams(searchParams);
+      params.set('sortField', 'stock');
+      params.set('sortDirection', 'asc');
+      setSearchParams(params);
+      return; // Let the effect run again with the new URL params
+    }
+    
     // Do not write URL from state; URL is the source of truth
 
     // Only update if URL params differ from current state or if it's initial load
@@ -367,6 +374,9 @@ function ProductManager() {
       if (urlSortField === 'supplier_name') uiField = 'supplier_id';
       if (urlSortField === 'status') uiField = 'is_active';
       setSortConfig({ field: uiField, direction: (urlSortDirection === 'desc' ? 'desc' : 'asc') });
+    } else {
+      // Default to stock ascending if no sort in URL
+      setSortConfig({ field: 'stock', direction: 'asc' });
     }
     setPagination(prev => {
       console.log('Setting pagination from URL:', { ...prev, currentPage });
@@ -414,11 +424,11 @@ function ProductManager() {
             params.append('supplier', urlSupplierFilter);
           }
 
-          // Add sort from URL directly
-          if (urlSortField) {
-            params.append('sortField', urlSortField);
-            params.append('sortDirection', (urlSortDirection === 'desc' ? 'desc' : 'asc'));
-          }
+          // Add sort from URL directly (default to stock/asc if not present)
+          const sortField = urlSortField || 'stock';
+          const sortDirection = urlSortDirection || 'asc';
+          params.append('sortField', sortField);
+          params.append('sortDirection', sortDirection);
           
           const productsUrl = `/api/products/admin/all?${params.toString()}`;
           console.log('Fetching products with URL:', productsUrl);
