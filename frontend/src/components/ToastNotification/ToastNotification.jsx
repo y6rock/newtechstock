@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { FaCheckCircle, FaExclamationCircle, FaInfoCircle, FaTimes, FaQuestionCircle } from 'react-icons/fa';
 import './ToastNotification.css';
 
@@ -13,7 +13,28 @@ const ToastNotification = ({ isOpen, message, type = 'success', onClose, duratio
     }
   }, [isOpen, duration, onClose]);
 
-  if (!isOpen) return null;
+  const [shouldShow, setShouldShow] = useState(false);
+  
+  useEffect(() => {
+    if (isOpen) {
+      console.log('ToastNotification: isOpen=true, setting shouldShow=true');
+      // Small delay to ensure DOM is ready and CSS transition works
+      const timer = setTimeout(() => {
+        setShouldShow(true);
+        console.log('ToastNotification: shouldShow set to true');
+      }, 10);
+      return () => clearTimeout(timer);
+    } else {
+      setShouldShow(false);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) {
+    console.log('ToastNotification: isOpen=false, returning null');
+    return null;
+  }
+  
+  console.log('ToastNotification: Rendering toast', { isOpen, shouldShow, message, type, className: `toast-notification ${type} ${shouldShow ? 'show' : ''}` });
 
   const getIcon = () => {
     switch (type) {
@@ -30,8 +51,13 @@ const ToastNotification = ({ isOpen, message, type = 'success', onClose, duratio
     }
   };
 
+  // Always render, but control visibility with CSS classes
   return (
-    <div className={`toast-notification ${type} ${isOpen ? 'show' : ''}`} style={style}>
+    <div 
+      className={`toast-notification ${type} ${shouldShow ? 'show' : ''}`} 
+      style={style}
+      data-testid="toast-notification"
+    >
       <div className="toast-content">
         {getIcon()}
         <span className="toast-message">{message}</span>

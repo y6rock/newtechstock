@@ -1,10 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
+import { useSettings } from '../../context/SettingsContext';
+import { formatPriceConverted } from '../../utils/currency';
 import './OrderConfirmation.css';
 
 const OrderConfirmation = () => {
     const { orderId } = useParams();
+    const { currency } = useSettings();
     const [orderDetails, setOrderDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -85,7 +88,7 @@ const OrderConfirmation = () => {
             {orderDetails && (
                 <div className="order-confirmation-details">
                     <p className="order-confirmation-message">Payment Method: <strong>{getPaymentMethodText()}</strong></p>
-                    <p className="order-confirmation-message">Total Amount: <strong>${orderDetails.total_price}</strong></p>
+                    <p className="order-confirmation-message">Total Amount: <strong>{formatPriceConverted(orderDetails.total_price, currency)}</strong></p>
                     <p className="order-confirmation-message">Status: <strong>{orderDetails.status}</strong></p>
                 </div>
             )}

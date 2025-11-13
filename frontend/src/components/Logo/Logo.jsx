@@ -1,10 +1,15 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useSettings } from '../../context/SettingsContext';
 import './Logo.css';
 
 const Logo = () => {
+  const { isUserAdmin } = useSettings();
+  // Route to dashboard if admin, home if not
+  const logoPath = isUserAdmin ? '/manager/dashboard' : '/';
+  
   return (
-    <Link to="/" className="logo-link">
+    <Link to={logoPath} className="logo-link">
       <div className="logo-container">
         {/* Tech icon */}
         <div className="logo-icon">

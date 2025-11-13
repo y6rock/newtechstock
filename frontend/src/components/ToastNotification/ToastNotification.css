@@ -2,38 +2,45 @@
 
 /* Toast Container for multiple toasts */
 .toast-container {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  z-index: 1000;
+  position: fixed !important;
+  bottom: 0 !important;
+  left: 0 !important;
+  z-index: 99999 !important;
   pointer-events: none;
+  width: auto;
+  height: auto;
+  display: block !important;
 }
 
 .toast-notification {
-  position: fixed;
-  bottom: 20px;
-  left: 20px;
+  position: fixed !important;
+  bottom: 20px !important;
+  left: 20px !important;
   min-width: 300px;
   max-width: 400px;
   padding: 16px 20px;
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-  display: flex;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15) !important;
+  display: flex !important;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  z-index: 1000;
-  transform: translateX(-100%);
+  z-index: 99999 !important;
+  transform: translateX(-400px);
   opacity: 0;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 0.4s ease-out, opacity 0.4s ease-out;
+  will-change: transform, opacity;
   border: 1px solid;
   backdrop-filter: blur(10px);
   pointer-events: auto;
+  visibility: visible !important;
 }
 
 .toast-notification.show {
-  transform: translateX(0);
-  opacity: 1;
+  transform: translateX(0) !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  display: flex !important;
 }
 
 /* Toast Types */
@@ -206,3 +213,4 @@
 .toast-notification:nth-child(4) {
   bottom: 260px;
 }
+

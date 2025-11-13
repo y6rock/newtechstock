@@ -476,7 +476,8 @@ export const CartProvider = ({ children }) => {
 
   // Calculate totals
   const subtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
-  const netAmount = subtotal - discountAmount;
+  const subtotalAfterDiscount = subtotal - discountAmount; // Subtotal after discount is applied
+  const netAmount = subtotalAfterDiscount; // Net amount is the same as subtotal after discount
   const vatAmount = netAmount * (vat_rate / 100);
   const total = netAmount + vatAmount;
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
@@ -486,6 +487,7 @@ export const CartProvider = ({ children }) => {
     appliedPromotion,
     discountAmount,
     subtotal,
+    subtotalAfterDiscount,
     netAmount,
     vatAmount,
     total,

@@ -40,74 +40,8 @@ const Categories = () => {
     }
   });
 
-  // Ref-based search implementation - no re-renders during typing
-  useEffect(() => {
-    if (!isUserAdmin || loadingSettings) {
-      if (!loadingSettings && !isUserAdmin) {
-        navigate('/');
-      }
-      return;
-    }
-
-    const timeoutId = setTimeout(async () => {
-      try {
-        setLoadingCategories(true);
-        setError(null);
-        
-        const token = localStorage.getItem('token');
-        if (!token) {
-          throw new Error('No token found');
-        }
-
-        const params = new URLSearchParams({
-          page: pagination.currentPage.toString(),
-          limit: '10'
-        });
-
-        if (searchTerm.trim()) {
-          params.append('search', searchTerm.trim());
-        }
-        
-        if (statusFilter && statusFilter !== 'all') {
-          params.append('status', statusFilter);
-        }
-
-        // Add sorting
-        if (sortConfig?.field) {
-          params.append('sortField', mapToApiSortField(sortConfig.field));
-          params.append('sortDirection', sortConfig.direction);
-        }
-
-        const response = await fetch(`/api/categories?${params}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const categoriesData = data.categories || data;
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        
-        if (data.pagination) {
-          setPagination(data.pagination);
-        }
-      } catch (error) {
-        console.error('Error fetching categories:', error);
-        setError('Failed to fetch categories');
-      } finally {
-        setLoadingCategories(false);
-      }
-    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
-
-    return () => clearTimeout(timeoutId);
-  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortConfig]);
-
-  // Handle page changes - inline fetch to avoid dependency issues
-  const handlePageChange = useCallback(async (newPage) => {
+  // Fetch categories function - reusable
+  const fetchCategories = useCallback(async (pageOverride = null) => {
     try {
       setLoadingCategories(true);
       setError(null);
@@ -117,8 +51,9 @@ const Categories = () => {
         throw new Error('No token found');
       }
 
+      const pageToUse = pageOverride !== null ? pageOverride : pagination.currentPage;
       const params = new URLSearchParams({
-        page: newPage.toString(),
+        page: pageToUse.toString(),
         limit: '10'
       });
 
@@ -130,6 +65,7 @@ const Categories = () => {
         params.append('status', statusFilter);
       }
 
+      // Add sorting
       if (sortConfig?.field) {
         params.append('sortField', mapToApiSortField(sortConfig.field));
         params.append('sortDirection', sortConfig.direction);
@@ -146,15 +82,11 @@ const Categories = () => {
       }
 
       const data = await response.json();
-      setCategories(data.categories || data);
+      const categoriesData = data.categories || data;
+      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
       
       if (data.pagination) {
         setPagination(data.pagination);
-      } else {
-        setPagination(prev => ({
-          ...prev,
-          currentPage: newPage
-        }));
       }
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -162,7 +94,28 @@ const Categories = () => {
     } finally {
       setLoadingCategories(false);
     }
-  }, [searchTerm, statusFilter, sortConfig]);
+  }, [searchTerm, statusFilter, pagination.currentPage, sortConfig]);
+
+  // Ref-based search implementation - no re-renders during typing
+  useEffect(() => {
+    if (!isUserAdmin || loadingSettings) {
+      if (!loadingSettings && !isUserAdmin) {
+        navigate('/');
+      }
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      fetchCategories();
+    }, searchTerm.trim() ? 300 : 0); // Debounce only when searching
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, statusFilter, isUserAdmin, loadingSettings, navigate, sortConfig, fetchCategories]);
+
+  // Handle page changes
+  const handlePageChange = useCallback(async (newPage) => {
+    await fetchCategories(newPage);
+  }, [fetchCategories]);
 
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -222,12 +175,28 @@ const Categories = () => {
         }
       });
 
+      // Backend returns category_id in response
+      const categoryId = res?.data?.category_id;
+      if (!categoryId || categoryId < 0) {
+        // If no valid ID returned, refetch the list to get the actual category from DB
+        showError('Category added but ID not received. Refreshing list...');
+        await fetchCategories();
+        setNewCategoryName('');
+        setNewCategoryDescription('');
+        setNewCategoryImage(null);
+        setNewCategoryImagePreview(null);
+        setShowAddModal(false);
+        setError(null);
+        return;
+      }
+      
       // Optimistically update list with created category
-      const created = res?.data?.category || {
-        category_id: res?.data?.insertId || Math.floor(Math.random() * -1000000),
+      const created = {
+        category_id: categoryId,
         name: newCategoryName,
         description: newCategoryDescription,
-        image: newCategoryImagePreview || null,
+        image: newCategoryImagePreview || res?.data?.image || null,
+        isActive: 1,
         status: 'Active'
       };
       setCategories(prev => [created, ...prev]);

@@ -2,15 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import PromotionsBanner from '../../components/PromotionsBanner/PromotionsBanner';
+import { getCategoryFallbackImage } from '../../utils/images';
 import './Home.css';
-
-// Import fallback category images
-import laptopsImage from '../../assets/images/laptops.jpeg';
-import smartphonesImage from '../../assets/images/smartphones.jpg';
-import desktopsImage from '../../assets/images/desktops.jpeg';
-import gamingMouseImage from '../../assets/images/gaming_mouse.jpg';
-import keyboardsImage from '../../assets/images/keyboards.jpg';
-import monitorsImage from '../../assets/images/monitors.jpeg';
 
 const Home = () => {
   const [products, setProducts] = useState([]);
@@ -46,25 +39,12 @@ const Home = () => {
     return <div className="home-error">{error}</div>;
   }
 
-  // Fallback images mapping
-  const getFallbackImage = (categoryName) => {
-    const name = categoryName.toLowerCase();
-    if (name.includes('laptop')) return laptopsImage;
-    if (name.includes('smartphone') || name.includes('phone')) return smartphonesImage;
-    if (name.includes('desktop')) return desktopsImage;
-    if (name.includes('mouse')) return gamingMouseImage;
-    if (name.includes('keyboard')) return keyboardsImage;
-    if (name.includes('monitor')) return monitorsImage;
-    // Default fallback
-    return laptopsImage;
-  };
-
   // Process categories from database
   const displayCategories = categories.map(category => ({
     id: category.category_id,
     name: category.name,
     description: category.description || '',
-    imageUrl: category.image || getFallbackImage(category.name)
+    imageUrl: category.image || getCategoryFallbackImage(category.name)
   }));
 
   return (

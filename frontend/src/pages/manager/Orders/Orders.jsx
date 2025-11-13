@@ -87,6 +87,44 @@ const Orders = () => {
     }
   });
 
+  // Fetch statistics separately - always global (no filters)
+  const fetchStatistics = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) return;
+      
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      };
+
+      // Fetch statistics WITHOUT any filters (always global)
+      const distributionUrl = `/api/admin/order-status-distribution`;
+      const distributionRes = await fetch(distributionUrl, { headers });
+
+      if (!distributionRes.ok) {
+        throw new Error('Failed to fetch statistics');
+      }
+
+      const distributionData = await distributionRes.json();
+      const processedStats = processStats(distributionData);
+      setStats(processedStats);
+    } catch (err) {
+      console.error('Error fetching statistics:', err);
+    }
+  }, []);
+
+  // Fetch statistics on initial load only
+  useEffect(() => {
+    if (!isUserAdmin || loadingSettings) {
+      if (!loadingSettings && !isUserAdmin) {
+        navigate('/');
+      }
+      return;
+    }
+    fetchStatistics();
+  }, [isUserAdmin, loadingSettings, navigate, fetchStatistics]);
+
   // Ref-based search implementation - no re-renders during typing
   useEffect(() => {
     if (!isUserAdmin || loadingSettings) {
@@ -132,18 +170,13 @@ const Orders = () => {
           params.append('sortDirection', urlSortDirection);
         }
         const ordersUrl = `/api/admin/orders?${params.toString()}`;
-        const distributionUrl = `/api/admin/order-status-distribution?${params.toString()}`;
-        const [ordersRes, distributionRes] = await Promise.all([
-          fetch(ordersUrl, { headers }),
-          fetch(distributionUrl, { headers })
-        ]);
+        const ordersRes = await fetch(ordersUrl, { headers });
 
-        if (!ordersRes.ok || !distributionRes.ok) {
+        if (!ordersRes.ok) {
           throw new Error('Failed to fetch orders data');
         }
 
         const ordersData = await ordersRes.json();
-        const distributionData = await distributionRes.json();
 
         // Handle both old format (array) and new format (object with orders array)
         const orders = ordersData.orders || ordersData;
@@ -156,8 +189,7 @@ const Orders = () => {
         
         setOrders(orders);
         setPagination(paginationData);
-        const processedStats = processStats(distributionData);
-        setStats(processedStats);
+        // Don't update stats here - they are fetched separately and always global
 
       } catch (err) {
         setError(err.message || 'Failed to fetch orders data.');
@@ -213,27 +245,18 @@ const Orders = () => {
         fetchParams.append('sortDirection', existingUrlSortDirection);
       }
       const ordersUrl = `/api/admin/orders?${fetchParams.toString()}`;
-      const distributionUrl = `/api/admin/order-status-distribution?${fetchParams.toString()}`;
-      const [ordersRes, distributionRes] = await Promise.all([
-        fetch(ordersUrl, { headers }),
-        fetch(distributionUrl, { headers })
-      ]);
+      const ordersRes = await fetch(ordersUrl, { headers });
 
-      if (!ordersRes.ok || !distributionRes.ok) {
+      if (!ordersRes.ok) {
         throw new Error(`HTTP error! status: ${ordersRes.status}`);
       }
 
-      const [ordersData, distributionData] = await Promise.all([
-        ordersRes.json(),
-        distributionRes.json()
-      ]);
+      const ordersData = await ordersRes.json();
 
       const ordersArray = ordersData.orders || ordersData;
       setOrders(ordersArray);
       
-      // Process stats properly
-      const processedStats = processStats(distributionData);
-      setStats(processedStats);
+      // Don't update stats here - they are fetched separately and always global
       
       if (ordersData.pagination) {
         setPagination(ordersData.pagination);
@@ -316,32 +339,16 @@ const Orders = () => {
         ordersParams.append('sortDirection', urlSortDirection);
       }
       const ordersUrl = `/api/admin/orders?${ordersParams.toString()}`;
-      
-      const distributionParams = new URLSearchParams();
-      if (urlSearch.trim()) {
-        distributionParams.append('search', urlSearch.trim());
-      }
-      if (urlStatus && urlStatus !== 'all') {
-        distributionParams.append('status', urlStatus);
-      }
-      const distributionUrl = `/api/admin/order-status-distribution?${distributionParams.toString()}`;
-      const [ordersRes, distributionRes] = await Promise.all([
-        fetch(ordersUrl, { headers }),
-        fetch(distributionUrl, { headers })
-      ]);
+      const ordersRes = await fetch(ordersUrl, { headers });
 
-      if (!ordersRes.ok || !distributionRes.ok) {
+      if (!ordersRes.ok) {
         throw new Error('Failed to refresh orders data');
       }
 
-      const [ordersData, distributionData] = await Promise.all([
-        ordersRes.json(),
-        distributionRes.json()
-      ]);
+      const ordersData = await ordersRes.json();
 
       setOrders(ordersData.orders || ordersData);
-      const processedStats = processStats(distributionData);
-      setStats(processedStats);
+      // Don't update stats here - they are fetched separately and always global
       
     } catch (err) {
       setError(err.message || 'Failed to update order status.');
@@ -425,7 +432,7 @@ const Orders = () => {
               className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
               onClick={() => handleStatusFilterChange('all')}
             >
-              All ({pagination.totalItems})
+              All
             </button>
             <button 
               className={`filter-btn ${statusFilter === 'pending' ? 'active' : ''}`}

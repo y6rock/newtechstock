@@ -190,30 +190,52 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
               <label>Supplier</label>
               <select name="supplier_id" value={form.supplier_id} onChange={handleChange}>
                 <option value="">None</option>
-                {suppliers.map(s => (
-                  <option 
-                    key={s.supplier_id} 
-                    value={s.supplier_id}
-                    disabled={s.isActive === 0 || s.isActive === false}
-                  >
-                    {s.name}{s.isActive === 0 || s.isActive === false ? ' (Inactive)' : ''}
-                  </option>
-                ))}
+                {[...suppliers]
+                  .sort((a, b) => {
+                    // Active items first (isActive = 1 or true), then inactive
+                    const aActive = a.isActive === 1 || a.isActive === true;
+                    const bActive = b.isActive === 1 || b.isActive === true;
+                    if (aActive === bActive) {
+                      // If same status, sort by name
+                      return (a.name || '').localeCompare(b.name || '');
+                    }
+                    return aActive ? -1 : 1; // Active comes first
+                  })
+                  .map(s => (
+                    <option 
+                      key={s.supplier_id} 
+                      value={s.supplier_id}
+                      disabled={s.isActive === 0 || s.isActive === false}
+                    >
+                      {s.name}{s.isActive === 0 || s.isActive === false ? ' (Inactive)' : ''}
+                    </option>
+                  ))}
               </select>
             </div>
             <div className="form-group">
               <label>Category</label>
               <select name="category_id" value={form.category_id} onChange={handleChange}>
                 <option value="">None</option>
-                {categories.map(c => (
-                  <option 
-                    key={c.category_id} 
-                    value={c.category_id}
-                    disabled={c.isActive === 0 || c.isActive === false}
-                  >
-                    {c.name}{c.isActive === 0 || c.isActive === false ? ' (Inactive)' : ''}
-                  </option>
-                ))}
+                {[...categories]
+                  .sort((a, b) => {
+                    // Active items first (isActive = 1 or true), then inactive
+                    const aActive = a.isActive === 1 || a.isActive === true;
+                    const bActive = b.isActive === 1 || b.isActive === true;
+                    if (aActive === bActive) {
+                      // If same status, sort by name
+                      return (a.name || '').localeCompare(b.name || '');
+                    }
+                    return aActive ? -1 : 1; // Active comes first
+                  })
+                  .map(c => (
+                    <option 
+                      key={c.category_id} 
+                      value={c.category_id}
+                      disabled={c.isActive === 0 || c.isActive === false}
+                    >
+                      {c.name}{c.isActive === 0 || c.isActive === false ? ' (Inactive)' : ''}
+                    </option>
+                  ))}
               </select>
             </div>
           </div>

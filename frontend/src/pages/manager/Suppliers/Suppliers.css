@@ -285,6 +285,10 @@
 .suppliers-table .actions-cell {
   text-align: center;
   white-space: nowrap;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  align-items: center;
 }
 
 /* Action Buttons */
@@ -295,6 +299,8 @@
   cursor: pointer;
   font-size: 14px;
   transition: all 0.2s ease;
+  display: inline-block;
+  flex-shrink: 0;
 }
 
 .edit-btn {

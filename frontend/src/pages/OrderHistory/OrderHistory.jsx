@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { useSettings } from '../../context/SettingsContext';
 import { useNavigate, Link } from 'react-router-dom';
-import { formatPrice } from '../../utils/currency';
+import { formatPriceWithTax, formatPriceConverted } from '../../utils/currency';
 import { formatDateTimeFull } from '../../utils/dateFormat';
 import Pagination from '../../components/Pagination/Pagination';
 import './OrderHistory.css';
 
 const OrderHistory = ({ userId }) => {
-  const { user_id: contextUserId, loadingSettings, currency } = useSettings();
+  const { user_id: contextUserId, loadingSettings, currency, vat_rate } = useSettings();
   const navigate = useNavigate();
   const [orders, setOrders] = useState([]);
   const [loadingOrders, setLoadingOrders] = useState(true);
@@ -135,7 +135,7 @@ const OrderHistory = ({ userId }) => {
               <div key={order.order_id} className="order-card">
                 <div className="order-header">
                   <h2 className="order-number">Order #{order.order_id}</h2>
-                  <span className="order-total">Total: {formatPrice(order.total_amount, currency)}</span>
+                  <span className="order-total">Total: {formatPriceConverted(order.total_amount, currency)}</span>
                 </div>
                 <div className="order-details">
                   <p className="order-detail">Date: {formatDateTimeFull(order.order_date)}</p>
@@ -158,7 +158,7 @@ const OrderHistory = ({ userId }) => {
                         <div className="item-details">
                           <p className="item-name">{item.product_name}</p>
                           <p className="item-quantity">Quantity: {item.quantity}</p>
-                          <p className="item-price">{formatPrice(item.price * item.quantity, currency)}</p>
+                          <p className="item-price">{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</p>
                         </div>
                       </div>
                     ))}

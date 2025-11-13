@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Routes, Route } from 'react-router-dom';
-import { ToastProvider } from './context/ToastContext';
 import Header from './components/Header/Header';
+import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 import ScrollToTop from './components/ScrollToTop/ScrollToTop';
 import Home from './pages/Home/Home';
 import About from './pages/About/About';
@@ -74,15 +74,15 @@ function App({ isManagerRoute }) {
         <Route path="/order-confirmation/:orderId" element={<OrderConfirmation />} />
         <Route path="/paypal-test" element={<PayPalTest />} />
 
-        {/* Manager Routes */}
-        <Route path="/manager/dashboard" element={<Dashboard />} />
-        <Route path="/manager/products" element={<Products />} />
-        <Route path="/manager/promotions" element={<Promotions />} />
-        <Route path="/manager/customers" element={<Customers />} />
-        <Route path="/manager/categories" element={<Categories />} />
-        <Route path="/manager/suppliers" element={<Suppliers />} />
-        <Route path="/manager/orders" element={<Orders />} />
-        <Route path="/manager/settings" element={<Settings />} />
+        {/* Manager Routes - Protected */}
+        <Route path="/manager/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+        <Route path="/manager/products" element={<ProtectedRoute><Products /></ProtectedRoute>} />
+        <Route path="/manager/promotions" element={<ProtectedRoute><Promotions /></ProtectedRoute>} />
+        <Route path="/manager/customers" element={<ProtectedRoute><Customers /></ProtectedRoute>} />
+        <Route path="/manager/categories" element={<ProtectedRoute><Categories /></ProtectedRoute>} />
+        <Route path="/manager/suppliers" element={<ProtectedRoute><Suppliers /></ProtectedRoute>} />
+        <Route path="/manager/orders" element={<ProtectedRoute><Orders /></ProtectedRoute>} />
+        <Route path="/manager/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
 
         {/* 404 Not Found Route */}
         <Route path="*" element={<NotFound />} />
@@ -91,7 +91,7 @@ function App({ isManagerRoute }) {
   );
 
   return (
-    <ToastProvider>
+    <>
       <Header />
 
       {isManagerRoute ? (
@@ -114,7 +114,7 @@ function App({ isManagerRoute }) {
 
       <FloatingCart />
       <Footer />
-    </ToastProvider>
+    </>
   );
 }
 

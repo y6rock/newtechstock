@@ -20,6 +20,8 @@ function ProductManager() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [supplierFilter, setSupplierFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
+  const searchInputRef = useRef(null);
+  const isTypingRef = useRef(false);
   const [showAddForm, setShowAddForm] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -131,7 +133,7 @@ function ProductManager() {
   };
 
 
-  const fetchProductData = useCallback(async (page = 1, search = '') => {
+  const fetchProductData = useCallback(async (pageOverride = null, searchOverride = null) => {
     if (loadingSettings || !isUserAdmin) {
       if (!loadingSettings && !isUserAdmin) navigate('/');
       return;
@@ -141,31 +143,38 @@ function ProductManager() {
       const token = localStorage.getItem('token');
       const headers = { 'Authorization': `Bearer ${token}` };
       
+      // Read all parameters from URL (single source of truth)
+      const urlPage = pageOverride !== null ? pageOverride : (parseInt(searchParams.get('page')) || 1);
+      const urlSearch = searchOverride !== null ? searchOverride : (searchParams.get('search') || '');
+      const urlStatusFilter = searchParams.get('status') || 'all';
+      const urlCategoryFilter = searchParams.get('category') || 'all';
+      const urlSupplierFilter = searchParams.get('supplier') || 'all';
+      const urlSortField = searchParams.get('sortField');
+      const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+      
       const params = new URLSearchParams({
-        page: page.toString(),
+        page: urlPage.toString(),
         limit: '10'
       });
       
-      if (search.trim()) {
-        params.append('search', search.trim());
+      if (urlSearch.trim()) {
+        params.append('search', urlSearch.trim());
       }
       
-      // Add filter parameters
-      if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+      // Add filter parameters from URL
+      if (urlStatusFilter && urlStatusFilter !== 'all') {
+        params.append('status', urlStatusFilter);
       }
       
-      if (categoryFilter && categoryFilter !== 'all') {
-        params.append('category', categoryFilter);
+      if (urlCategoryFilter && urlCategoryFilter !== 'all') {
+        params.append('category', urlCategoryFilter);
       }
       
-      if (supplierFilter && supplierFilter !== 'all') {
-        params.append('supplier', supplierFilter);
+      if (urlSupplierFilter && urlSupplierFilter !== 'all') {
+        params.append('supplier', urlSupplierFilter);
       }
 
-      // Add sorting params from URL only
-      const urlSortField = searchParams.get('sortField');
-      const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+      // Add sorting params from URL
       if (urlSortField) {
         params.append('sortField', urlSortField);
         params.append('sortDirection', urlSortDirection);
@@ -177,8 +186,8 @@ function ProductManager() {
       
       const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
         fetch(`/api/products/admin/all?${params}`, { headers }),
-        fetch('/api/suppliers', { headers }),
-        fetch('/api/categories', { headers })
+        fetch('/api/suppliers?limit=1000&page=1', { headers }), // Fetch all suppliers for modal
+        fetch('/api/categories?limit=1000&page=1', { headers }) // Fetch all categories for modal
       ]);
 
       if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
@@ -201,7 +210,7 @@ function ProductManager() {
       console.error('Error fetching initial product data:', err);
       setError('Failed to load necessary data. Please try again.');
     }
-  }, [isUserAdmin, loadingSettings, navigate, searchParams]);
+  }, [isUserAdmin, loadingSettings, navigate, searchParams]); // Read all from URL, no need for filter state
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -236,15 +245,12 @@ function ProductManager() {
     console.log('=== END PAGE CHANGE DEBUG ===');
   }, [searchParams, setSearchParams, searchTerm, pagination]);
 
-  // Handle search term changes
+  // Handle search term changes - simple state update, no URL updates during typing
   const handleSearchChange = useCallback((newSearchTerm) => {
-    const params = new URLSearchParams();
-    params.set('page', '1'); // Reset to first page on search
-    if (newSearchTerm.trim()) {
-      params.set('search', newSearchTerm);
-    }
-    setSearchParams(params);
-  }, [setSearchParams]);
+    setSearchTerm(newSearchTerm);
+    // Don't update URL params here - let the debounced effect handle it
+    // This prevents the input from losing focus on every keystroke
+  }, []);
 
   // Load global statistics on mount
   useEffect(() => {
@@ -275,8 +281,9 @@ function ProductManager() {
     // Do not write URL from state; URL is the source of truth
 
     // Only update if URL params differ from current state or if it's initial load
+    // Don't update searchTerm if user is actively typing (to prevent focus loss)
     const shouldUpdate = isInitialLoad.current || 
-      currentSearch !== searchTerm ||
+      (!isTypingRef.current && currentSearch !== searchTerm) ||
       urlStatusFilter !== statusFilter ||
       urlCategoryFilter !== categoryFilter ||
       urlSupplierFilter !== supplierFilter ||
@@ -288,7 +295,10 @@ function ProductManager() {
       return;
     }
     
-    setSearchTerm(currentSearch);
+    // Only update searchTerm from URL if user is not actively typing
+    if (!isTypingRef.current || isInitialLoad.current) {
+      setSearchTerm(currentSearch);
+    }
     setStatusFilter(urlStatusFilter);
     setCategoryFilter(urlCategoryFilter);
     setSupplierFilter(urlSupplierFilter);
@@ -383,7 +393,7 @@ function ProductManager() {
       fetchWithFilters();
     } else {
       // Not initial load - use simple fetch for page changes
-      fetchProductData(currentPage, currentSearch);
+      fetchProductData();
     }
     
     // Mark initial load as complete
@@ -391,23 +401,172 @@ function ProductManager() {
     console.log('=== END URL PARAMS SYNC DEBUG ===');
   }, [searchParams]);
 
-  // Debounced search effect - only calls API, doesn't update URL
+  // Auto-refocus search input after re-renders to maintain typing experience
+  useEffect(() => {
+    if (searchInputRef.current && searchTerm && isTypingRef.current) {
+      // Use requestAnimationFrame to ensure focus happens after render
+      requestAnimationFrame(() => {
+        if (searchInputRef.current && isTypingRef.current) {
+          searchInputRef.current.focus();
+          // Restore cursor position to end
+          const len = searchInputRef.current.value.length;
+          searchInputRef.current.setSelectionRange(len, len);
+        }
+      });
+    }
+  });
+
+  // Debounced search effect - performs search directly (like Customers), no URL updates during typing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== (searchParams.get('search') || '')) {
-        setPagination(prev => ({ ...prev, currentPage: 1 }));
-        fetchProductData(1, searchTerm);
+      if (isUserAdmin && !loadingSettings && searchTerm.trim()) {
+        // Only perform search if there's actually a search term
+        const performSearch = async () => {
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+              throw new Error('No token found');
+            }
+
+            const headers = { 'Authorization': `Bearer ${token}` };
+            
+            // Read current filters from URL (single source of truth)
+            const urlStatusFilter = searchParams.get('status') || 'all';
+            const urlCategoryFilter = searchParams.get('category') || 'all';
+            const urlSupplierFilter = searchParams.get('supplier') || 'all';
+            const urlSortField = searchParams.get('sortField');
+            const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+
+            const fetchParams = new URLSearchParams({
+              page: '1',
+              limit: '10'
+            });
+
+            if (searchTerm.trim()) {
+              fetchParams.append('search', searchTerm.trim());
+            }
+
+            // Add filter parameters from URL
+            if (urlStatusFilter && urlStatusFilter !== 'all') {
+              fetchParams.append('status', urlStatusFilter);
+            }
+            
+            if (urlCategoryFilter && urlCategoryFilter !== 'all') {
+              fetchParams.append('category', urlCategoryFilter);
+            }
+            
+            if (urlSupplierFilter && urlSupplierFilter !== 'all') {
+              fetchParams.append('supplier', urlSupplierFilter);
+            }
+
+            // Sorting from URL only
+            if (urlSortField) {
+              fetchParams.append('sortField', urlSortField);
+              fetchParams.append('sortDirection', urlSortDirection);
+            }
+
+            const response = await fetch(`/api/products/admin/all?${fetchParams}`, { headers });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            setProducts(data.products || data);
+
+            if (data.pagination) {
+              setPagination(data.pagination);
+            } else {
+              setPagination(prev => ({
+                ...prev,
+                currentPage: 1 // Reset to page 1 when searching
+              }));
+            }
+
+            // Don't update URL during typing to prevent focus loss
+            // URL can be updated after search completes if needed for bookmarking
+
+          } catch (error) {
+            console.error('Error fetching products:', error);
+            showError('Failed to fetch products');
+          }
+        };
+        
+        performSearch();
+      } else if (isUserAdmin && !loadingSettings && !searchTerm.trim()) {
+        // If search term is cleared, reload the current page without search
+        const loadCurrentPage = async () => {
+          try {
+            const token = localStorage.getItem('token');
+            if (!token) {
+              throw new Error('No token found');
+            }
+
+            const headers = { 'Authorization': `Bearer ${token}` };
+            
+            // Read current filters and page from URL
+            const page = parseInt(searchParams.get('page')) || 1;
+            const urlStatusFilter = searchParams.get('status') || 'all';
+            const urlCategoryFilter = searchParams.get('category') || 'all';
+            const urlSupplierFilter = searchParams.get('supplier') || 'all';
+            const urlSortField = searchParams.get('sortField');
+            const urlSortDirection = searchParams.get('sortDirection') || 'asc';
+
+            const params = new URLSearchParams({
+              page: page.toString(),
+              limit: '10'
+            });
+            
+            if (urlStatusFilter && urlStatusFilter !== 'all') {
+              params.append('status', urlStatusFilter);
+            }
+            
+            if (urlCategoryFilter && urlCategoryFilter !== 'all') {
+              params.append('category', urlCategoryFilter);
+            }
+            
+            if (urlSupplierFilter && urlSupplierFilter !== 'all') {
+              params.append('supplier', urlSupplierFilter);
+            }
+
+            // Sorting from URL only
+            if (urlSortField) {
+              params.append('sortField', urlSortField);
+              params.append('sortDirection', urlSortDirection);
+            }
+
+            const response = await fetch(`/api/products/admin/all?${params}`, { headers });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            setProducts(data.products || data);
+
+            if (data.pagination) {
+              setPagination(data.pagination);
+            } else {
+              setPagination(prev => ({
+                ...prev,
+                currentPage: page
+              }));
+            }
+          } catch (error) {
+            console.error('Error clearing search:', error);
+            showError('Failed to clear search');
+          }
+        };
+        
+        loadCurrentPage();
       }
-    }, 500);
+    }, 300); // 300ms debounce (same as Customers)
+
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams]);
+  }, [searchTerm, isUserAdmin, loadingSettings, searchParams, showError]);
 
   // Refetch when sorting changes (via URL sync updating sortConfig)
-  useEffect(() => {
-    if (isInitialLoad.current) return;
-    const currentSearch = searchParams.get('search') || '';
-    fetchProductData(pagination.currentPage, currentSearch);
-  }, [sortConfig]);
+  // This is handled by the main URL sync effect, so we don't need a separate effect
 
   // Fetch products when filters change (but not on initial load)
   useEffect(() => {
@@ -484,11 +643,11 @@ function ProductManager() {
         console.log('Filter API URL:', `/api/products/admin/all?${params}`);
         console.log('Filter Headers:', headers);
         
-        const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
-          fetch(`/api/products/admin/all?${params}`, { headers }),
-          fetch('/api/suppliers', { headers }),
-          fetch('/api/categories', { headers })
-        ]);
+          const [productsRes, suppliersRes, categoriesRes] = await Promise.all([
+            fetch(`/api/products/admin/all?${params}`, { headers }),
+            fetch('/api/suppliers?limit=1000&page=1', { headers }), // Fetch all suppliers for modal
+            fetch('/api/categories?limit=1000&page=1', { headers }) // Fetch all categories for modal
+          ]);
 
         if (!productsRes.ok || !suppliersRes.ok || !categoriesRes.ok) {
           throw new Error('Failed to fetch product data.');
@@ -629,7 +788,7 @@ function ProductManager() {
       console.log('Attempting to re-fetch products after successful addition...');
       const currentPage = pagination.currentPage;
       const currentSearch = searchParams.get('search') || '';
-      fetchProductData(currentPage, currentSearch);
+      fetchProductData();
       setShowAddForm(false);
       setForm({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
       setImageFile(null);
@@ -725,7 +884,7 @@ function ProductManager() {
       // Reload products after updating
       const currentPage = pagination.currentPage;
       const currentSearch = searchParams.get('search') || '';
-      fetchProductData(currentPage, currentSearch);
+      fetchProductData();
     } catch (err) {
       setMessage(err.response?.data?.message || 'Error updating product');
     }
@@ -740,13 +899,15 @@ function ProductManager() {
             headers: { Authorization: `Bearer ${token}` }
           });
           showSuccess('Product deactivated successfully!');
-          // Reload products after deactivating
-          const currentPage = pagination.currentPage;
-          const currentSearch = searchParams.get('search') || '';
-          await fetchProductData(currentPage, currentSearch);
+          // Remove product from local state immediately for instant feedback
+          setProducts(prevProducts => prevProducts.filter(p => p.product_id !== productId));
+          // Reload products after deactivating - read all params from URL
+          await fetchProductData();
           await fetchGlobalStats(); // Refresh global statistics
         } catch (err) {
           showError(err.response?.data?.message || 'Error deactivating product');
+          // On error, refetch to restore correct state
+          await fetchProductData();
         }
       }
     );
@@ -761,13 +922,13 @@ function ProductManager() {
             headers: { Authorization: `Bearer ${token}` }
           });
           showSuccess('Product restored successfully!');
-          // Reload products after restoring
-          const currentPage = pagination.currentPage;
-          const currentSearch = searchParams.get('search') || '';
-          await fetchProductData(currentPage, currentSearch);
+          // Reload products after restoring - read all params from URL
+          await fetchProductData();
           await fetchGlobalStats(); // Refresh global statistics
         } catch (err) {
           showError(err.response?.data?.message || 'Error restoring product');
+          // On error, refetch to restore correct state
+          await fetchProductData();
         }
       }
     );
@@ -793,9 +954,8 @@ function ProductManager() {
   const handleSuccess = async (isEdit = false) => {
     handleCloseModal();
     try {
-      const currentPage = pagination.currentPage;
-      const currentSearch = searchParams.get('search') || '';
-      await fetchProductData(currentPage, currentSearch);
+      // Reload products - read all params from URL (filters, search, page, sort)
+      await fetchProductData();
       await fetchGlobalStats(); // Refresh global statistics
       
       // Show success toast
@@ -817,27 +977,101 @@ function ProductManager() {
       <h1 className="product-manager-title">Products</h1>
       <p className="product-manager-subtitle">Manage your product catalog</p>
 
-      {/* Search and Filter Controls - Enhanced Layout */}
-      <div className="search-filter-controls">
-        {/* Search Input */}
-        <div className="search-input-container">
+      {/* Search Section - Like Customers */}
+      <div style={{
+        backgroundColor: '#f8f9fa',
+        padding: '20px',
+        marginBottom: '30px',
+        borderRadius: '8px',
+        border: '1px solid #e9ecef'
+      }}>
+        <div style={{ position: 'relative' }}>
           <input
+            ref={searchInputRef}
             type="text"
-            placeholder="Search products..."
+            placeholder="Search products by name, description, or category..."
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="search-input-field"
+            onChange={(e) => handleSearchChange(e.target.value)}
+            style={{
+              width: '100%',
+              maxWidth: '400px',
+              padding: '14px 20px 14px 45px',
+              border: '2px solid #e1e5e9',
+              borderRadius: '12px',
+              fontSize: '15px',
+              outline: 'none',
+              transition: 'all 0.3s ease',
+              fontFamily: 'inherit'
+            }}
+            onFocus={(e) => {
+              e.target.style.borderColor = '#667eea';
+              e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+            }}
+            onBlur={(e) => {
+              e.target.style.borderColor = '#e1e5e9';
+              e.target.style.boxShadow = 'none';
+            }}
           />
-          <span className="search-icon">
+          <span style={{
+            position: 'absolute',
+            left: '15px',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            fontSize: '18px',
+            color: '#6c757d',
+            pointerEvents: 'none'
+          }}>
             🔍
           </span>
+          {searchTerm && (
+            <button
+              type="button"
+              onClick={() => handleSearchChange('')}
+              style={{
+                position: 'absolute',
+                right: '10px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'none',
+                border: 'none',
+                fontSize: '20px',
+                color: '#6c757d',
+                cursor: 'pointer',
+                padding: '5px',
+                lineHeight: '1',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center'
+              }}
+              onMouseEnter={(e) => e.target.style.color = '#dc3545'}
+              onMouseLeave={(e) => e.target.style.color = '#6c757d'}
+            >
+              ×
+            </button>
+          )}
         </div>
+      </div>
+
+      {/* Filter Controls - Enhanced Layout */}
+      <div className="search-filter-controls">
         
         {/* Status Filter */}
         <div className="status-filter-container">
           <select
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
+            onChange={(e) => {
+              const newStatus = e.target.value;
+              setStatusFilter(newStatus);
+              // Update URL
+              const params = new URLSearchParams(searchParams);
+              params.set('page', '1'); // Reset to page 1 on filter change
+              if (newStatus !== 'all') {
+                params.set('status', newStatus);
+              } else {
+                params.delete('status');
+              }
+              setSearchParams(params);
+            }}
             className="status-filter-select"
           >
             <option value="all">All Products ({products.length})</option>
@@ -850,7 +1084,19 @@ function ProductManager() {
         <div className="category-filter-container">
           <select
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => {
+              const newCategory = e.target.value;
+              setCategoryFilter(newCategory);
+              // Update URL
+              const params = new URLSearchParams(searchParams);
+              params.set('page', '1'); // Reset to page 1 on filter change
+              if (newCategory !== 'all') {
+                params.set('category', newCategory);
+              } else {
+                params.delete('category');
+              }
+              setSearchParams(params);
+            }}
             className="category-filter-select"
           >
             <option value="all">All Categories</option>
@@ -866,7 +1112,19 @@ function ProductManager() {
         <div className="supplier-filter-container">
           <select
             value={supplierFilter}
-            onChange={(e) => setSupplierFilter(e.target.value)}
+            onChange={(e) => {
+              const newSupplier = e.target.value;
+              setSupplierFilter(newSupplier);
+              // Update URL
+              const params = new URLSearchParams(searchParams);
+              params.set('page', '1'); // Reset to page 1 on filter change
+              if (newSupplier !== 'all') {
+                params.set('supplier', newSupplier);
+              } else {
+                params.delete('supplier');
+              }
+              setSearchParams(params);
+            }}
             className="supplier-filter-select"
           >
             <option value="all">All Suppliers</option>
@@ -888,6 +1146,17 @@ function ProductManager() {
                 setCategoryFilter('all');
                 setSupplierFilter('all');
                 setSearchTerm('');
+                // Clear all filters from URL
+                const params = new URLSearchParams();
+                params.set('page', '1');
+                // Keep sort if it exists
+                const urlSortField = searchParams.get('sortField');
+                const urlSortDirection = searchParams.get('sortDirection');
+                if (urlSortField && urlSortDirection) {
+                  params.set('sortField', urlSortField);
+                  params.set('sortDirection', urlSortDirection);
+                }
+                setSearchParams(params);
               }}
               className="clear-filters-button"
             >

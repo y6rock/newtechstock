@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
-import { formatPrice } from '../../utils/currency';
+import { formatPriceWithTax } from '../../utils/currency';
 import { useSettings } from '../../context/SettingsContext';
 import './HeaderSearch.css';
 
@@ -16,7 +16,7 @@ const HeaderSearch = () => {
   const searchRef = useRef(null);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
-  const { currency } = useSettings();
+  const { currency, vat_rate } = useSettings();
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -181,7 +181,7 @@ const HeaderSearch = () => {
                 <div className="result-content">
                   <div className="result-name">{product.name}</div>
                   <div className="result-price">
-                    {formatPrice(product.price, currency)}
+                    {formatPriceWithTax(product.price, currency, vat_rate)}
                   </div>
                 </div>
               </div>

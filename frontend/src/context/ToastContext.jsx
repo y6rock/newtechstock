@@ -19,14 +19,17 @@ export const ToastProvider = ({ children }) => {
   }, []);
 
   const showToast = useCallback((message, type = 'success', duration = 4000) => {
-    // Check if a toast with the same message and type already exists
-    const existingToast = toasts.find(toast => 
-      toast.message === message && toast.type === type
-    );
-    
-    if (existingToast) {
-      // If duplicate exists, don't add a new one
-      return existingToast.id;
+    // For success toasts, allow duplicates to show (user might save multiple times)
+    // Only prevent duplicates for error/info toasts
+    if (type !== 'success') {
+      const existingToast = toasts.find(toast => 
+        toast.message === message && toast.type === type
+      );
+      
+      if (existingToast) {
+        // If duplicate exists, don't add a new one
+        return existingToast.id;
+      }
     }
     
     const id = Date.now() + Math.random();
@@ -125,7 +128,7 @@ export const ToastProvider = ({ children }) => {
             onCancel={toast.onCancel}
             duration={0} // Duration is handled by the context
             style={{
-              bottom: `${20 + (index * 80)}px` // Stack toasts vertically
+              bottom: `${20 + (index * 80)}px`
             }}
           />
         ))}

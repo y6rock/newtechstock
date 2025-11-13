@@ -2,10 +2,21 @@ const dbSingleton = require('../../dbSingleton.js');
 
 const db = dbSingleton.getConnection();
 
-// Get all categories (public) - returns all categories including inactive for filtering
+// Get all categories (public) - returns only active categories by default, or all if includeInactive=true
 exports.getPublicCategories = async (req, res) => {
     try {
-        const [categories] = await db.query('SELECT *, isActive FROM categories ORDER BY isActive DESC, name');
+        const { includeInactive } = req.query;
+        let query;
+        
+        if (includeInactive === 'true') {
+            // Return all categories (active and inactive) for filtering purposes
+            query = 'SELECT *, isActive FROM categories ORDER BY isActive DESC, name';
+        } else {
+            // Return only active categories for display (default)
+            query = 'SELECT *, isActive FROM categories WHERE isActive = TRUE ORDER BY name';
+        }
+        
+        const [categories] = await db.query(query);
         res.json(categories);
     } catch (err) {
         console.error('Database error in GET /categories/public:', err);

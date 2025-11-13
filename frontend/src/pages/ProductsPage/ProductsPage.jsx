@@ -33,17 +33,12 @@ const ProductsPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
 
 
-  const getInitialSearchTerm = () => {
-    const params = new URLSearchParams(location.search);
-    return params.get('search') || '';
-  };
-
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
   ]);
-  const [searchTerm, setSearchTerm] = useState(getInitialSearchTerm());
+  const [searchTerm, setSearchTerm] = useState('');
   const [pagination, setPagination] = useState({
     currentPage: 1,
     totalPages: 1,
@@ -60,9 +55,23 @@ const ProductsPage = () => {
   
   // Use ref for slider to avoid controlled input issues
   const sliderRef = useRef(null);
+  // AbortController ref to cancel in-flight requests
+  const abortControllerRef = useRef(null);
+  // Ref for search input to maintain focus
+  const searchInputRef = useRef(null);
+  const isTypingRef = useRef(false);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
+    // Cancel any in-flight request
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    // Create new AbortController for this request
+    const abortController = new AbortController();
+    abortControllerRef.current = abortController;
+    
     try {
       const pageToUse = pageOverride !== null ? pageOverride : pagination.currentPage;
       const params = new URLSearchParams();
@@ -97,7 +106,15 @@ const ProductsPage = () => {
       params.append('limit', '10');
       
       console.log('Fetching products with params:', params.toString());
-      const response = await axios.get(`/api/products?${params}`);
+      const response = await axios.get(`/api/products?${params}`, {
+        signal: abortController.signal
+      });
+      
+      // Check if request was aborted
+      if (abortController.signal.aborted) {
+        return;
+      }
+      
       console.log('ProductsPage: Products fetched with filters:', response.data);
       
       if (response.data && response.data.products) {
@@ -113,26 +130,41 @@ const ProductsPage = () => {
         setProducts([]);
       }
     } catch (error) {
+      // Don't log error if request was aborted
+      if (error.name === 'AbortError' || error.name === 'CanceledError') {
+        console.log('ProductsPage: Request aborted');
+        return;
+      }
       console.error('ProductsPage: Error fetching products:', error);
       setProducts([]);
     } finally {
-      setLoading(false);
+      // Only update loading state if this request wasn't aborted
+      if (!abortController.signal.aborted) {
+        setLoading(false);
+      }
     }
   }, [selectedCategory, maxPrice, selectedManufacturers, pagination.currentPage, priceStats.maxPrice, searchTerm]);
   
-  // Handle URL parameter changes
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
+  
+  // Handle URL parameter changes for category only (search is handled by handleSearchChange)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const searchParam = params.get('search');
     const categoryParam = params.get('category');
     
-    if (searchParam !== null) {
-      setSearchTerm(searchParam);
-    }
-    if (categoryParam !== null) {
+    if (categoryParam !== null && categoryParam !== selectedCategory) {
       setSelectedCategory(categoryParam);
+    } else if (categoryParam === null && selectedCategory !== 'All Products') {
+      setSelectedCategory('All Products');
     }
-  }, [location.search]);
+  }, [location.search, selectedCategory]);
 
   // Removed debounced effect for better responsiveness
 
@@ -187,8 +219,8 @@ const ProductsPage = () => {
     // Fetch initial price statistics (no filters)
     fetchPriceStats();
 
-    // Fetch categories
-    axios.get('/api/categories/public')
+    // Fetch categories (including inactive for filters)
+    axios.get('/api/categories/public?includeInactive=true')
       .then(res => {
         console.log('ProductsPage: Categories fetched from backend:', res.data);
         const categoriesData = Array.isArray(res.data) ? res.data : [];
@@ -226,16 +258,41 @@ const ProductsPage = () => {
     fetchProducts();
   }, [selectedCategory, maxPrice, selectedManufacturers, fetchProducts]);
 
-  // Debounced search effect - only calls API, doesn't update URL
+  // Handle search term changes - simple state update, no URL updates during typing
+  const handleSearchChange = useCallback((newSearchTerm) => {
+    isTypingRef.current = true;
+    setSearchTerm(newSearchTerm);
+    // Don't update URL or fetch here - let the debounced effect handle it
+    // This prevents the input from losing focus on every keystroke
+  }, []);
+
+  // Auto-refocus search input after re-renders to maintain typing experience
+  useEffect(() => {
+    if (searchInputRef.current && searchTerm && isTypingRef.current) {
+      // Use requestAnimationFrame to ensure focus happens after render
+      requestAnimationFrame(() => {
+        if (searchInputRef.current && isTypingRef.current) {
+          searchInputRef.current.focus();
+          // Restore cursor position to end
+          const len = searchInputRef.current.value.length;
+          searchInputRef.current.setSelectionRange(len, len);
+        }
+      });
+    }
+  });
+
+  // Debounced search effect - performs search after user stops typing
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (searchTerm !== (searchParams.get('search') || '')) {
-        setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page on search
-        fetchProducts();
-      }
-    }, 500);
+      // Reset to page 1 when search changes
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      // Fetch products with current search term
+      fetchProducts(1);
+      // Clear typing flag after search completes
+      isTypingRef.current = false;
+    }, 300); // 300ms debounce (same as Customers)
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, searchParams, fetchProducts]);
+  }, [searchTerm, fetchProducts]);
 
   // Initial fetch after price stats are loaded
   useEffect(() => {
@@ -283,19 +340,11 @@ const ProductsPage = () => {
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
-    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
-    fetchProducts();
+    // The debounced effect will handle the search
+    // Just ensure we're on page 1
+    setPagination(prev => ({ ...prev, currentPage: 1 }));
+    fetchProducts(1);
   };
-
-  // Handle search term changes - only updates URL
-  const handleSearchChange = useCallback((newSearchTerm) => {
-    const params = new URLSearchParams();
-    params.set('page', '1'); // Reset to first page on search
-    if (newSearchTerm.trim()) {
-      params.set('search', newSearchTerm);
-    }
-    setSearchParams(params);
-  }, [setSearchParams]);
 
   const handlePageChange = async (newPage) => {
     // Scroll to top of product grid when page changes
@@ -341,16 +390,29 @@ const ProductsPage = () => {
           <div className="search-input-container">
             <BsSearch className="search-icon" />
             <input
+              ref={searchInputRef}
               type="text"
               placeholder="Search products, categories, or descriptions..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onFocus={() => {
+                isTypingRef.current = true;
+              }}
+              onBlur={() => {
+                // Only clear typing flag after a delay to allow focus restoration
+                setTimeout(() => {
+                  isTypingRef.current = false;
+                }, 100);
+              }}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="search-input"
             />
             {searchTerm && (
               <button
                 type="button"
-                onClick={() => setSearchTerm('')}
+                onClick={() => {
+                  setSearchTerm('');
+                  isTypingRef.current = false;
+                }}
                 className="clear-search-button"
               >
                 ×
