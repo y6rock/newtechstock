@@ -93,16 +93,18 @@ function ProductManager() {
       const headers = { 'Authorization': `Bearer ${token}` };
       
       const params = new URLSearchParams();
+      // Read filters directly from URL (single source of truth)
       const currentSearch = searchParams.get('search') || '';
+      const urlCategoryFilter = searchParams.get('category') || 'all';
+      const urlSupplierFilter = searchParams.get('supplier') || 'all';
       
-      if (statusFilter && statusFilter !== 'all') {
-        params.append('status', statusFilter);
+      // Don't include status filter - we want stats to show breakdown of all statuses
+      // for the current filtered set (category, supplier, search)
+      if (urlCategoryFilter && urlCategoryFilter !== 'all') {
+        params.append('category', urlCategoryFilter);
       }
-      if (categoryFilter && categoryFilter !== 'all') {
-        params.append('category', categoryFilter);
-      }
-      if (supplierFilter && supplierFilter !== 'all') {
-        params.append('supplier', supplierFilter);
+      if (urlSupplierFilter && urlSupplierFilter !== 'all') {
+        params.append('supplier', urlSupplierFilter);
       }
       if (currentSearch.trim()) {
         params.append('search', currentSearch.trim());
@@ -122,7 +124,7 @@ function ProductManager() {
     } catch (err) {
       console.error('Error fetching global statistics:', err);
     }
-  }, [loadingSettings, isUserAdmin, statusFilter, categoryFilter, supplierFilter, searchParams]);
+  }, [loadingSettings, isUserAdmin, searchParams]);
 
   // Stock level indicator function
   const getStockLevel = (stock) => {
@@ -312,10 +314,11 @@ function ProductManager() {
     fetchGlobalStats();
   }, [fetchGlobalStats]);
 
-  // Refresh stats when filters change
+  // Refresh stats when filters change (but not status - stats show breakdown of all statuses)
+  // Read filters directly from URL, so we only need to watch searchParams
   useEffect(() => {
     fetchGlobalStats();
-  }, [statusFilter, categoryFilter, supplierFilter, searchParams, fetchGlobalStats]);
+  }, [searchParams, fetchGlobalStats]);
 
   // Initial load and URL parameter sync
   useEffect(() => {
@@ -1129,9 +1132,9 @@ function ProductManager() {
             }}
             className="status-filter-select"
           >
-            <option value="all">All Products ({products.length})</option>
-            <option value="active">Active ({products.filter(p => p.is_active === 1).length})</option>
-            <option value="inactive">Inactive ({products.filter(p => p.is_active === 0).length})</option>
+            <option value="all">All Products ({globalStats.totalProducts})</option>
+            <option value="active">Active ({globalStats.activeProducts})</option>
+            <option value="inactive">Inactive ({globalStats.inactiveProducts})</option>
           </select>
         </div>
 

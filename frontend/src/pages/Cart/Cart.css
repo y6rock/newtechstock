@@ -40,42 +40,6 @@
 
 .cart-container h1::after { display: none; }
 
-/* Cart Refresh Button */
-.cart-refresh-button {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 10px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.9em;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
-}
-
-.cart-refresh-button:hover:not(:disabled) {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
-}
-
-.cart-refresh-button:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-    transform: none;
-}
-
-.cart-refresh-button .spinning {
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
 
 /* Cart Content Layout */
 .cart-content {
@@ -587,10 +551,6 @@
         transform: translateX(-50%);
     }
     
-    .cart-refresh-button {
-        font-size: 0.85em;
-        padding: 8px 14px;
-    }
     
     .cart-content {
         padding: 0 10px;
