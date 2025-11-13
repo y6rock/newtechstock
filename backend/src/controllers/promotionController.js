@@ -21,19 +21,13 @@ function isItemApplicable(item, promotion) {
     return false;
 }
 
-// Helper function to deactivate expired promotions
-async function deactivateExpiredPromotions() {
-    try {
-        const sql = `
-            UPDATE promotions 
-            SET is_active = FALSE 
-            WHERE end_date < CURDATE() 
-            AND is_active = TRUE
-        `;
-        await db.query(sql);
-    } catch (error) {
-        console.error('Error deactivating expired promotions:', error);
-    }
+// Helper function to check expired promotions (no longer auto-deactivates)
+// Expired promotions remain with their original is_active status
+// Frontend will distinguish between expired and inactive based on end_date
+async function checkExpiredPromotions() {
+    // This function is kept for potential future use but no longer deactivates promotions
+    // Expired promotions are identified by end_date < CURDATE() regardless of is_active status
+    return;
 }
 
 // Get all promotions (admin only) with pagination
@@ -42,8 +36,9 @@ exports.getAllPromotions = async (req, res) => {
         const { page = 1, limit = 10, search = '' } = req.query;
         const offset = (page - 1) * limit;
         
-        // First, automatically deactivate expired promotions
-        await deactivateExpiredPromotions();
+        // Note: Expired promotions are not auto-deactivated
+        // They remain with their original is_active status
+        // Frontend distinguishes expired from inactive based on end_date
         
         let whereConditions = [];
         let params = [];
@@ -253,11 +248,20 @@ exports.deletePromotion = async (req, res) => {
     }
 };
 
-// Deactivate expired promotions (admin only)
+// Deactivate expired promotions (admin only) - manual action
 exports.deactivateExpired = async (req, res) => {
     try {
-        await deactivateExpiredPromotions();
-        res.json({ message: 'Expired promotions deactivated successfully' });
+        // Manually deactivate all expired promotions (end_date < CURDATE())
+        const sql = `
+            UPDATE promotions 
+            SET is_active = FALSE 
+            WHERE end_date < CURDATE() 
+            AND is_active = TRUE
+        `;
+        const [result] = await db.query(sql);
+        res.json({ 
+            message: `Expired promotions deactivated successfully. ${result.affectedRows} promotion(s) deactivated.` 
+        });
     } catch (error) {
         console.error('Error deactivating expired promotions:', error);
         res.status(500).json({ message: 'Internal server error' });

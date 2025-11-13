@@ -2,13 +2,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
-import { formatPrice, formatPriceConverted } from '../../../utils/currency';
+import { formatPrice, formatPriceConverted, formatPriceWithTax } from '../../../utils/currency';
 import { formatDate } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Customers.css';
 
 const Customers = () => {
-    const { isUserAdmin, loadingSettings, currency } = useSettings();
+    const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
     const { showSuccess, showError, showConfirm } = useToast();
     const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -967,7 +967,9 @@ const Customers = () => {
                                             <div className="order-info">
                                                 <span className="order-id">Order #{order.order_id}</span>
                                                 <span className="order-date">{formatDate(order.order_date)}</span>
-                                                <span className="order-status">{order.status}</span>
+                                                <span className="order-status">
+                                                    {order.status === 'Confirmed' || order.status === 'confirmed' ? 'Pending' : order.status}
+                                                </span>
                                             </div>
                                             <div className="order-amount-toggle">
                                                 <span className="order-total">{formatPriceConverted(order.total_amount, currency)}</span>
@@ -986,7 +988,7 @@ const Customers = () => {
                                                                 <div key={index} className="order-item-detail">
                                                                     <span className="item-name">{item.product_name}</span>
                                                                     <span className="item-quantity">Qty: {item.quantity}</span>
-                                                                    <span className="item-price">{formatPriceConverted(item.price_at_order, currency)}</span>
+                                                                    <span className="item-price">{formatPriceWithTax(item.price_at_order, currency, vat_rate)}</span>
                                                                 </div>
                                                             ))}
                                                         </div>

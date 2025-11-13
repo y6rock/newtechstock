@@ -256,15 +256,19 @@ export default function Promotions() {
   };
 
   const getPromotionStatus = (promotion) => {
-    if (!promotion.is_active) {
-      return { status: 'inactive', label: 'Inactive', className: 'inactive' };
-    }
+    // Check expired first (based on end_date, regardless of is_active)
     if (isExpired(promotion.end_date)) {
       return { status: 'expired', label: 'Expired', className: 'expired' };
     }
+    // Then check if manually deactivated
+    if (!promotion.is_active) {
+      return { status: 'inactive', label: 'Inactive', className: 'inactive' };
+    }
+    // Check if pending (not started yet)
     if (new Date(promotion.start_date) > new Date()) {
       return { status: 'pending', label: 'Pending', className: 'pending' };
     }
+    // Otherwise it's active
     return { status: 'active', label: 'Active', className: 'active' };
   };
 
