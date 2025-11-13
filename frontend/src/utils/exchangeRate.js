@@ -105,6 +105,23 @@ export const convertFromILS = async (priceInILS, targetCurrency) => {
 };
 
 /**
+ * Invalidate exchange rate cache (force refresh on next request)
+ */
+export const invalidateExchangeRateCache = () => {
+  localStorage.removeItem(EXCHANGE_RATE_CACHE_KEY);
+  console.log('Exchange rate cache invalidated');
+};
+
+/**
+ * Force refresh exchange rates (bypass cache)
+ * @returns {Promise<object>} Fresh exchange rates
+ */
+export const refreshExchangeRates = async () => {
+  invalidateExchangeRateCache();
+  return await fetchExchangeRates();
+};
+
+/**
  * Synchronous version using cached rates (for immediate display)
  * @param {number} priceInILS - Price in Israeli Shekels
  * @param {string} targetCurrency - Target currency code

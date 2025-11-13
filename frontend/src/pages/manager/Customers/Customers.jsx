@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSettings } from '../../../context/SettingsContext';
 import { useToast } from '../../../context/ToastContext';
-import { formatPrice } from '../../../utils/currency';
+import { formatPrice, formatPriceConverted } from '../../../utils/currency';
 import { formatDate } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Customers.css';
@@ -889,7 +889,7 @@ const Customers = () => {
                                 <td className="table-body-cell">{customer.email || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.phone || 'N/A'}</td>
                                 <td className="table-body-cell">{customer.order_count || 0}</td>
-                                <td className="table-body-cell">{formatPrice(customer.total_spent || 0, currency)}</td>
+                                <td className="table-body-cell">{formatPriceConverted(customer.total_spent || 0, currency)}</td>
                                 <td className="table-body-cell">
                                     <span className={`status-badge ${customer.isActive === 0 ? 'inactive' : 'active'}`}>
                                         {customer.isActive === 0 ? 'Inactive' : 'Active'}
@@ -970,7 +970,7 @@ const Customers = () => {
                                                 <span className="order-status">{order.status}</span>
                                             </div>
                                             <div className="order-amount-toggle">
-                                                <span className="order-total">{formatPrice(order.total_amount, currency)}</span>
+                                                <span className="order-total">{formatPriceConverted(order.total_amount, currency)}</span>
                                                 <span className="toggle-icon">
                                                     {expandedOrderId === order.order_id ? '▼' : '▶'}
                                                 </span>
@@ -986,7 +986,7 @@ const Customers = () => {
                                                                 <div key={index} className="order-item-detail">
                                                                     <span className="item-name">{item.product_name}</span>
                                                                     <span className="item-quantity">Qty: {item.quantity}</span>
-                                                                    <span className="item-price">{formatPrice(item.price_at_order, currency)}</span>
+                                                                    <span className="item-price">{formatPriceConverted(item.price_at_order, currency)}</span>
                                                                 </div>
                                                             ))}
                                                         </div>

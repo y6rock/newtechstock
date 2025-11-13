@@ -4,20 +4,11 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { useSettings } from '../../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
-import { formatNumberWithCommas, formatPriceWithTax } from '../../utils/currency';
+import { formatNumberWithCommas, formatPriceWithTax, getCurrencySymbol } from '../../utils/currency';
+import { convertFromILSSync } from '../../utils/exchangeRate';
 import Pagination from '../../components/Pagination/Pagination';
 
 import './ProductsPage.css';
-
-// Helper to get currency symbol
-const getCurrencySymbol = (currencyCode) => {
-  const symbols = {
-    'ILS': '₪',
-    'USD': '$',
-    'EUR': '€',
-  };
-  return symbols[currencyCode] || '$';
-};
 
 // Helper to format price with commas (includes tax for customer display)
 const formatPriceWithCommas = (price, currency, taxRate = 18) => {
@@ -159,12 +150,13 @@ const ProductsPage = () => {
     const params = new URLSearchParams(location.search);
     const categoryParam = params.get('category');
     
+    // Only sync from URL if it's different from current state (avoid loops)
     if (categoryParam !== null && categoryParam !== selectedCategory) {
       setSelectedCategory(categoryParam);
     } else if (categoryParam === null && selectedCategory !== 'All Products') {
       setSelectedCategory('All Products');
     }
-  }, [location.search, selectedCategory]);
+  }, [location.search]); // Removed selectedCategory from deps to avoid loops
 
   // Removed debounced effect for better responsiveness
 
@@ -194,22 +186,16 @@ const ProductsPage = () => {
     try {
       const response = await axios.get(`/api/products/price-stats?${params.toString()}`);
       console.log('ProductsPage: Price stats fetched with filters:', response.data);
+      const newPriceRange = { min: response.data.minPrice, max: response.data.maxPrice };
+      console.log('ProductsPage: Updating priceRange to:', newPriceRange);
       setPriceStats(response.data);
-      setPriceRange({ min: response.data.minPrice, max: response.data.maxPrice });
-      // Update maxPrice to new max if it's within the new range, otherwise clamp it
-      // Also update if maxPrice is still at default value (1000) and actual max is higher
+      setPriceRange(newPriceRange);
+      
+      // Always reset maxPrice to the new max when filters change
+      // This ensures the slider shows the full range of filtered products
       const newMaxPrice = response.data.maxPrice;
-      setMaxPrice(prevMax => {
-        if (prevMax > newMaxPrice) {
-          return newMaxPrice; // Clamp to new max if it's lower
-        }
-        // If maxPrice is still at default (1000) and actual max is higher, update it
-        // This ensures no price filter is applied by default
-        if (prevMax === 1000 && newMaxPrice > 1000) {
-          return newMaxPrice;
-        }
-        return prevMax; // Keep current value if it's still valid
-      });
+      console.log('ProductsPage: Updating maxPrice to:', newMaxPrice);
+      setMaxPrice(newMaxPrice);
     } catch (err) {
       console.error('ProductsPage: Error fetching price stats:', err);
     }
@@ -219,27 +205,38 @@ const ProductsPage = () => {
     // Fetch initial price statistics (no filters)
     fetchPriceStats();
 
-    // Fetch categories (including inactive for filters)
-    axios.get('/api/categories/public?includeInactive=true')
+    // Fetch categories (only active for filters)
+    axios.get('/api/categories/public')
       .then(res => {
         console.log('ProductsPage: Categories fetched from backend:', res.data);
         const categoriesData = Array.isArray(res.data) ? res.data : [];
+        // Filter to only show active categories (backend should already filter, but double-check)
+        const activeCategories = categoriesData.filter(cat => {
+          const isActive = cat.isActive !== undefined ? cat.isActive : (cat.isActive === undefined ? true : false);
+          return isActive === 1 || isActive === true;
+        });
         setCategories([
           { category_id: 'All Products', name: 'All Products', isActive: true },
-          ...categoriesData
+          ...activeCategories
         ]);
       })
       .catch(err => console.error('ProductsPage: Error fetching categories:', err));
 
-    // Fetch suppliers (manufacturers)
+    // Fetch suppliers (manufacturers) - only active
     axios.get('/api/suppliers/public')
       .then(res => {
-        const manufacturerList = res.data.map(supplier => ({
-          // Use the numeric supplier_id for filtering and the name for display
-          id: String(supplier.supplier_id ?? supplier.id ?? supplier.ID ?? supplier.SupplierID),
-          name: supplier.name || supplier.supplier_name || supplier.Name,
-          isActive: supplier.isActive !== undefined ? supplier.isActive : true
-        }));
+        // Filter to only show active suppliers
+        const manufacturerList = res.data
+          .filter(supplier => {
+            const isActive = supplier.isActive !== undefined ? supplier.isActive : true;
+            return isActive === 1 || isActive === true;
+          })
+          .map(supplier => ({
+            // Use the numeric supplier_id for filtering and the name for display
+            id: String(supplier.supplier_id ?? supplier.id ?? supplier.ID ?? supplier.SupplierID),
+            name: supplier.name || supplier.supplier_name || supplier.Name,
+            isActive: supplier.isActive !== undefined ? supplier.isActive : true
+          }));
         setManufacturers(manufacturerList);
       })
       .catch(err => console.error('ProductsPage: Error fetching suppliers:', err));
@@ -305,16 +302,20 @@ const ProductsPage = () => {
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+    
+    // Update URL to reflect category change
+    const params = new URLSearchParams(searchParams);
+    if (category === 'All Products') {
+      params.delete('category');
+    } else {
+      params.set('category', category);
+    }
+    params.set('page', '1'); // Reset to page 1
+    setSearchParams(params);
+    
     // Price stats will be updated via useEffect
   };
 
-  // Use ref-based handler to avoid React state update conflicts
-  const handlePriceChange = (e) => {
-    const value = parseFloat(e.target.value);
-    console.log('Slider value changed to:', value);
-    setMaxPrice(value);
-    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
-  };
 
   const handleManufacturerChange = (e) => {
     const { value, checked } = e.target;
@@ -486,22 +487,41 @@ const ProductsPage = () => {
                   fontWeight: '700',
                   fontSize: '1em'
                 }}>
-                  Up to {getCurrencySymbol(currency)}{formatNumberWithCommas(maxPrice)}
+                  {formatPriceWithTax(priceRange.min, currency, vat_rate)} - {formatPriceWithTax(priceRange.max, currency, vat_rate)}
                 </span>
               </div>
               <input
+                key={`price-slider-${currency}-${priceRange.min}-${priceRange.max}`}
                 type="range"
                 id="priceRange"
-                min={priceRange.min}
-                max={priceRange.max}
+                min={convertFromILSSync(priceRange.min, currency)}
+                max={convertFromILSSync(priceRange.max, currency)}
                 step="0.01"
-                defaultValue={maxPrice}
-                onChange={handlePriceChange}
+                value={convertFromILSSync(maxPrice, currency)}
+                onChange={(e) => {
+                  // Convert the slider value (in current currency) back to ILS for filtering
+                  const valueInCurrentCurrency = parseFloat(e.target.value);
+                  // Convert back to ILS: if currency is ILS, no conversion needed
+                  // Otherwise, we need to reverse the conversion
+                  let valueInILS;
+                  if (currency === 'ILS') {
+                    valueInILS = valueInCurrentCurrency;
+                  } else {
+                    // Reverse conversion: valueInILS = valueInCurrentCurrency / rate
+                    // rate = convertFromILSSync(1, currency) gives us how many units of target currency = 1 ILS
+                    // So to reverse: valueInILS = valueInCurrentCurrency / rate
+                    const rate = convertFromILSSync(1, currency);
+                    valueInILS = valueInCurrentCurrency / rate;
+                  }
+                  console.log('Slider value changed to:', valueInCurrentCurrency, 'in', currency, '=', valueInILS, 'in ILS');
+                  setMaxPrice(valueInILS);
+                  setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+                }}
                 className="theme-range"
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666', fontSize: '0.8em', fontWeight: '500' }}>
-                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.min)}</span>
-                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(priceRange.max)}</span>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(convertFromILSSync(priceRange.min, currency))}</span>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(convertFromILSSync(priceRange.max, currency))}</span>
               </div>
             </div>
           </div>

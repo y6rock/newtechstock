@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { formatPrice } from '../../../utils/currency';
+import { formatPriceConverted } from '../../../utils/currency';
 import { formatDate, formatDateTime } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Orders.css';
@@ -19,9 +19,12 @@ const Orders = () => {
   const [showModal, setShowModal] = useState(false);
   const [searchTerm, setSearchTerm] = useState(searchParams.get('search') || '');
   const searchInputRef = useRef(null);
+  const isTypingRef = useRef(false);
   const [sortField, setSortField] = useState('order_date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [statusFilter, setStatusFilter] = useState(searchParams.get('status') || 'all'); // 'all', 'pending', 'processing', 'shipped', 'delivered'
+  const [userFilter, setUserFilter] = useState(searchParams.get('userId') || 'all'); // 'all' or user_id
+  const [users, setUsers] = useState([]); // List of users for dropdown
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
   
   const processStats = (distribution) => {
@@ -41,19 +44,24 @@ const Orders = () => {
   };
 
 
-  // Sync sort and filter state from URL for UI display
+  // Sync sort and filter state from URL for UI display (but not searchTerm if user is typing)
   useEffect(() => {
     const urlSortField = searchParams.get('sortField');
     const urlSortDirection = searchParams.get('sortDirection');
     const urlStatus = searchParams.get('status') || 'all';
     const urlSearch = searchParams.get('search') || '';
+    const urlUserId = searchParams.get('userId') || 'all';
     
     if (urlSortField) {
       setSortField(urlSortField);
       setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
     }
     setStatusFilter(urlStatus);
-    setSearchTerm(urlSearch);
+    // Only sync searchTerm from URL if user is not actively typing
+    if (!isTypingRef.current) {
+      setSearchTerm(urlSearch);
+    }
+    setUserFilter(urlUserId);
   }, [searchParams]);
 
   // Sorting function - URL is the single source of truth
@@ -70,6 +78,7 @@ const Orders = () => {
     params.set('page', '1');
     if (searchTerm) params.set('search', searchTerm); else params.delete('search');
     if (statusFilter && statusFilter !== 'all') params.set('status', statusFilter); else params.delete('status');
+    if (userFilter && userFilter !== 'all') params.set('userId', userFilter); else params.delete('userId');
     params.set('sortField', field);
     params.set('sortDirection', nextDirection);
     setSearchParams(params);
@@ -82,8 +91,14 @@ const Orders = () => {
 
   // Auto-refocus search input after re-renders to maintain typing experience
   useEffect(() => {
-    if (searchInputRef.current && searchTerm) {
-      searchInputRef.current.focus();
+    if (searchInputRef.current && isTypingRef.current) {
+      requestAnimationFrame(() => {
+        if (searchInputRef.current) {
+          const cursorPosition = searchInputRef.current.selectionStart || searchTerm.length;
+          searchInputRef.current.focus();
+          searchInputRef.current.setSelectionRange(cursorPosition, cursorPosition);
+        }
+      });
     }
   });
 
@@ -125,7 +140,7 @@ const Orders = () => {
     fetchStatistics();
   }, [isUserAdmin, loadingSettings, navigate, fetchStatistics]);
 
-  // Ref-based search implementation - no re-renders during typing
+  // Main fetch effect - only triggers on URL changes (not searchTerm changes)
   useEffect(() => {
     if (!isUserAdmin || loadingSettings) {
       if (!loadingSettings && !isUserAdmin) {
@@ -134,8 +149,10 @@ const Orders = () => {
       return;
     }
 
-    // Read search from URL for debounce calculation (needs to be outside setTimeout)
-    const urlSearch = searchParams.get('search') || '';
+    // Skip if user is actively typing (let debounced search handle it)
+    if (isTypingRef.current) {
+      return;
+    }
 
     const timeoutId = setTimeout(async () => {
       try {
@@ -148,9 +165,11 @@ const Orders = () => {
           'Content-Type': 'application/json'
         };
 
-        // Read page, status, and search from URL (single source of truth)
+        // Read page, status, search, and userId from URL (single source of truth)
         const urlPage = parseInt(searchParams.get('page')) || 1;
         const urlStatus = searchParams.get('status') || 'all';
+        const urlUserId = searchParams.get('userId') || 'all';
+        const urlSearch = searchParams.get('search') || '';
 
         const params = new URLSearchParams({
           page: urlPage.toString(),
@@ -161,6 +180,9 @@ const Orders = () => {
         }
         if (urlStatus && urlStatus !== 'all') {
           params.append('status', urlStatus);
+        }
+        if (urlUserId && urlUserId !== 'all') {
+          params.append('userId', urlUserId);
         }
         // Sorting from URL only (single source of truth)
         const urlSortField = searchParams.get('sortField');
@@ -196,7 +218,7 @@ const Orders = () => {
       } finally {
         setLoading(false);
       }
-    }, urlSearch.trim() ? 300 : 0); // Debounce only when searching
+    }, 0);
 
     return () => clearTimeout(timeoutId);
   }, [isUserAdmin, loadingSettings, navigate, searchParams]); // URL is single source of truth, no need for searchTerm/statusFilter in deps
@@ -226,6 +248,7 @@ const Orders = () => {
       // Read all params from URL (single source of truth)
       const urlSearch = searchParams.get('search') || '';
       const urlStatus = searchParams.get('status') || 'all';
+      const urlUserId = searchParams.get('userId') || 'all';
       const existingUrlSortField = searchParams.get('sortField');
       const existingUrlSortDirection = searchParams.get('sortDirection');
 
@@ -238,6 +261,9 @@ const Orders = () => {
       }
       if (urlStatus && urlStatus !== 'all') {
         fetchParams.append('status', urlStatus);
+      }
+      if (urlUserId && urlUserId !== 'all') {
+        fetchParams.append('userId', urlUserId);
       }
       // Sorting from URL only (single source of truth)
       if (existingUrlSortField && existingUrlSortDirection) {
@@ -276,12 +302,167 @@ const Orders = () => {
   // Handle search input changes - simple state update like Customers
   const handleSearchChange = useCallback((newSearchTerm) => {
     setSearchTerm(newSearchTerm);
-    setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to page 1 on search
+    isTypingRef.current = true;
   }, []);
+
+  // Debounced search effect - directly fetches data without URL updates (like Customers)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isUserAdmin && !loadingSettings && searchTerm.trim()) {
+        // Only perform search if there's actually a search term
+        const performSearch = async () => {
+          try {
+            setLoading(true);
+            setError(null);
+            const token = localStorage.getItem('token');
+            if (!token) {
+              throw new Error('No token found');
+            }
+
+            const headers = { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            };
+
+            const fetchParams = new URLSearchParams({
+              page: '1',
+              limit: '10'
+            });
+
+            if (searchTerm.trim()) {
+              fetchParams.append('search', searchTerm.trim());
+            }
+
+            // Get filters from URL
+            const urlStatus = searchParams.get('status') || 'all';
+            const urlUserId = searchParams.get('userId') || 'all';
+            if (urlStatus && urlStatus !== 'all') {
+              fetchParams.append('status', urlStatus);
+            }
+            if (urlUserId && urlUserId !== 'all') {
+              fetchParams.append('userId', urlUserId);
+            }
+
+            // Sorting from URL only
+            const urlSortField = searchParams.get('sortField');
+            const urlSortDirection = searchParams.get('sortDirection');
+            if (urlSortField && urlSortDirection) {
+              fetchParams.append('sortField', urlSortField);
+              fetchParams.append('sortDirection', urlSortDirection);
+            }
+
+            const response = await fetch(`/api/admin/orders?${fetchParams}`, {
+              headers
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const orders = data.orders || data;
+            setOrders(orders);
+
+            if (data.pagination) {
+              setPagination(data.pagination);
+            } else {
+              setPagination(prev => ({
+                ...prev,
+                currentPage: 1 // Reset to page 1 when searching
+              }));
+            }
+
+            isTypingRef.current = false;
+          } catch (error) {
+            console.error('Error fetching orders:', error);
+            setError('Failed to fetch orders');
+            isTypingRef.current = false;
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        performSearch();
+      } else if (isUserAdmin && !loadingSettings && !searchTerm.trim()) {
+        // If search term is cleared, reload the current page without search
+        const loadCurrentPage = async () => {
+          try {
+            setLoading(true);
+            setError(null);
+            const token = localStorage.getItem('token');
+            if (!token) {
+              throw new Error('No token found');
+            }
+
+            const headers = { 
+              'Authorization': `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            };
+
+            const page = parseInt(searchParams.get('page')) || 1;
+            const currentStatus = searchParams.get('status') || 'all';
+            const currentUserId = searchParams.get('userId') || 'all';
+            const params = new URLSearchParams({
+              page: page.toString(),
+              limit: '10'
+            });
+            
+            if (currentStatus && currentStatus !== 'all') {
+              params.append('status', currentStatus);
+            }
+            if (currentUserId && currentUserId !== 'all') {
+              params.append('userId', currentUserId);
+            }
+
+            // Sorting from URL only
+            const urlSortField = searchParams.get('sortField');
+            const urlSortDirection = searchParams.get('sortDirection');
+            if (urlSortField && urlSortDirection) {
+              params.append('sortField', urlSortField);
+              params.append('sortDirection', urlSortDirection);
+            }
+
+            const response = await fetch(`/api/admin/orders?${params}`, {
+              headers
+            });
+
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            const orders = data.orders || data;
+            setOrders(orders);
+
+            if (data.pagination) {
+              setPagination(data.pagination);
+            } else {
+              setPagination(prev => ({
+                ...prev,
+                currentPage: page
+              }));
+            }
+
+            isTypingRef.current = false;
+          } catch (error) {
+            console.error('Error clearing search:', error);
+            setError('Failed to clear search');
+            isTypingRef.current = false;
+          } finally {
+            setLoading(false);
+          }
+        };
+        
+        loadCurrentPage();
+      }
+    }, 300); // 300ms debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, isUserAdmin, loadingSettings, searchParams]);
   
   // Handle status filter changes
   const handleStatusFilterChange = useCallback((newStatus) => {
-    // Update URL to persist filter and preserve sort/search
+    // Update URL to persist filter and preserve sort/search/userId
     const params = new URLSearchParams(searchParams);
     params.set('page', '1');
     if (newStatus && newStatus !== 'all') {
@@ -289,10 +470,57 @@ const Orders = () => {
     } else {
       params.delete('status');
     }
-    // Keep existing search and sort from URL
+    // Keep existing search, userId, and sort from URL
     setSearchParams(params);
     // State will be synced from URL via useEffect
   }, [searchParams, setSearchParams]);
+
+  // Handle user filter changes
+  const handleUserFilterChange = useCallback((newUserId) => {
+    // Update URL to persist filter and preserve sort/search/status
+    const params = new URLSearchParams(searchParams);
+    params.set('page', '1');
+    if (newUserId && newUserId !== 'all') {
+      params.set('userId', newUserId);
+    } else {
+      params.delete('userId');
+    }
+    // Keep existing search, status, and sort from URL
+    setSearchParams(params);
+    // State will be synced from URL via useEffect
+  }, [searchParams, setSearchParams]);
+
+  // Fetch users for dropdown
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+
+        const headers = { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        };
+
+        // Fetch all users (customers) for the dropdown
+        const response = await fetch('/api/admin/customers?limit=1000&page=1', { headers });
+        
+        if (!response.ok) {
+          throw new Error('Failed to fetch users');
+        }
+
+        const data = await response.json();
+        const usersList = data.customers || data;
+        setUsers(usersList);
+      } catch (error) {
+        console.error('Error fetching users:', error);
+      }
+    };
+
+    if (isUserAdmin && !loadingSettings) {
+      fetchUsers();
+    }
+  }, [isUserAdmin, loadingSettings]);
 
 
   const handleStatusChange = async (orderId, newStatus) => {
@@ -317,10 +545,11 @@ const Orders = () => {
         'Content-Type': 'application/json'
       };
       
-      // Read page, status, search, and sort from URL (single source of truth)
+      // Read page, status, search, userId, and sort from URL (single source of truth)
       const urlPage = parseInt(searchParams.get('page')) || pagination.currentPage;
       const urlSearch = searchParams.get('search') || '';
       const urlStatus = searchParams.get('status') || 'all';
+      const urlUserId = searchParams.get('userId') || 'all';
       const urlSortField = searchParams.get('sortField');
       const urlSortDirection = searchParams.get('sortDirection');
       
@@ -333,6 +562,9 @@ const Orders = () => {
       }
       if (urlStatus && urlStatus !== 'all') {
         ordersParams.append('status', urlStatus);
+      }
+      if (urlUserId && urlUserId !== 'all') {
+        ordersParams.append('userId', urlUserId);
       }
       if (urlSortField && urlSortDirection) {
         ordersParams.append('sortField', urlSortField);
@@ -425,6 +657,40 @@ const Orders = () => {
               className="orders-search-input"
             />
             <span className="search-icon">🔍</span>
+          </div>
+          
+          {/* User Filter Dropdown */}
+          <div className="user-filter-wrapper" style={{ marginLeft: '12px' }}>
+            <select
+              value={userFilter}
+              onChange={(e) => handleUserFilterChange(e.target.value)}
+              style={{
+                padding: '8px 12px',
+                border: '2px solid #e1e5e9',
+                borderRadius: '8px',
+                fontSize: '14px',
+                outline: 'none',
+                cursor: 'pointer',
+                backgroundColor: '#ffffff',
+                minWidth: '200px',
+                transition: 'all 0.3s ease'
+              }}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#667eea';
+                e.target.style.boxShadow = '0 0 0 3px rgba(102, 126, 234, 0.1)';
+              }}
+              onBlur={(e) => {
+                e.target.style.borderColor = '#e1e5e9';
+                e.target.style.boxShadow = 'none';
+              }}
+            >
+              <option value="all">All Users</option>
+              {users.map(user => (
+                <option key={user.user_id} value={user.user_id}>
+                  {user.email} {user.name ? `(${user.name})` : ''}
+                </option>
+              ))}
+            </select>
           </div>
           
           <div className="filter-buttons">
@@ -520,7 +786,7 @@ const Orders = () => {
                 <td>#{order.order_id}</td>
                 <td>{formatDate(order.order_date)}</td>
                 <td>{order.customer_name || order.customer_email}</td>
-                <td>{formatPrice(order.total_amount, currency)}</td>
+                <td>{formatPriceConverted(order.total_amount, currency)}</td>
                 <td>
                   <select
                     className={`status-dropdown status-${order.status}`}
@@ -557,7 +823,7 @@ const Orders = () => {
             <h2>Order #{selectedOrder.order_id}</h2>
             <p><strong>User:</strong> {selectedOrder.user_name || selectedOrder.user_email || '-'}</p>
             <p><strong>Date:</strong> {formatDateTime(selectedOrder.order_date)}</p>
-            <p><strong>Total:</strong> {formatPrice(selectedOrder.total_price, currency)}</p>
+            <p><strong>Total:</strong> {formatPriceConverted(selectedOrder.total_price, currency)}</p>
             {selectedOrder.promotion_code && (
               <p><strong>Promotion:</strong> <span className="promotion-badge">{selectedOrder.promotion_code}</span></p>
             )}
@@ -566,7 +832,7 @@ const Orders = () => {
               {(selectedOrder.products || []).map((item, idx) => (
                 <li key={idx}>
                   <span>{item.product_name || item.name} (x{item.quantity})</span>
-                  <span>{formatPrice(item.price_at_order * item.quantity, currency)}</span>
+                  <span>{formatPriceConverted(item.price_at_order * item.quantity, currency)}</span>
                 </li>
               ))}
             </ul>

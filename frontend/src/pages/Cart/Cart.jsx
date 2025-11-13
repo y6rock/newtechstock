@@ -4,7 +4,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { FaTag, FaTimes, FaSync } from 'react-icons/fa';
-import { formatPrice, formatPriceWithTax } from '../../utils/currency';
+import { formatPrice, formatPriceConverted, formatPriceWithTax } from '../../utils/currency';
 import './Cart.css';
 
 const Cart = () => {
@@ -105,27 +105,27 @@ const Cart = () => {
           <h2>Cart Summary</h2>
           <div className="summary-row">
             <span>Subtotal</span>
-            <span>{formatPrice(subtotal, currency)}</span>
+            <span>{formatPriceConverted(subtotal, currency)}</span>
           </div>
           {discountAmount > 0 && (
             <div className="summary-row discount">
               <span>Discount ({appliedPromotion.name})</span>
-              <span>-{formatPrice(discountAmount, currency)}</span>
+              <span>-{formatPriceConverted(discountAmount, currency)}</span>
             </div>
           )}
           {discountAmount > 0 && (
             <div className="summary-row">
               <span>Subtotal after discount</span>
-              <span>{formatPrice(subtotalAfterDiscount, currency)}</span>
+              <span>{formatPriceConverted(subtotalAfterDiscount, currency)}</span>
             </div>
           )}
           <div className="summary-row">
             <span>Net Amount (excluding VAT)</span>
-            <span>{formatPrice(netAmount, currency)}</span>
+            <span>{formatPriceConverted(netAmount, currency)}</span>
           </div>
           <div className="summary-row">
             <span>VAT ({vat_rate}%)</span>
-            <span>{formatPrice(vatAmount, currency)}</span>
+            <span>{formatPriceConverted(vatAmount, currency)}</span>
           </div>
           <div className="summary-row">
             <span>Shipping</span>
@@ -133,7 +133,7 @@ const Cart = () => {
           </div>
           <div className="summary-row total">
             <span>Total</span>
-            <span>{formatPrice(total, currency)}</span>
+            <span>{formatPriceConverted(total, currency)}</span>
           </div>
           <Link to="/checkout" className="checkout-button">Proceed to Checkout</Link>
           <button className="clear-cart-button" onClick={clearCart}>Clear Cart</button>

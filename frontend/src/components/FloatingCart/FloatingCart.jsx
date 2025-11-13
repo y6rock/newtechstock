@@ -8,12 +8,12 @@ import './FloatingCart.css';
 
 const FloatingCart = () => {
   const { cartItems } = useCart();
-  const { user_id } = useSettings();
+  const { user_id, isUserAdmin } = useSettings();
   const navigate = useNavigate();
   const [showFloating, setShowFloating] = useState(true);
 
   useEffect(() => {
-    if (!user_id) {
+    if (!user_id || isUserAdmin) {
       setShowFloating(false);
       return;
     }
@@ -48,9 +48,9 @@ const FloatingCart = () => {
     }, 100);
     
     return () => clearTimeout(timer);
-  }, [user_id]);
+  }, [user_id, isUserAdmin]);
 
-  if (!user_id || !showFloating) return null; // Only show if logged in and cart tab not visible
+  if (!user_id || isUserAdmin || !showFloating) return null; // Only show if logged in, not admin, and cart tab not visible
 
   const itemCount = cartItems?.reduce((sum, item) => sum + (item.quantity || 1), 0) || 0;
 

@@ -16,7 +16,11 @@ exports.getAllProducts = async (req, res) => {
             limit = 50
         } = req.query;
         
-        let whereConditions = ['p.is_active = 1'];
+        let whereConditions = [
+            'p.is_active = 1',
+            '(c.isActive = 1 OR c.isActive IS NULL)', // Only active categories
+            '(s.isActive = 1 OR s.isActive IS NULL)'  // Only active suppliers
+        ];
         let params = [];
         
         // Category filter
@@ -52,14 +56,15 @@ exports.getAllProducts = async (req, res) => {
             params.push(searchTerm, searchTerm, searchTerm, searchTerm);
         }
         
+        // Always need JOINs for category and supplier active status checks
+        const joinClause = 'LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id';
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
         // Get total count for pagination
         const [countResult] = await db.query(`
             SELECT COUNT(*) as total
             FROM products p
-            LEFT JOIN categories c ON p.category_id = c.category_id
-            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${joinClause}
             ${whereClause}
         `, params);
         
@@ -74,8 +79,7 @@ exports.getAllProducts = async (req, res) => {
                 c.name as category_name,
                 s.name as supplier_name
             FROM products p
-            LEFT JOIN categories c ON p.category_id = c.category_id
-            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            ${joinClause}
             ${whereClause}
             ORDER BY p.name
             LIMIT ? OFFSET ?
@@ -103,12 +107,16 @@ exports.getPriceStats = async (req, res) => {
     try {
         const { category, manufacturer } = req.query;
         
-        let whereConditions = ['p.is_active = 1'];
+        let whereConditions = [
+            'p.is_active = 1',
+            '(c.isActive = 1 OR c.isActive IS NULL)', // Only active categories
+            '(s.isActive = 1 OR s.isActive IS NULL)'  // Only active suppliers
+        ];
         let params = [];
         
-        // Add category filter if provided
+        // Add category filter if provided (using category name like getAllProducts)
         if (category && category !== 'All Products') {
-            whereConditions.push('p.category_id = ?');
+            whereConditions.push('c.name = ?');
             params.push(category);
         }
         
@@ -118,19 +126,44 @@ exports.getPriceStats = async (req, res) => {
             if (manufacturerIds.length > 0) {
                 const placeholders = manufacturerIds.map(() => '?').join(',');
                 whereConditions.push(`p.supplier_id IN (${placeholders})`);
-                params.push(...manufacturerIds);
+                params.push(...manufacturerIds.map(id => parseInt(id)));
             }
         }
         
+        // Always need JOINs for category and supplier active status checks (same as getAllProducts)
+        const joinClause = 'LEFT JOIN categories c ON p.category_id = c.category_id LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id';
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
-        const sql = `SELECT MIN(p.price) as minPrice, MAX(p.price) as maxPrice FROM products p ${whereClause}`;
+        const sql = `SELECT MIN(p.price) as minPrice, MAX(p.price) as maxPrice FROM products p ${joinClause} ${whereClause}`;
+        console.log('getPriceStats SQL:', sql);
+        console.log('getPriceStats params:', params);
         const [stats] = await db.query(sql, params);
         
-        res.json({
-            minPrice: parseFloat(stats[0].minPrice) || 0,
-            maxPrice: parseFloat(stats[0].maxPrice) || 1000
-        });
+        const minPrice = parseFloat(stats[0].minPrice);
+        const maxPrice = parseFloat(stats[0].maxPrice);
+        
+        console.log('getPriceStats result:', { minPrice, maxPrice, category, manufacturer });
+        
+        // If no products found with filters, fallback to all products stats (only active categories/suppliers)
+        if (!minPrice && !maxPrice) {
+            const fallbackSql = `SELECT MIN(p.price) as minPrice, MAX(p.price) as maxPrice 
+                FROM products p 
+                LEFT JOIN categories c ON p.category_id = c.category_id
+                LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+                WHERE p.is_active = 1 
+                AND (c.isActive = 1 OR c.isActive IS NULL)
+                AND (s.isActive = 1 OR s.isActive IS NULL)`;
+            const [fallbackStats] = await db.query(fallbackSql);
+            res.json({
+                minPrice: parseFloat(fallbackStats[0].minPrice) || 0,
+                maxPrice: parseFloat(fallbackStats[0].maxPrice) || 1000
+            });
+        } else {
+            res.json({
+                minPrice: minPrice || 0,
+                maxPrice: maxPrice || 1000
+            });
+        }
     } catch (err) {
         console.error('Error fetching price statistics:', err);
         res.status(500).json({ message: 'Database error' });
@@ -156,7 +189,10 @@ exports.searchProducts = async (req, res) => {
                 c.name as category_name
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
             WHERE p.is_active = 1 
+            AND (c.isActive = 1 OR c.isActive IS NULL)
+            AND (s.isActive = 1 OR s.isActive IS NULL)
             AND (
                 p.name LIKE ? 
                 OR p.description LIKE ?
@@ -192,7 +228,10 @@ exports.getProductById = async (req, res) => {
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
-            WHERE p.product_id = ? AND p.is_active = 1
+            WHERE p.product_id = ? 
+            AND p.is_active = 1
+            AND (c.isActive = 1 OR c.isActive IS NULL)
+            AND (s.isActive = 1 OR s.isActive IS NULL)
         `, [id]);
         
         if (products.length === 0) {
@@ -220,10 +259,15 @@ exports.getProductsByIds = async (req, res) => {
 
         const placeholders = idArray.map(() => '?').join(',');
         const [products] = await db.query(`
-            SELECT product_id, name, price, image
-            FROM products
-            WHERE product_id IN (${placeholders}) AND is_active = 1
-            ORDER BY FIELD(product_id, ${placeholders})
+            SELECT p.product_id, p.name, p.price, p.image
+            FROM products p
+            LEFT JOIN categories c ON p.category_id = c.category_id
+            LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
+            WHERE p.product_id IN (${placeholders}) 
+            AND p.is_active = 1
+            AND (c.isActive = 1 OR c.isActive IS NULL)
+            AND (s.isActive = 1 OR s.isActive IS NULL)
+            ORDER BY FIELD(p.product_id, ${placeholders})
         `, [...idArray, ...idArray]);
 
         res.json(products);

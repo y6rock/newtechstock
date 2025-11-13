@@ -1,6 +1,6 @@
-import React, { createContext, useState, useEffect, useContext, useCallback } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
 import axios from 'axios';
-import { getExchangeRates } from '../utils/exchangeRate';
+import { getExchangeRates, refreshExchangeRates } from '../utils/exchangeRate';
 
 const SettingsContext = createContext();
 
@@ -13,6 +13,8 @@ export const SettingsProvider = ({ children }) => {
   const [username, setUsername] = useState(null);
   const [user_id, setUserId] = useState(null);
   const [loadingSettings, setLoadingSettings] = useState(true);
+  const previousCurrencyRef = useRef(null);
+  const isInitialLoadRef = useRef(true);
 
   const fetchSiteSettings = useCallback(async () => {
     try {
@@ -78,6 +80,32 @@ export const SettingsProvider = ({ children }) => {
     await fetchSiteSettings();
     setLoadingSettings(false);
   };
+
+  // Refresh exchange rates when currency changes (but not on initial load)
+  useEffect(() => {
+    // Skip on initial load
+    if (isInitialLoadRef.current) {
+      isInitialLoadRef.current = false;
+      previousCurrencyRef.current = siteSettings.currency;
+      return;
+    }
+
+    // Only refresh if currency actually changed and settings are loaded
+    if (!loadingSettings && siteSettings.currency && previousCurrencyRef.current !== siteSettings.currency) {
+      const refreshRatesOnCurrencyChange = async () => {
+        // Force refresh exchange rates when currency changes
+        console.log('Currency changed from', previousCurrencyRef.current, 'to', siteSettings.currency, '- Refreshing exchange rates');
+        try {
+          await refreshExchangeRates();
+        } catch (error) {
+          console.error('Error refreshing exchange rates:', error);
+        }
+      };
+
+      refreshRatesOnCurrencyChange();
+      previousCurrencyRef.current = siteSettings.currency;
+    }
+  }, [siteSettings.currency, loadingSettings]);
 
   const updateUsername = (newUsername) => {
     setUsername(newUsername);
