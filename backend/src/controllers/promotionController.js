@@ -109,6 +109,16 @@ exports.createPromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Validate discount value - cannot be negative for fixed type
+        if (type === 'fixed') {
+            const valueNum = parseFloat(value);
+            if (isNaN(valueNum) || valueNum < 0) {
+                return res.status(400).json({ 
+                    message: 'Discount value cannot be negative for fixed amount promotions.' 
+                });
+            }
+        }
+        
         // Validate that promotion is for specific products or categories (not general)
         const products = applicableProducts || [];
         const categories = applicableCategories || [];
@@ -165,6 +175,16 @@ exports.updatePromotion = async (req, res) => {
     } = req.body;
 
     try {
+        // Validate discount value - cannot be negative for fixed type
+        if (type === 'fixed') {
+            const valueNum = parseFloat(value);
+            if (isNaN(valueNum) || valueNum < 0) {
+                return res.status(400).json({ 
+                    message: 'Discount value cannot be negative for fixed amount promotions.' 
+                });
+            }
+        }
+        
         // Validate that promotion is for specific products or categories (not general)
         const products = applicableProducts || [];
         const categories = applicableCategories || [];

@@ -593,15 +593,15 @@ const applyPromotionToSessionCart = async (req, res) => {
 
             // Calculate discount
             let discount = 0;
+            const applicableTotal = applicableItems.reduce((total, item) => {
+                return total + (item.price * item.quantity);
+            }, 0);
+            
             if (promotion.type === 'percentage') {
                 applicableItems.forEach(item => {
                     discount += (item.price * item.quantity) * (promotion.value / 100);
                 });
             } else if (promotion.type === 'fixed') {
-                const applicableTotal = applicableItems.reduce((total, item) => {
-                    return total + (item.price * item.quantity);
-                }, 0);
-
                 if (applicableTotal > 0) {
                     applicableItems.forEach(item => {
                         const itemTotal = item.price * item.quantity;
@@ -609,6 +609,11 @@ const applyPromotionToSessionCart = async (req, res) => {
                         discount += itemDiscount;
                     });
                 }
+            }
+
+            // Cap discount at subtotal to prevent negative totals
+            if (discount > applicableTotal) {
+                discount = applicableTotal;
             }
 
             discount = Math.round(discount * 100) / 100;

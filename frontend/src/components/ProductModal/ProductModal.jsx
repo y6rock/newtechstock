@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useSettings } from '../../context/SettingsContext';
+import { convertFromILSSync, convertToILS } from '../../utils/exchangeRate';
+import { getCurrencySymbol } from '../../utils/currency';
 import './ProductModal.css';
 
 const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSuccess }) => {
+  const { currency } = useSettings();
   const [form, setForm] = useState({ name: '', description: '', price: '', stock: '', image: '', supplier_id: '', category_id: '' });
   const [imageFile, setImageFile] = useState(null);
   const [imagePreview, setImagePreview] = useState('');
@@ -11,17 +15,20 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
 
   useEffect(() => {
     if (product) {
-      // Editing an existing product
+      // Editing an existing product - convert price from ILS to current currency
+      const priceInILS = product.price ? parseFloat(product.price) : 0;
+      const priceInCurrentCurrency = priceInILS > 0 ? convertFromILSSync(priceInILS, currency) : 0;
+      
       setForm({
         name: product.name || '',
         description: product.description || '',
-        price: product.price ? parseFloat(product.price).toFixed(2) : '',
+        price: priceInCurrentCurrency > 0 ? priceInCurrentCurrency.toFixed(2) : '',
         stock: product.stock || '',
         image: product.image || '',
         supplier_id: product.supplier_id || '',
         category_id: product.category_id || '',
       });
-              setImagePreview(product.image ? (product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}`: product.image) : '');
+      setImagePreview(product.image ? (product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}`: product.image) : '');
       setImageFile(null);
     } else {
       // Adding a new product
@@ -30,7 +37,7 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
       setImageFile(null);
     }
     setMessage('');
-  }, [product, isOpen]);
+  }, [product, isOpen, currency]);
 
   if (!isOpen) {
     return null;
@@ -85,10 +92,10 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
     }
 
     // Validate price and stock values
-    const price = parseFloat(form.price);
+    const priceInCurrentCurrency = parseFloat(form.price);
     const stock = parseInt(form.stock);
     
-    if (isNaN(price) || price < 0) {
+    if (isNaN(priceInCurrentCurrency) || priceInCurrentCurrency < 0) {
       setMessage('Price must be a non-negative number.');
       return;
     }
@@ -98,10 +105,13 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
       return;
     }
 
+    // Convert price from current currency back to ILS for storage
+    const priceInILS = convertToILS(priceInCurrentCurrency, currency);
+
     const formData = new FormData();
     formData.append('name', form.name);
     formData.append('description', form.description);
-    formData.append('price', form.price);
+    formData.append('price', priceInILS.toFixed(2));
     formData.append('stock', form.stock);
     formData.append('supplier_id', form.supplier_id || '');
     formData.append('category_id', form.category_id || '');
@@ -151,7 +161,7 @@ const ProductModal = ({ isOpen, onClose, product, suppliers, categories, onSucce
           </div>
           <div className="form-row">
             <div className="form-group">
-              <label>Price</label>
+              <label>Price ({getCurrencySymbol(currency)})</label>
               <input 
                 type="number" 
                 name="price" 

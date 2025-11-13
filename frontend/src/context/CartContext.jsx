@@ -1,12 +1,13 @@
 import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import { useSettings } from './SettingsContext';
 import { useToast } from './ToastContext';
+import { formatPriceConverted } from '../utils/currency';
 import axios from 'axios';
 
 const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
-  const { user_id, vat_rate } = useSettings();
+  const { user_id, vat_rate, currency } = useSettings();
   const { showSuccess, showError, showInfo } = useToast();
   const [cartItems, setCartItems] = useState([]);
   const [appliedPromotion, setAppliedPromotion] = useState(null);
@@ -405,8 +406,21 @@ export const CartProvider = ({ children }) => {
       });
 
       const { appliedPromotion: newPromotion, discountAmount: newDiscount } = response.data;
+      
+      // Calculate current subtotal to validate discount
+      const currentSubtotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+      
+      // Cap discount at subtotal if it exceeds it
+      let finalDiscount = newDiscount || 0;
+      let discountCapped = false;
+      
+      if (finalDiscount > currentSubtotal) {
+        finalDiscount = currentSubtotal;
+        discountCapped = true;
+      }
+      
       setAppliedPromotion(newPromotion);
-      setDiscountAmount(newDiscount || 0);
+      setDiscountAmount(finalDiscount);
 
       // Update localStorage backup (scoped by user_id)
       if (user_id && cartItems.length > 0) {
@@ -414,14 +428,20 @@ export const CartProvider = ({ children }) => {
         localStorage.setItem(cartBackupKey, JSON.stringify({
           cartItems: cartItems,
           appliedPromotion: newPromotion,
-          discountAmount: newDiscount || 0,
+          discountAmount: finalDiscount,
           userId: user_id,
           timestamp: Date.now()
         }));
       }
 
       if (newPromotion) {
-        showSuccess(`Promotion "${newPromotion.name}" applied successfully!`);
+        if (discountCapped) {
+          // Format subtotal with currency for the warning message
+          const formattedSubtotal = formatPriceConverted(currentSubtotal, currency);
+          showInfo(`Promotion "${newPromotion.name}" applied, but discount was capped at subtotal amount (${formattedSubtotal}).`);
+        } else {
+          showSuccess(`Promotion "${newPromotion.name}" applied successfully!`);
+        }
       } else {
         showError('Invalid promotion code');
       }

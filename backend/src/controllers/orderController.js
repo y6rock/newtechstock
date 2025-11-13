@@ -137,6 +137,11 @@ exports.createOrder = async (req, res) => {
                 }
             }
             
+            // Cap discount at subtotal to prevent negative totals (for both percentage and fixed)
+            if (discountAmount > applicableSubtotal) {
+                discountAmount = applicableSubtotal;
+            }
+            
             // Round to 2 decimal places
             discountAmount = Math.round(discountAmount * 100) / 100;
         }

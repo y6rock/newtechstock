@@ -153,3 +153,36 @@ export const convertFromILSSync = (priceInILS, targetCurrency) => {
   return parseFloat(priceInILS) * fallbackRate;
 };
 
+/**
+ * Convert price from target currency back to ILS (reverse conversion)
+ * @param {number} priceInCurrency - Price in target currency
+ * @param {string} sourceCurrency - Source currency code
+ * @returns {number} Price in ILS
+ */
+export const convertToILS = (priceInCurrency, sourceCurrency) => {
+  if (!priceInCurrency || isNaN(parseFloat(priceInCurrency))) {
+    return 0;
+  }
+  
+  if (sourceCurrency === BASE_CURRENCY) {
+    return parseFloat(priceInCurrency);
+  }
+  
+  try {
+    const cachedData = localStorage.getItem(EXCHANGE_RATE_CACHE_KEY);
+    if (cachedData) {
+      const parsed = JSON.parse(cachedData);
+      if (parsed.rates && parsed.rates[sourceCurrency]) {
+        // Reverse: divide by rate (if 1 ILS = 0.27 USD, then 1 USD = 1/0.27 ILS)
+        return parseFloat(priceInCurrency) / parsed.rates[sourceCurrency];
+      }
+    }
+  } catch (error) {
+    console.error('Error reading cached exchange rates:', error);
+  }
+  
+  // Fallback to default rates (reverse)
+  const fallbackRate = FALLBACK_RATES[sourceCurrency] || 1.0;
+  return parseFloat(priceInCurrency) / fallbackRate;
+};
+

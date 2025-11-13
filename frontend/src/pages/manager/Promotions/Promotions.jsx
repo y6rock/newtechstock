@@ -158,6 +158,15 @@ export default function Promotions() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validate discount value - cannot be negative for fixed type
+    if (formData.type === 'fixed') {
+      const value = parseFloat(formData.value);
+      if (isNaN(value) || value < 0) {
+        showError('Discount value cannot be negative for fixed amount promotions.');
+        return;
+      }
+    }
+    
     // Validate quantity constraints
     if (formData.maxQuantity && parseInt(formData.maxQuantity) <= parseInt(formData.minQuantity)) {
       showError('Maximum quantity must be greater than minimum quantity.');
@@ -666,8 +675,15 @@ export default function Promotions() {
                   <input
                     type="number"
                     value={formData.value}
-                    onChange={(e) => setFormData({...formData, value: e.target.value})}
-                    min="0"
+                    onChange={(e) => {
+                      const inputValue = e.target.value;
+                      // For fixed type, ensure value cannot be negative
+                      if (formData.type === 'fixed' && inputValue !== '' && parseFloat(inputValue) < 0) {
+                        return; // Don't update if negative for fixed type
+                      }
+                      setFormData({...formData, value: inputValue});
+                    }}
+                    min={formData.type === 'fixed' ? '0' : undefined}
                     step="0.01"
                     placeholder={formData.type === 'percentage' ? '20' : '10'}
                     required
