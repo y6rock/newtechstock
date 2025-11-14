@@ -524,6 +524,8 @@ const Suppliers = () => {
           });
           // Flip status locally
           setSuppliers(prev => prev.map(s => s.supplier_id === supplierId ? { ...s, isActive: 0, status: 'Inactive' } : s));
+          // Refresh statistics to update filter button counts
+          await fetchSupplierStats();
           showSuccess('Supplier deactivated successfully!');
         } catch (err) {
           console.error('Error deleting supplier:', err);
@@ -545,6 +547,8 @@ const Suppliers = () => {
           });
           // Flip status locally
           setSuppliers(prev => prev.map(s => s.supplier_id === supplierId ? { ...s, isActive: 1, status: 'Active' } : s));
+          // Refresh statistics to update filter button counts
+          await fetchSupplierStats();
           showSuccess('Supplier restored successfully!');
         } catch (err) {
           console.error('Error restoring supplier:', err);

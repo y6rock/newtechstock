@@ -17,13 +17,13 @@ import {
   Title
 } from 'chart.js';
 import axios from 'axios';
-import { formatPrice, formatPriceConverted } from '../../../utils/currency';
+import { formatPrice, formatPriceConverted, formatPriceWithTax } from '../../../utils/currency';
 import { convertFromILSSync } from '../../../utils/exchangeRate';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Title);
 
 export default function Dashboard() {
-  const { isUserAdmin, loadingSettings, currency } = useSettings();
+  const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ total_revenue: 0, total_orders: 0, total_products: 0 });
   const [salesData, setSalesData] = useState([]);
@@ -303,7 +303,7 @@ export default function Dashboard() {
                         </span>
                       )}
                       <span className="product-price">
-                        {formatPriceConverted(product.price, currency)}
+                        {formatPriceWithTax(product.price, currency, vat_rate)}
                       </span>
                     </div>
                   </div>

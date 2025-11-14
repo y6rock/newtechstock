@@ -364,6 +364,8 @@ const Categories = () => {
           });
           // Refresh the data after deactivation
           handlePageChange(pagination.currentPage);
+          // Refresh statistics to update filter button counts
+          await fetchCategoryStats();
           showSuccess('Category deactivated successfully!');
         } catch (err) {
           console.error('Error deactivating category:', err);
@@ -387,6 +389,8 @@ const Categories = () => {
           });
           // Refresh the data after restoration
           handlePageChange(pagination.currentPage);
+          // Refresh statistics to update filter button counts
+          await fetchCategoryStats();
           showSuccess('Category restored successfully!');
         } catch (err) {
           console.error('Error restoring category:', err);
@@ -419,6 +423,8 @@ const Categories = () => {
             )
           );
           
+          // Refresh statistics to update filter button counts
+          await fetchCategoryStats();
           showSuccess(`Category ${action}d successfully!`);
         } catch (err) {
           console.error('Error toggling category status:', err);
