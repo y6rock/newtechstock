@@ -190,11 +190,15 @@ class InvoiceGenerator {
             };
         }));
 
-        // Items with alternating row colors
+        // Items with alternating row colors - show prices WITH tax included
         convertedItems.forEach((item, index) => {
-            const price = item.price;
+            const basePrice = item.price; // Base price without tax
             const quantity = item.quantity;
-            const total = item.total;
+            const baseTotal = item.total; // Base total without tax
+            
+            // Calculate prices with tax for display
+            const priceWithTax = basePrice * (1 + vatRate / 100);
+            const totalWithTax = baseTotal * (1 + vatRate / 100);
 
             // Alternating row background
             if (index % 2 === 0) {
@@ -216,60 +220,49 @@ class InvoiceGenerator {
                 .fillColor('#1f2937')
                 .text(item.product_name || 'Product', 60, yPosition + 8, { width: 200 })
                 .text(quantity.toString(), 280, yPosition + 8, { width: 40, align: 'center' })
-                .text(`${currencySymbol}${price.toFixed(2)}`, 340, yPosition + 8, { width: 80, align: 'right' })
-                .text(`${currencySymbol}${total.toFixed(2)}`, 440, yPosition + 8, { width: 95, align: 'right' });
+                .text(`${currencySymbol}${priceWithTax.toFixed(2)}`, 340, yPosition + 8, { width: 80, align: 'right' })
+                .text(`${currencySymbol}${totalWithTax.toFixed(2)}`, 440, yPosition + 8, { width: 95, align: 'right' });
             
             yPosition += 25;
         });
 
-        // Calculate subtotal (using converted prices)
+        // Calculate amounts (using base prices without tax)
         const subtotal = convertedItems.reduce((sum, item) => sum + item.total, 0);
         const convertedDiscountAmount = await convertFromILS(discount_amount || 0, currencyCode);
         const subtotalAfterDiscount = subtotal - convertedDiscountAmount;
         const netAmount = subtotalAfterDiscount;
         const vatAmount = netAmount * (vatRate / 100);
+        const finalTotal = netAmount + vatAmount;
 
-        // Summary section
+        // Summary section - match cart format
         this.doc.y = yPosition + 20;
         const summaryX = 350;
         
-        // Subtotal
-        this.doc
-            .fontSize(12)
-            .fillColor('#6b7280')
-            .text('Subtotal:', summaryX, this.doc.y)
-            .fillColor('#1f2937')
-            .text(`${currencySymbol}${subtotal.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
-
-        // Show discount if applicable
+        // Show discount if applicable (first, before net amount)
         if (promotion && convertedDiscountAmount > 0) {
             this.doc
-                .moveDown(0.3)
+                .fontSize(12)
                 .fillColor('#6b7280')
                 .text(`Discount (${promotion.name}):`, summaryX, this.doc.y)
                 .fillColor('#dc2626')
                 .text(`-${currencySymbol}${convertedDiscountAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' })
-                .moveDown(0.3)
-                .fillColor('#6b7280')
-                .text('Subtotal after discount:', summaryX, this.doc.y)
-                .fillColor('#1f2937')
-                .text(`${currencySymbol}${subtotalAfterDiscount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
+                .moveDown(0.3);
         }
 
         // Net Amount (excluding VAT)
         this.doc
-            .moveDown(0.3)
+            .fontSize(12)
             .fillColor('#6b7280')
             .text('Net Amount (excluding VAT):', summaryX, this.doc.y)
             .fillColor('#1f2937')
             .text(`${currencySymbol}${netAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
 
-        // VAT
+        // VAT Rate and Amount
         if (vatRate > 0) {
             this.doc
                 .moveDown(0.3)
                 .fillColor('#6b7280')
-                .text(`VAT (${vatRate}%):`, summaryX, this.doc.y)
+                .text(`VAT Rate: ${vatRate}%`, summaryX, this.doc.y)
                 .fillColor('#1f2937')
                 .text(`${currencySymbol}${vatAmount.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });
         }
@@ -284,13 +277,11 @@ class InvoiceGenerator {
             .stroke()
             .moveDown(0.3);
 
-        // Total amount (convert from ILS)
-        const convertedTotalAmount = await convertFromILS(parseFloat(total_amount || 0), currencyCode);
-        const finalTotal = netAmount + vatAmount; // Use calculated total for consistency
+        // Total amount
         this.doc
             .fontSize(16)
             .fillColor('#1f2937')
-            .text('Total Amount:', summaryX, this.doc.y)
+            .text('Total:', summaryX, this.doc.y)
             .fontSize(18)
             .fillColor('#059669')
             .text(`${currencySymbol}${finalTotal.toFixed(2)}`, summaryX + 100, this.doc.y, { align: 'right' });

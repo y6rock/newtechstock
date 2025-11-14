@@ -1,13 +1,13 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useSettings } from '../../../context/SettingsContext';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { formatPriceConverted } from '../../../utils/currency';
+import { formatPriceConverted, formatPriceWithTax } from '../../../utils/currency';
 import { formatDate, formatDateTime } from '../../../utils/dateFormat';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Orders.css';
 
 const Orders = () => {
-  const { isUserAdmin, loadingSettings, currency } = useSettings();
+  const { isUserAdmin, loadingSettings, currency, vat_rate } = useSettings();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   
@@ -32,6 +32,10 @@ const Orders = () => {
     let total = 0;
     if (Array.isArray(distribution)) {
       distribution.forEach(item => {
+          // Exclude cancelled orders
+          if (item.status.toLowerCase() === 'cancelled') {
+            return;
+          }
           const key = `${item.status.toLowerCase()}_orders`;
           if (key in newStats) {
               newStats[key] = item.count;
@@ -202,14 +206,16 @@ const Orders = () => {
 
         // Handle both old format (array) and new format (object with orders array)
         const orders = ordersData.orders || ordersData;
+        // Filter out cancelled orders
+        const filteredOrders = orders.filter(order => order.status.toLowerCase() !== 'cancelled');
         const paginationData = ordersData.pagination || { 
           currentPage: urlPage, 
           totalPages: 1, 
-          totalItems: orders.length, 
+          totalItems: filteredOrders.length, 
           itemsPerPage: 10 
         };
         
-        setOrders(orders);
+        setOrders(filteredOrders);
         setPagination(paginationData);
         // Don't update stats here - they are fetched separately and always global
 
@@ -280,7 +286,9 @@ const Orders = () => {
       const ordersData = await ordersRes.json();
 
       const ordersArray = ordersData.orders || ordersData;
-      setOrders(ordersArray);
+      // Filter out cancelled orders
+      const filteredOrders = ordersArray.filter(order => order.status.toLowerCase() !== 'cancelled');
+      setOrders(filteredOrders);
       
       // Don't update stats here - they are fetched separately and always global
       
@@ -361,7 +369,9 @@ const Orders = () => {
 
             const data = await response.json();
             const orders = data.orders || data;
-            setOrders(orders);
+            // Filter out cancelled orders
+            const filteredOrders = orders.filter(order => order.status.toLowerCase() !== 'cancelled');
+            setOrders(filteredOrders);
 
             if (data.pagination) {
               setPagination(data.pagination);
@@ -432,7 +442,9 @@ const Orders = () => {
 
             const data = await response.json();
             const orders = data.orders || data;
-            setOrders(orders);
+            // Filter out cancelled orders
+            const filteredOrders = orders.filter(order => order.status.toLowerCase() !== 'cancelled');
+            setOrders(filteredOrders);
 
             if (data.pagination) {
               setPagination(data.pagination);
@@ -579,8 +591,13 @@ const Orders = () => {
 
       const ordersData = await ordersRes.json();
 
-      setOrders(ordersData.orders || ordersData);
-      // Don't update stats here - they are fetched separately and always global
+      const ordersArray = ordersData.orders || ordersData;
+      // Filter out cancelled orders
+      const filteredOrders = ordersArray.filter(order => order.status.toLowerCase() !== 'cancelled');
+      setOrders(filteredOrders);
+      
+      // Refresh statistics to reflect the status change in the cards
+      await fetchStatistics();
       
     } catch (err) {
       setError(err.message || 'Failed to update order status.');
@@ -832,7 +849,7 @@ const Orders = () => {
               {(selectedOrder.products || []).map((item, idx) => (
                 <li key={idx}>
                   <span>{item.product_name || item.name} (x{item.quantity})</span>
-                  <span>{formatPriceConverted(item.price_at_order * item.quantity, currency)}</span>
+                  <span>{formatPriceWithTax(item.price_at_order * item.quantity, currency, vat_rate)}</span>
                 </li>
               ))}
             </ul>

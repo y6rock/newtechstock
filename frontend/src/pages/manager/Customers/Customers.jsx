@@ -36,23 +36,16 @@ const Customers = () => {
         inactiveCustomers: 0
     });
 
-    // Fetch customer statistics
-    const fetchCustomerStats = useCallback(async (searchQuery = '', status = 'all') => {
+    // Fetch customer statistics - always global (no filters)
+    const fetchCustomerStats = useCallback(async () => {
         try {
             const token = localStorage.getItem('token');
             if (!token) {
                 return;
             }
             
-            const params = new URLSearchParams();
-            if (searchQuery.trim()) {
-                params.append('search', searchQuery.trim());
-            }
-            if (status && status !== 'all') {
-                params.append('status', status);
-            }
-            
-            const response = await fetch(`/api/admin/customer-stats?${params}`, {
+            // Always fetch global stats without any filters
+            const response = await fetch(`/api/admin/customer-stats`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }
@@ -295,7 +288,7 @@ const Customers = () => {
                 }
                 
                 // Fetch customer statistics
-                await fetchCustomerStats(searchTerm, newStatus);
+                // Don't refetch stats - they should always show global totals
             } catch (error) {
                 console.error('Error fetching customers with filter:', error);
                 showError('Failed to fetch customers');
@@ -523,7 +516,8 @@ const Customers = () => {
                 }
                 
                 // Fetch customer statistics
-                await fetchCustomerStats(search, status);
+                // Fetch global stats only on initial load
+                await fetchCustomerStats();
             } catch (error) {
                 console.error('Error loading customers:', error);
                 showError('Failed to load customers');
@@ -556,7 +550,7 @@ const Customers = () => {
     const fetchCustomerOrders = async (userId) => {
         try {
             const token = localStorage.getItem('token');
-            const response = await fetch(`/api/admin/orders?userId=${userId}`, {
+            const response = await fetch(`/api/admin/orders?userId=${userId}&limit=10000`, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

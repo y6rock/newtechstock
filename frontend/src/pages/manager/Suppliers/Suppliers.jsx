@@ -21,6 +21,11 @@ const Suppliers = () => {
   const [sortDirection, setSortDirection] = useState('desc');
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
   const [pagination, setPagination] = useState({ currentPage: 1, totalPages: 1, totalItems: 0, itemsPerPage: 10 });
+  const [supplierStats, setSupplierStats] = useState({
+    totalSuppliers: 0,
+    activeSuppliers: 0,
+    inactiveSuppliers: 0
+  });
   const [newSupplierName, setNewSupplierName] = useState('');
   const [newSupplierEmail, setNewSupplierEmail] = useState('');
   const [newSupplierPhone, setNewSupplierPhone] = useState('');
@@ -92,6 +97,42 @@ const Suppliers = () => {
       setSortDirection(urlSortDirection === 'desc' ? 'desc' : 'asc');
     }
   }, [searchParams]);
+
+  // Fetch supplier statistics - always global (no filters)
+  const fetchSupplierStats = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+      
+      const response = await fetch(`/api/suppliers/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setSupplierStats({
+        totalSuppliers: data.totalSuppliers || 0,
+        activeSuppliers: data.activeSuppliers || 0,
+        inactiveSuppliers: data.inactiveSuppliers || 0
+      });
+    } catch (error) {
+      console.error('Error fetching supplier statistics:', error);
+    }
+  }, []);
+
+  // Fetch stats on initial load
+  useEffect(() => {
+    if (isUserAdmin && !loadingSettings) {
+      fetchSupplierStats();
+    }
+  }, [isUserAdmin, loadingSettings, fetchSupplierStats]);
 
   // Ref-based search implementation - no re-renders during typing
   useEffect(() => {
@@ -586,7 +627,7 @@ const Suppliers = () => {
                   transition: 'all 0.2s ease'
                 }}
               >
-                All ({pagination.totalItems})
+                All ({supplierStats.totalSuppliers})
               </button>
               <button 
                 className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
@@ -603,7 +644,7 @@ const Suppliers = () => {
                   transition: 'all 0.2s ease'
                 }}
               >
-                Active
+                Active ({supplierStats.activeSuppliers})
               </button>
               <button 
                 className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
@@ -620,7 +661,7 @@ const Suppliers = () => {
                   transition: 'all 0.2s ease'
                 }}
               >
-                Inactive
+                Inactive ({supplierStats.inactiveSuppliers})
               </button>
             </div>
           </div>

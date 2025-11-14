@@ -120,7 +120,28 @@ exports.getSalesOverTime = async (req, res) => {
 // Get top products
 exports.getTopProducts = async (req, res) => {
     try {
-        const { limit = 10 } = req.query;
+        const { limit = 10, startDate, endDate } = req.query;
+        
+        let whereConditions = [];
+        let params = [];
+        
+        // Add date range filter if provided
+        if (startDate && endDate) {
+            whereConditions.push('DATE(o.order_date) BETWEEN ? AND ?');
+            params.push(startDate, endDate);
+        } else if (startDate) {
+            whereConditions.push('DATE(o.order_date) >= ?');
+            params.push(startDate);
+        } else if (endDate) {
+            whereConditions.push('DATE(o.order_date) <= ?');
+            params.push(endDate);
+        }
+        
+        // Exclude cancelled orders
+        whereConditions.push('o.status != ?');
+        params.push('Cancelled');
+        
+        const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
         const [topProducts] = await db.query(`
             SELECT 
@@ -132,10 +153,11 @@ exports.getTopProducts = async (req, res) => {
             FROM products p
             LEFT JOIN order_items oi ON p.product_id = oi.product_id
             LEFT JOIN orders o ON oi.order_id = o.order_id
+            ${whereClause}
             GROUP BY p.product_id, p.name, p.price
             ORDER BY total_sold DESC
             LIMIT ?
-        `, [parseInt(limit)]);
+        `, [...params, parseInt(limit)]);
 
         res.json(topProducts);
     } catch (error) {
@@ -169,6 +191,10 @@ exports.getOrders = async (req, res) => {
             whereConditions.push('o.status = ?');
             params.push(status);
         }
+        
+        // Always exclude cancelled orders from the list
+        whereConditions.push('o.status != ?');
+        params.push('Cancelled');
         
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
@@ -307,6 +333,10 @@ exports.getOrderStatusDistribution = async (req, res) => {
             const searchPattern = `%${search.trim()}%`;
             params.push(searchPattern, searchPattern, searchPattern);
         }
+        
+        // Always exclude cancelled orders from statistics
+        whereConditions.push('o.status != ?');
+        params.push('Cancelled');
         
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         

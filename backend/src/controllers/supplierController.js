@@ -109,6 +109,28 @@ exports.getAllSuppliers = async (req, res) => {
     }
 };
 
+// Get supplier statistics (global counts)
+exports.getSupplierStats = async (req, res) => {
+    try {
+        const [stats] = await db.query(`
+            SELECT 
+                COUNT(*) as total_suppliers,
+                SUM(CASE WHEN isActive = 1 THEN 1 ELSE 0 END) as active_suppliers,
+                SUM(CASE WHEN isActive = 0 THEN 1 ELSE 0 END) as inactive_suppliers
+            FROM suppliers
+        `);
+        
+        res.json({
+            totalSuppliers: stats[0].total_suppliers || 0,
+            activeSuppliers: stats[0].active_suppliers || 0,
+            inactiveSuppliers: stats[0].inactive_suppliers || 0
+        });
+    } catch (err) {
+        console.error('Error fetching supplier statistics:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
 // Add a new supplier
 exports.createSupplier = async (req, res) => {
     const { name, email, phone, address } = req.body;

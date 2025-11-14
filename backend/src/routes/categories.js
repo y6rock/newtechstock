@@ -6,6 +6,7 @@ const {
     getPublicCategories,
     getAllCategories,
     getCategoriesByIds,
+    getCategoryStats,
     createCategory,
     updateCategory,
     deleteCategory,
@@ -31,6 +32,9 @@ router.get('/public', getPublicCategories);
 
 // Get categories by multiple IDs (public)
 router.get('/by-ids', getCategoriesByIds);
+
+// Get category statistics (global counts)
+router.get('/stats', authenticateToken, requireAdmin, getCategoryStats);
 
 // Get all categories (admin only) - shows both active and inactive
 router.get('/', authenticateToken, requireAdmin, getAllCategories);

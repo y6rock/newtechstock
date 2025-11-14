@@ -24,6 +24,28 @@ exports.getPublicCategories = async (req, res) => {
     }
 };
 
+// Get category statistics (global counts)
+exports.getCategoryStats = async (req, res) => {
+    try {
+        const [stats] = await db.query(`
+            SELECT 
+                COUNT(*) as total_categories,
+                SUM(CASE WHEN isActive = TRUE THEN 1 ELSE 0 END) as active_categories,
+                SUM(CASE WHEN isActive = FALSE THEN 1 ELSE 0 END) as inactive_categories
+            FROM categories
+        `);
+        
+        res.json({
+            totalCategories: stats[0].total_categories || 0,
+            activeCategories: stats[0].active_categories || 0,
+            inactiveCategories: stats[0].inactive_categories || 0
+        });
+    } catch (err) {
+        console.error('Error fetching category statistics:', err);
+        res.status(500).json({ message: 'Database error' });
+    }
+};
+
 // Get all categories (admin only) - shows both active and inactive
 exports.getAllCategories = async (req, res) => {
     try {

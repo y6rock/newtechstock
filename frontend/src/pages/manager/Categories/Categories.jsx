@@ -21,6 +21,11 @@ const Categories = () => {
   // Sorting and filtering state
   const [sortConfig, setSortConfig] = useState({ field: 'category_id', direction: 'desc' });
   const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'active', 'inactive'
+  const [categoryStats, setCategoryStats] = useState({
+    totalCategories: 0,
+    activeCategories: 0,
+    inactiveCategories: 0
+  });
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryDescription, setNewCategoryDescription] = useState('');
   const [newCategoryImage, setNewCategoryImage] = useState(null);
@@ -95,6 +100,42 @@ const Categories = () => {
       setLoadingCategories(false);
     }
   }, [searchTerm, statusFilter, pagination.currentPage, sortConfig]);
+
+  // Fetch category statistics - always global (no filters)
+  const fetchCategoryStats = useCallback(async () => {
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        return;
+      }
+      
+      const response = await fetch(`/api/categories/stats`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      setCategoryStats({
+        totalCategories: data.totalCategories || 0,
+        activeCategories: data.activeCategories || 0,
+        inactiveCategories: data.inactiveCategories || 0
+      });
+    } catch (error) {
+      console.error('Error fetching category statistics:', error);
+    }
+  }, []);
+
+  // Fetch stats on initial load
+  useEffect(() => {
+    if (isUserAdmin && !loadingSettings) {
+      fetchCategoryStats();
+    }
+  }, [isUserAdmin, loadingSettings, fetchCategoryStats]);
 
   // Ref-based search implementation - no re-renders during typing
   useEffect(() => {
@@ -467,19 +508,19 @@ const Categories = () => {
                   className={`filter-btn ${statusFilter === 'all' ? 'active' : ''}`}
                   onClick={() => handleStatusFilterChange('all')}
                 >
-                  All ({pagination.totalItems})
+                  All ({categoryStats.totalCategories})
                 </button>
                 <button 
                   className={`filter-btn ${statusFilter === 'active' ? 'active' : ''}`}
                   onClick={() => handleStatusFilterChange('active')}
                 >
-                  Active
+                  Active ({categoryStats.activeCategories})
                 </button>
                 <button 
                   className={`filter-btn ${statusFilter === 'inactive' ? 'active' : ''}`}
                   onClick={() => handleStatusFilterChange('inactive')}
                 >
-                  Inactive
+                  Inactive ({categoryStats.inactiveCategories})
                 </button>
               </div>
             </div>

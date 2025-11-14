@@ -145,26 +145,10 @@ const Checkout = () => {
             console.log('Order created with PayPal payment, ID:', orderId);
             setPaypalOrderId(orderId);
 
-            // Update order status to confirmed after successful PayPal payment
-            try {
-                await axios.put(`/api/orders/${orderId}/payment-status`, {
-                    status: 'confirmed',
-                    paypal_payment_id: details.id
-                }, {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                console.log('Order status updated to confirmed');
-                
-                showSuccess('Order placed successfully with PayPal!');
-                clearCart();
-                navigate(`/order-confirmation/${orderId}`);
-            } catch (statusError) {
-                console.error('Error updating order status:', statusError);
-                // If status update fails, cancel the order
-                await handleOrderCancellation(orderId);
-                setOrderError('Payment verification failed. Please try again.');
-                showError('Payment verification failed. Please try again.');
-            }
+            // Order is already created with 'Pending' status - no need to update
+            showSuccess('Order placed successfully with PayPal!');
+            clearCart();
+            navigate(`/order-confirmation/${orderId}`);
         } catch (error) {
             const message = error.response?.data?.message || 'There was an issue placing your order.';
             console.error('PayPal order placement error:', error);
