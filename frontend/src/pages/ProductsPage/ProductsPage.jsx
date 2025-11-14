@@ -29,9 +29,13 @@ const ProductsPage = () => {
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
   ]);
-  const [searchTerm, setSearchTerm] = useState('');
+  // Initialize search term and page from URL if present
+  const initialParams = new URLSearchParams(location.search);
+  const initialSearchParam = initialParams.get('search') || '';
+  const initialPageParam = parseInt(initialParams.get('page')) || 1;
+  const [searchTerm, setSearchTerm] = useState(initialSearchParam);
   const [pagination, setPagination] = useState({
-    currentPage: 1,
+    currentPage: initialPageParam,
     totalPages: 1,
     totalItems: 0,
     itemsPerPage: 10
@@ -51,6 +55,10 @@ const ProductsPage = () => {
   // Ref for search input to maintain focus
   const searchInputRef = useRef(null);
   const isTypingRef = useRef(false);
+  // Ref to prevent URL sync effect from interfering with programmatic page changes
+  const isChangingPageRef = useRef(false);
+  // Ref to track if initial fetch has been done
+  const hasInitiallyFetchedRef = useRef(false);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
@@ -63,8 +71,39 @@ const ProductsPage = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
+    // Set loading state
+    setLoading(true);
+    
     try {
-      const pageToUse = pageOverride !== null ? pageOverride : pagination.currentPage;
+      // Determine page to use:
+      // 1. If pageOverride is provided, use it (explicit page change)
+      // 2. Otherwise, read from URL (single source of truth)
+      // 3. Fallback to pagination.currentPage if URL doesn't have page param
+      let pageToUse;
+      if (pageOverride !== null && pageOverride !== undefined) {
+        pageToUse = parseInt(pageOverride, 10);
+        console.log('fetchProducts: Using pageOverride:', pageToUse);
+      } else {
+        // Read from URL (single source of truth)
+        const urlParams = new URLSearchParams(location.search);
+        const urlPage = urlParams.get('page');
+        if (urlPage) {
+          pageToUse = parseInt(urlPage, 10);
+          console.log('fetchProducts: Reading from URL, page:', pageToUse);
+        } else {
+          pageToUse = parseInt(pagination.currentPage, 10);
+          console.log('fetchProducts: No URL page param, using pagination.currentPage:', pageToUse);
+        }
+      }
+      
+      console.log('fetchProducts called - pageOverride:', pageOverride, 'pageToUse:', pageToUse, 'pagination.currentPage:', pagination.currentPage, 'URL page:', new URLSearchParams(location.search).get('page'));
+      
+      // Validate page number
+      if (isNaN(pageToUse) || pageToUse < 1) {
+        console.error('Invalid page number:', pageToUse);
+        return;
+      }
+      
       const params = new URLSearchParams();
       
       if (selectedCategory && selectedCategory !== 'All Products') {
@@ -109,9 +148,28 @@ const ProductsPage = () => {
       console.log('ProductsPage: Products fetched with filters:', response.data);
       
       if (response.data && response.data.products) {
+        console.log('Setting products:', response.data.products.length, 'items for page:', pageToUse);
         setProducts(response.data.products);
         if (response.data.pagination) {
-          setPagination(response.data.pagination);
+          // Preserve the page we requested if it's different from what backend returned
+          // This ensures the page number in state matches what we requested
+          const finalPage = pageToUse; // Use the page we requested
+          console.log('Setting pagination - requested page:', finalPage, 'backend returned:', response.data.pagination.currentPage);
+          setPagination(prev => {
+            const newPagination = {
+              ...response.data.pagination,
+              currentPage: finalPage // Use the page we requested, not what backend might return
+            };
+            console.log('New pagination state:', newPagination);
+            return newPagination;
+          });
+        } else {
+          // If no pagination in response, just update currentPage
+          setPagination(prev => {
+            const newPagination = { ...prev, currentPage: pageToUse };
+            console.log('No pagination in response, updating currentPage to:', pageToUse, 'new state:', newPagination);
+            return newPagination;
+          });
         }
       } else if (Array.isArray(response.data)) {
         // Fallback for old API format
@@ -145,18 +203,54 @@ const ProductsPage = () => {
     };
   }, []);
   
-  // Handle URL parameter changes for category only (search is handled by handleSearchChange)
+  // Handle URL parameter changes for category, search, and page
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const categoryParam = params.get('category');
+    const searchParam = params.get('search');
+    const pageParam = parseInt(params.get('page')) || 1;
     
-    // Only sync from URL if it's different from current state (avoid loops)
+    // Sync category from URL
     if (categoryParam !== null && categoryParam !== selectedCategory) {
       setSelectedCategory(categoryParam);
     } else if (categoryParam === null && selectedCategory !== 'All Products') {
       setSelectedCategory('All Products');
     }
-  }, [location.search]); // Removed selectedCategory from deps to avoid loops
+    
+    // Sync search from URL (when navigating from header search)
+    if (searchParam !== null && searchParam !== searchTerm) {
+      // Clear typing flag when setting from URL (not user typing)
+      isTypingRef.current = false;
+      setSearchTerm(searchParam);
+      // Don't trigger fetch here - let the debounced search effect handle it
+    } else if (searchParam === null && searchTerm) {
+      // If search param is removed from URL, clear search
+      isTypingRef.current = false;
+      setSearchTerm('');
+    }
+    
+    // Sync page from URL (for browser back/forward navigation only)
+    // Skip if we're programmatically changing the page (handlePageChange handles it)
+    if (isChangingPageRef.current) {
+      console.log('URL sync effect: skipping because isChangingPageRef is true (programmatic page change in progress)');
+      return; // Early return to skip all URL sync logic
+    }
+    
+    if (pageParam !== pagination.currentPage) {
+      console.log('URL sync effect: page changed from', pagination.currentPage, 'to', pageParam, '(browser navigation)');
+      // Update pagination state
+      setPagination(prev => {
+        console.log('URL sync: updating pagination from', prev.currentPage, 'to', pageParam);
+        return { ...prev, currentPage: pageParam };
+      });
+      // Fetch products for the page from URL (pass pageParam as override)
+      console.log('URL sync: calling fetchProducts with pageParam:', pageParam);
+      fetchProducts(pageParam);
+    } else {
+      console.log('URL sync effect: page unchanged, skipping (pageParam:', pageParam, 'currentPage:', pagination.currentPage, ')');
+    }
+  }, [location.search]); // Removed fetchProducts from deps to prevent re-runs when fetchProducts is recreated
+  // Note: fetchProducts is intentionally not in deps - it's called directly when needed
 
   // Removed debounced effect for better responsiveness
 
@@ -248,12 +342,20 @@ const ProductsPage = () => {
   }, [selectedCategory, selectedManufacturers, fetchPriceStats]);
 
   // Fetch products when filters change (but not when search term or page changes - page changes are handled directly)
+  // Note: fetchProducts is NOT in dependencies to avoid resetting page when fetchProducts is recreated
   useEffect(() => {
-    console.log('fetchProducts useEffect triggered');
+    console.log('Filter change effect triggered - selectedCategory:', selectedCategory, 'maxPrice:', maxPrice, 'selectedManufacturers:', selectedManufacturers);
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
+    // Update URL to remove page param when filters change
+    const params = new URLSearchParams(searchParams);
+    params.delete('page');
+    setSearchParams(params);
+    // Fetch products for page 1
+    console.log('Filter change: calling fetchProducts(1)');
     fetchProducts(1);
-  }, [selectedCategory, maxPrice, selectedManufacturers, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, maxPrice, selectedManufacturers]);
 
   // Handle search term changes - simple state update, no URL updates during typing
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -291,13 +393,15 @@ const ProductsPage = () => {
     return () => clearTimeout(timeoutId);
   }, [searchTerm, fetchProducts]);
 
-  // Initial fetch after price stats are loaded
+  // Initial fetch after price stats are loaded (only once on mount)
   useEffect(() => {
-    if (priceStats.maxPrice > 0) {
+    if (priceStats.maxPrice > 0 && !hasInitiallyFetchedRef.current) {
       console.log('Initial fetch triggered after price stats loaded');
+      hasInitiallyFetchedRef.current = true;
       fetchProducts(1);
     }
-  }, [priceStats.maxPrice, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priceStats.maxPrice]); // Removed fetchProducts from deps to prevent re-runs
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
@@ -348,14 +452,46 @@ const ProductsPage = () => {
   };
 
   const handlePageChange = async (newPage) => {
+    console.log('=== handlePageChange CALLED ===');
+    console.log('handlePageChange: changing to page', newPage, 'current:', pagination.currentPage);
+    console.log('handlePageChange: typeof newPage:', typeof newPage, 'value:', newPage);
+    // Set flag to prevent URL sync effect from interfering
+    isChangingPageRef.current = true;
+    console.log('handlePageChange: isChangingPageRef set to true');
+    
     // Scroll to top of product grid when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
-    // Update pagination state first
-    setPagination(prev => ({ ...prev, currentPage: newPage }));
+    // Update pagination state FIRST to prevent URL sync effect from interfering
+    setPagination(prev => {
+      console.log('handlePageChange: updating pagination from', prev.currentPage, 'to', newPage);
+      return { ...prev, currentPage: newPage };
+    });
     
-    // Fetch products for the new page using fetchProducts with page override
+    // Update URL with page parameter (like Customers page)
+    const params = new URLSearchParams(searchParams);
+    if (newPage === 1) {
+      params.delete('page');
+    } else {
+      params.set('page', newPage.toString());
+    }
+    // Preserve other URL params (category, search, etc.)
+    // Use navigate to ensure URL updates in address bar
+    const newSearch = params.toString();
+    navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
+    console.log('handlePageChange: URL updated to', params.toString());
+    
+    // Fetch products for the new page (like Categories page - simple and direct)
+    console.log('handlePageChange: calling fetchProducts with pageOverride:', newPage);
     await fetchProducts(newPage);
+    console.log('handlePageChange: fetchProducts completed');
+    
+    // Reset flag after a longer delay to ensure URL sync effect doesn't interfere
+    // The delay needs to be long enough for the URL update and fetch to complete
+    setTimeout(() => {
+      isChangingPageRef.current = false;
+      console.log('handlePageChange: isChangingPageRef reset to false');
+    }, 500);
   };
 
   const handleAddToCart = (product) => {
@@ -471,25 +607,11 @@ const ProductsPage = () => {
               margin: '0 0 15px 0', 
               color: '#2d3748', 
               fontSize: '1.2em', 
-              fontWeight: '700',
-              paddingBottom: '8px',
-              borderBottom: '2px solid #667eea'
+              fontWeight: '700'
             }}>
               Price Range
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              <div style={{ textAlign: 'center', marginBottom: '5px' }}>
-                <span style={{ 
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  backgroundClip: 'text',
-                  fontWeight: '700',
-                  fontSize: '1em'
-                }}>
-                  {formatPriceWithTax(priceRange.min, currency, vat_rate)} - {formatPriceWithTax(priceRange.max, currency, vat_rate)}
-                </span>
-              </div>
               <input
                 key={`price-slider-${currency}-${priceRange.min}-${priceRange.max}`}
                 type="range"

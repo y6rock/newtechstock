@@ -72,7 +72,7 @@ exports.getAllProducts = async (req, res) => {
         const totalPages = Math.ceil(totalItems / parseInt(limit));
         const offset = (parseInt(page) - 1) * parseInt(limit);
         
-        // Get paginated products
+        // Get paginated products - sorted by newest first (product_id DESC)
         const [products] = await db.query(`
             SELECT 
                 p.*,
@@ -81,7 +81,7 @@ exports.getAllProducts = async (req, res) => {
             FROM products p
             ${joinClause}
             ${whereClause}
-            ORDER BY p.name
+            ORDER BY p.product_id DESC
             LIMIT ? OFFSET ?
         `, [...params, parseInt(limit), offset]);
         
@@ -205,7 +205,7 @@ exports.searchProducts = async (req, res) => {
                     WHEN c.name LIKE ? THEN 3
                     ELSE 4
                 END,
-                p.name
+                p.product_id DESC
             LIMIT 8
         `, [searchTerm, searchTerm, searchTerm, searchTerm, searchTerm, searchTerm]);
         
@@ -216,10 +216,20 @@ exports.searchProducts = async (req, res) => {
     }
 };
 
-// Get a single product by ID (public) - only active products
+// Get a single product by ID (public) - only active products by default
+// Can include inactive products if includeInactive=true query param is provided
 exports.getProductById = async (req, res) => {
     const { id } = req.params;
+    const { includeInactive } = req.query;
     try {
+        let whereClause = 'p.product_id = ?';
+        let params = [id];
+        
+        // Only filter by active status if includeInactive is not true
+        if (includeInactive !== 'true') {
+            whereClause += ' AND p.is_active = 1 AND (c.isActive = 1 OR c.isActive IS NULL) AND (s.isActive = 1 OR s.isActive IS NULL)';
+        }
+        
         const [products] = await db.query(`
             SELECT 
                 p.*,
@@ -228,11 +238,8 @@ exports.getProductById = async (req, res) => {
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
-            WHERE p.product_id = ? 
-            AND p.is_active = 1
-            AND (c.isActive = 1 OR c.isActive IS NULL)
-            AND (s.isActive = 1 OR s.isActive IS NULL)
-        `, [id]);
+            WHERE ${whereClause}
+        `, params);
         
         if (products.length === 0) {
             return res.status(404).json({ message: 'Product not found' });
@@ -244,9 +251,10 @@ exports.getProductById = async (req, res) => {
     }
 };
 
-// Get products by multiple IDs (public) - only active products
+// Get products by multiple IDs (public) - only active products by default
+// Can include inactive products if includeInactive=true (useful for promotions)
 exports.getProductsByIds = async (req, res) => {
-    const { ids } = req.query;
+    const { ids, includeInactive } = req.query;
     if (!ids) {
         return res.status(400).json({ message: 'Product IDs are required.' });
     }
@@ -258,17 +266,38 @@ exports.getProductsByIds = async (req, res) => {
         }
 
         const placeholders = idArray.map(() => '?').join(',');
+        // Build WHERE conditions
+        let whereConditions = [`p.product_id IN (${placeholders})`];
+        let params = [...idArray];
+        
+        // Only filter by active status if includeInactive is not true
+        if (includeInactive !== 'true') {
+            whereConditions.push('p.is_active = 1');
+            whereConditions.push('(c.isActive = 1 OR c.isActive IS NULL)');
+            whereConditions.push('(s.isActive = 1 OR s.isActive IS NULL)');
+        }
+        // When includeInactive=true, we don't filter by any active status
+        // This allows promotions to show products even if they or their category/supplier are inactive
+        
+        const whereClause = whereConditions.join(' AND ');
+        
         const [products] = await db.query(`
             SELECT p.product_id, p.name, p.price, p.image
             FROM products p
             LEFT JOIN categories c ON p.category_id = c.category_id
             LEFT JOIN suppliers s ON p.supplier_id = s.supplier_id
-            WHERE p.product_id IN (${placeholders}) 
-            AND p.is_active = 1
-            AND (c.isActive = 1 OR c.isActive IS NULL)
-            AND (s.isActive = 1 OR s.isActive IS NULL)
+            WHERE ${whereClause}
             ORDER BY FIELD(p.product_id, ${placeholders})
-        `, [...idArray, ...idArray]);
+        `, [...params, ...idArray]);
+
+        // Log for debugging
+        console.log(`[getProductsByIds] Requested IDs: ${idArray.join(',')}, Found: ${products.length} products`);
+        if (products.length < idArray.length) {
+            console.log(`[getProductsByIds] Missing products. Requested: ${idArray.length}, Found: ${products.length}`);
+            const foundIds = products.map(p => p.product_id);
+            const missingIds = idArray.filter(id => !foundIds.includes(id));
+            console.log(`[getProductsByIds] Missing IDs: ${missingIds.join(',')}`);
+        }
 
         res.json(products);
     } catch (err) {

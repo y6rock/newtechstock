@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { FaTimes, FaTag, FaCalendarAlt, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
-import { formatPrice } from '../../utils/currency';
+import { formatPriceConverted } from '../../utils/currency';
 import './PromoDetailsModal.css';
 
 const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
@@ -33,6 +33,25 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
     }
   }, [isOpen, onClose]);
 
+  // Reset state when modal opens/closes
+  useEffect(() => {
+    if (isOpen && promotion) {
+      // Reset state when modal opens
+      setApplicableProducts([]);
+      setApplicableCategories([]);
+      setShowAllProducts(false);
+      setShowAllCategories(false);
+      setLoadingItems(true);
+    } else {
+      // Reset state when modal closes
+      setApplicableProducts([]);
+      setApplicableCategories([]);
+      setShowAllProducts(false);
+      setShowAllCategories(false);
+      setLoadingItems(false);
+    }
+  }, [isOpen, promotion]);
+
   // Fetch applicable products and categories when modal opens
   useEffect(() => {
     if (isOpen && promotion) {
@@ -44,13 +63,82 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
             try {
               const productIds = JSON.parse(promotion.applicable_products);
               if (Array.isArray(productIds) && productIds.length > 0) {
-                const response = await axios.get('/api/products/by-ids', {
-                  params: { ids: productIds.join(',') }
-                });
-                setApplicableProducts(response.data || []);
+                // Ensure all IDs are numbers (handle string IDs)
+                const numericIds = productIds.map(id => parseInt(id)).filter(id => !isNaN(id));
+                
+                if (numericIds.length > 0) {
+                  console.log('Fetching products with IDs:', numericIds);
+                  
+                  // Fetch products, including inactive ones (for promotions)
+                  try {
+                    const response = await axios.get('/api/products/by-ids', {
+                      params: { ids: numericIds.join(','), includeInactive: 'true' }
+                    });
+                    
+                    const fetchedProducts = response.data || [];
+                    console.log('Fetched products:', fetchedProducts);
+                    
+                    if (fetchedProducts.length === 0) {
+                      console.warn('No products found for IDs:', numericIds);
+                      // Try fetching all products to see if they exist
+                      try {
+                        const allProductsResponse = await axios.get('/api/products', {
+                          params: { limit: 10000, page: 1 }
+                        });
+                        const allProducts = allProductsResponse.data || [];
+                        console.log('All available products:', allProducts.map(p => ({ id: p.product_id, name: p.name })));
+                      } catch (e) {
+                        console.error('Error fetching all products for debugging:', e);
+                      }
+                    }
+                    
+                    setApplicableProducts(fetchedProducts);
+                    
+                    // If we still don't have all products, try fetching individually
+                    if (fetchedProducts.length < numericIds.length) {
+                      const missingIds = numericIds.filter(id => 
+                        !fetchedProducts.some(p => p.product_id === id)
+                      );
+                      console.log('Attempting to fetch missing products individually:', missingIds);
+                      
+                      // Try fetching each missing product individually (with includeInactive)
+                      const individualPromises = missingIds.map(async (id) => {
+                        try {
+                          const individualResponse = await axios.get(`/api/products/${id}`, {
+                            params: { includeInactive: 'true' }
+                          });
+                          return individualResponse.data;
+                        } catch (e) {
+                          console.error(`Failed to fetch product ${id}:`, e);
+                          return null;
+                        }
+                      });
+                      
+                      const individualResults = await Promise.all(individualPromises);
+                      const validResults = individualResults.filter(p => p !== null);
+                      
+                      if (validResults.length > 0) {
+                        setApplicableProducts(prev => [...prev, ...validResults.map(p => ({
+                          product_id: p.product_id,
+                          name: p.name,
+                          price: p.price,
+                          image: p.image
+                        }))]);
+                      }
+                    }
+                  } catch (error) {
+                    console.error('Error fetching products:', error);
+                    console.error('Error details:', error.response?.data || error.message);
+                    // Set empty array so loading state shows
+                    setApplicableProducts([]);
+                  }
+                } else {
+                  console.error('No valid numeric product IDs found after parsing');
+                }
               }
             } catch (error) {
-              console.error('Error fetching products:', error);
+              console.error('Error parsing product IDs:', error);
+              console.error('Raw applicable_products:', promotion.applicable_products);
             }
           }
 
@@ -59,8 +147,9 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
             try {
               const categoryIds = JSON.parse(promotion.applicable_categories);
               if (Array.isArray(categoryIds) && categoryIds.length > 0) {
+                // Fetch categories, including inactive ones (for promotions)
                 const response = await axios.get('/api/categories/by-ids', {
-                  params: { ids: categoryIds.join(',') }
+                  params: { ids: categoryIds.join(','), includeInactive: 'true' }
                 });
                 setApplicableCategories(response.data || []);
               }
@@ -120,7 +209,8 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
       case 'percentage':
         return `${value}% OFF`;
       case 'fixed':
-        return `${formatPrice(value, currency)} OFF`;
+        // Value is stored in ILS, convert to current currency
+        return `${formatPriceConverted(value, currency)} OFF`;
       default:
         return '';
     }
@@ -134,9 +224,26 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
     });
   };
 
-  const renderApplicableItems = (items, type, showAll, setShowAll) => {
-    if (items.length === 0) return null;
-
+  const renderApplicableItems = (items, type, showAll, setShowAll, promotionField, loadingItems) => {
+    // Check if promotion has this type of applicable items
+    let hasItems = false;
+    let itemIds = [];
+    
+    try {
+      if (promotionField && promotion[promotionField]) {
+        const ids = JSON.parse(promotion[promotionField]);
+        if (Array.isArray(ids) && ids.length > 0) {
+          hasItems = true;
+          itemIds = ids;
+        }
+      }
+    } catch (error) {
+      console.error(`Error parsing ${promotionField}:`, error);
+    }
+    
+    // Don't render if promotion doesn't have this type of items
+    if (!hasItems) return null;
+    
     const displayLimit = 3;
     const shouldShowToggle = items.length > displayLimit;
     const itemsToShow = showAll ? items : items.slice(0, displayLimit);
@@ -144,38 +251,50 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
     return (
       <div className="applicable-items-section">
         <div className="applicable-items-header">
-          <span className="applicable-items-label">{type}:</span>
+          <span className="applicable-items-label">Applies To {type}:</span>
         </div>
-        <div className="applicable-items-list">
-          {itemsToShow.map((item, index) => (
-            <span key={index} className="applicable-item">
-              {item.name}
-              {index < itemsToShow.length - 1 && ', '}
-            </span>
-          ))}
-          {shouldShowToggle && !showAll && (
-            <span className="applicable-items-more">
-              {' '}and {items.length - displayLimit} more
-            </span>
-          )}
-        </div>
-        {shouldShowToggle && (
-          <button
-            className="show-all-btn"
-            onClick={() => setShowAll(!showAll)}
-          >
-            {showAll ? (
-              <>
-                <FaChevronUp />
-                Show Less
-              </>
-            ) : (
-              <>
-                <FaChevronDown />
-                Show All {items.length} {type}
-              </>
+        {loadingItems && items.length === 0 ? (
+          <div className="applicable-items-loading">Loading {type.toLowerCase()}...</div>
+        ) : items.length > 0 ? (
+          <>
+            <div className="applicable-items-list">
+              {itemsToShow.map((item, index) => (
+                <span key={item.product_id || item.category_id || item.id || index} className="applicable-item">
+                  {item.name || 'Unknown'}
+                  {index < itemsToShow.length - 1 && ', '}
+                </span>
+              ))}
+              {shouldShowToggle && !showAll && (
+                <span className="applicable-items-more">
+                  {' '}and {items.length - displayLimit} more
+                </span>
+              )}
+            </div>
+            {shouldShowToggle && (
+              <button
+                className="show-all-btn"
+                onClick={() => setShowAll(!showAll)}
+              >
+                {showAll ? (
+                  <>
+                    <FaChevronUp />
+                    Show Less
+                  </>
+                ) : (
+                  <>
+                    <FaChevronDown />
+                    Show All {items.length} {type}
+                  </>
+                )}
+              </button>
             )}
-          </button>
+          </>
+        ) : (
+          <div className="applicable-items-list">
+            <span className="applicable-item" style={{ color: '#6b7280', fontStyle: 'italic' }}>
+              Loading {type.toLowerCase()} names...
+            </span>
+          </div>
         )}
       </div>
     );
@@ -216,18 +335,42 @@ const PromoDetailsModal = ({ isOpen, promotion, onClose }) => {
           </div>
 
           {/* Applicable Products */}
-          {renderApplicableItems(applicableProducts, 'Products', showAllProducts, setShowAllProducts)}
+          {renderApplicableItems(applicableProducts, 'Products', showAllProducts, setShowAllProducts, 'applicable_products', loadingItems)}
 
           {/* Applicable Categories */}
-          {renderApplicableItems(applicableCategories, 'Categories', showAllCategories, setShowAllCategories)}
+          {renderApplicableItems(applicableCategories, 'Categories', showAllCategories, setShowAllCategories, 'applicable_categories', loadingItems)}
 
-          {/* Fallback if no specific items */}
-          {applicableProducts.length === 0 && applicableCategories.length === 0 && (
-            <div className="promo-detail-row">
-              <span className="promo-detail-label">Applies To:</span>
-              <span className="promo-detail-value">All items</span>
-            </div>
-          )}
+          {/* Fallback if no specific items - only show if promotion truly has no applicable items */}
+          {(() => {
+            // Check if promotion has any applicable products or categories defined
+            let hasApplicableProducts = false;
+            let hasApplicableCategories = false;
+            
+            try {
+              if (promotion.applicable_products) {
+                const productIds = JSON.parse(promotion.applicable_products);
+                hasApplicableProducts = Array.isArray(productIds) && productIds.length > 0;
+              }
+              if (promotion.applicable_categories) {
+                const categoryIds = JSON.parse(promotion.applicable_categories);
+                hasApplicableCategories = Array.isArray(categoryIds) && categoryIds.length > 0;
+              }
+            } catch (error) {
+              console.error('Error parsing applicable items:', error);
+            }
+            
+            // Only show "All items" if promotion has no applicable products AND no applicable categories
+            // AND we're not still loading (to avoid showing it prematurely)
+            if (!hasApplicableProducts && !hasApplicableCategories && !loadingItems) {
+              return (
+                <div className="promo-detail-row">
+                  <span className="promo-detail-label">Applies To:</span>
+                  <span className="promo-detail-value">All items</span>
+                </div>
+              );
+            }
+            return null;
+          })()}
 
           {promotion.min_quantity && (
             <div className="promo-detail-row">

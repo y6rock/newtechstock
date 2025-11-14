@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 'react-icons/fa';
 import Pagination from '../../../components/Pagination/Pagination';
 import './Promotions.css';
-import { formatPrice } from '../../../utils/currency';
+import { formatPrice, formatPriceConverted } from '../../../utils/currency';
 import { formatDate } from '../../../utils/dateFormat';
 
 export default function Promotions() {
@@ -370,7 +370,9 @@ export default function Promotions() {
     if (!value) return 'N/A';
     switch (type) {
       case 'percentage': return `${value}% OFF`;
-      case 'fixed': return `${formatPrice(value, currency)} OFF`;
+      case 'fixed': 
+        // Value is stored in ILS, convert to current currency
+        return `${formatPriceConverted(value, currency)} OFF`;
       default: return value;
     }
   };

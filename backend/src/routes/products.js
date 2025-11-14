@@ -38,11 +38,12 @@ router.get('/price-stats', getPriceStats);
 // Search products (public) - returns name, image, price for dropdown
 router.get('/search', searchProducts);
 
+// Get products by multiple IDs (public) - only active products
+// MUST be before /:id route to avoid route conflict
+router.get('/by-ids', getProductsByIds);
+
 // Get a single product by ID (public) - only active products
 router.get('/:id', getProductById);
-
-// Get products by multiple IDs (public) - only active products
-router.get('/by-ids', getProductsByIds);
 
 // Create a new product (admin only)
 router.post('/', authenticateToken, requireAdmin, upload.single('image'), createProduct);

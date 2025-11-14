@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FaTag, FaTimes } from 'react-icons/fa';
 import axios from 'axios';
 import { useSettings } from '../../context/SettingsContext';
-import { formatPrice } from '../../utils/currency';
+import { formatPriceConverted } from '../../utils/currency';
 import PromoDetailsModal from '../PromoDetailsModal/PromoDetailsModal';
 import './PromotionsBanner.css';
 
@@ -45,7 +45,8 @@ const PromotionsBanner = () => {
       case 'percentage':
         return `${value}% OFF`;
       case 'fixed':
-        return `${formatPrice(value, currency)} OFF`;
+        // Value is stored in ILS, convert to current currency
+        return `${formatPriceConverted(value, currency)} OFF`;
       default:
         return '';
     }
@@ -54,13 +55,20 @@ const PromotionsBanner = () => {
   const getApplicableItems = (promotion) => {
     const applicableItems = [];
     
+    // Don't try to match if products/categories haven't loaded yet
+    if (!Array.isArray(products) || !Array.isArray(categories)) {
+      return applicableItems;
+    }
+    
     try {
       // Parse applicable products
       if (promotion.applicable_products) {
         const productIds = JSON.parse(promotion.applicable_products);
-        if (Array.isArray(productIds) && productIds.length > 0) {
+        if (Array.isArray(productIds) && productIds.length > 0 && products.length > 0) {
+          // Convert all IDs to strings for comparison to handle type mismatches
+          const productIdStrings = productIds.map(id => String(id));
           const applicableProducts = products.filter(product => 
-            productIds.includes(product.product_id) || productIds.includes(product.product_id.toString())
+            productIdStrings.includes(String(product.product_id))
           );
           applicableItems.push(...applicableProducts.map(p => p.name));
         }
@@ -69,9 +77,11 @@ const PromotionsBanner = () => {
       // Parse applicable categories
       if (promotion.applicable_categories) {
         const categoryIds = JSON.parse(promotion.applicable_categories);
-        if (Array.isArray(categoryIds) && categoryIds.length > 0 && Array.isArray(categories)) {
+        if (Array.isArray(categoryIds) && categoryIds.length > 0 && categories.length > 0) {
+          // Convert all IDs to strings for comparison to handle type mismatches
+          const categoryIdStrings = categoryIds.map(id => String(id));
           const applicableCategories = categories.filter(category => 
-            categoryIds.includes(category.category_id) || categoryIds.includes(category.category_id.toString())
+            categoryIdStrings.includes(String(category.category_id))
           );
           applicableItems.push(...applicableCategories.map(c => c.name));
         }
@@ -84,9 +94,40 @@ const PromotionsBanner = () => {
   };
 
   const formatApplicableItems = (promotion) => {
+    // First check if promotion has any applicable items defined
+    let hasApplicableProducts = false;
+    let hasApplicableCategories = false;
+    
+    try {
+      if (promotion.applicable_products) {
+        const productIds = JSON.parse(promotion.applicable_products);
+        hasApplicableProducts = Array.isArray(productIds) && productIds.length > 0;
+      }
+      if (promotion.applicable_categories) {
+        const categoryIds = JSON.parse(promotion.applicable_categories);
+        hasApplicableCategories = Array.isArray(categoryIds) && categoryIds.length > 0;
+      }
+    } catch (error) {
+      console.error('Error parsing applicable items:', error);
+    }
+    
+    // If promotion has no applicable items defined, show "All items"
+    if (!hasApplicableProducts && !hasApplicableCategories) {
+      return 'All items';
+    }
+    
+    // Try to get the actual item names
     const items = getApplicableItems(promotion);
-
+    
+    // If we couldn't find items but promotion has them defined, show a generic message
     if (items.length === 0) {
+      if (hasApplicableProducts && hasApplicableCategories) {
+        return 'Selected products & categories';
+      } else if (hasApplicableProducts) {
+        return 'Selected products';
+      } else if (hasApplicableCategories) {
+        return 'Selected categories';
+      }
       return 'All items';
     }
 
