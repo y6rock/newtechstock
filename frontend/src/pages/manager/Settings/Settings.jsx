@@ -6,7 +6,7 @@ import './Settings.css';
 
 const Settings = () => {
   const { refreshSiteSettings, currency: contextCurrency, vat_rate: contextVatRate, ...restSettings } = useLocalSettings();
-  const { showSuccess, showError } = useToast();
+  const { showSuccess, showError, showConfirm } = useToast();
   const [settings, setSettings] = useState({
     currency: contextCurrency || 'ILS',
     vat_rate: contextVatRate || 18
@@ -14,7 +14,6 @@ const Settings = () => {
   const [currencies, setCurrencies] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const debounceTimerRef = useRef(null);
   const hasInitializedRef = useRef(false);
   const previousSettingsRef = useRef({ currency: null, vat_rate: null });
   const isSavingRef = useRef(false);
@@ -111,45 +110,9 @@ const Settings = () => {
     }
   }, [refreshSiteSettings, showSuccess, showError]);
 
-  // Debounced auto-save on settings change
-  useEffect(() => {
-    // Don't save on initial load
-    if (!hasInitializedRef.current) return;
-    
-    // Don't save if settings haven't changed from previous
-    if (settings.currency === previousSettingsRef.current.currency &&
-        settings.vat_rate === previousSettingsRef.current.vat_rate) {
-      return;
-    }
-
-    // Don't save if already saving
-    if (isSavingRef.current) {
-      return;
-    }
-
-    // Clear existing timer
-    if (debounceTimerRef.current) {
-      clearTimeout(debounceTimerRef.current);
-    }
-
-    // Set new timer for debounced save
-    debounceTimerRef.current = setTimeout(() => {
-      // Double-check settings have actually changed and we're not saving
-      if (!isSavingRef.current && 
-          (settings.currency !== previousSettingsRef.current.currency ||
-           settings.vat_rate !== previousSettingsRef.current.vat_rate)) {
-        saveSettings(settings);
-      }
-    }, 300); // 300ms debounce
-
-    // Cleanup on unmount or when settings change
-    return () => {
-      if (debounceTimerRef.current) {
-        clearTimeout(debounceTimerRef.current);
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settings.currency, settings.vat_rate]);
+  // Check if settings have changed from original
+  const hasChanges = settings.currency !== previousSettingsRef.current.currency ||
+                     settings.vat_rate !== previousSettingsRef.current.vat_rate;
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -161,6 +124,20 @@ const Settings = () => {
     }));
   };
 
+  const handleSave = () => {
+    // Show confirmation toast
+    showConfirm(
+      'Are you sure you want to save these settings?',
+      () => {
+        // User confirmed - save settings
+        saveSettings(settings);
+      },
+      () => {
+        // User cancelled - do nothing
+      }
+    );
+  };
+
   if (loading) {
     return <div className="settings-container"><div>Loading settings...</div></div>;
   }
@@ -170,11 +147,6 @@ const Settings = () => {
       <div className="settings-header">
         <h1>Settings</h1>
         <p>Manage your store settings and preferences</p>
-        {saving && (
-          <p className="settings-saving-indicator" style={{ color: '#667eea', fontSize: '0.9em', marginTop: '8px' }}>
-            Saving...
-          </p>
-        )}
       </div>
 
       <div className="settings-form-section">
@@ -189,9 +161,6 @@ const Settings = () => {
             min="0"
             max="100"
           />
-          <small style={{ color: '#666', fontSize: '0.85em', marginTop: '4px', display: 'block' }}>
-            Changes are saved automatically
-          </small>
         </div>
         
         <div className="form-group">
@@ -201,9 +170,16 @@ const Settings = () => {
               <option key={code} value={code}>{currencies[code].name} ({currencies[code].symbol})</option>
             ))}
           </select>
-          <small style={{ color: '#666', fontSize: '0.85em', marginTop: '4px', display: 'block' }}>
-            Changes are saved automatically
-          </small>
+        </div>
+
+        <div className="form-group">
+          <button
+            className="settings-save-button"
+            onClick={handleSave}
+            disabled={!hasChanges || saving}
+          >
+            {saving ? 'Saving...' : 'Save Settings'}
+          </button>
         </div>
       </div>
     </div>
