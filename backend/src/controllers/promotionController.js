@@ -104,12 +104,36 @@ exports.createPromotion = async (req, res) => {
     } = req.body;
 
     try {
-        // Validate discount value - cannot be negative for fixed type
-        if (type === 'fixed') {
-            const valueNum = parseFloat(value);
-            if (isNaN(valueNum) || valueNum < 0) {
+        // Validate discount value
+        const valueNum = parseFloat(value);
+        if (isNaN(valueNum)) {
+            return res.status(400).json({ 
+                message: 'Please enter a valid discount value.' 
+            });
+        }
+        
+        if (type === 'percentage') {
+            // Percentage must be less than 100%
+            if (valueNum >= 100) {
+                return res.status(400).json({ 
+                    message: 'Percentage discount must be less than 100%.' 
+                });
+            }
+            if (valueNum <= 0) {
+                return res.status(400).json({ 
+                    message: 'Percentage discount must be greater than 0%.' 
+                });
+            }
+        } else if (type === 'fixed') {
+            // Fixed discount cannot be negative or zero
+            if (valueNum < 0) {
                 return res.status(400).json({ 
                     message: 'Discount value cannot be negative for fixed amount promotions.' 
+                });
+            }
+            if (valueNum === 0) {
+                return res.status(400).json({ 
+                    message: 'Fixed discount must be greater than 0.' 
                 });
             }
         }
@@ -170,12 +194,36 @@ exports.updatePromotion = async (req, res) => {
     } = req.body;
 
     try {
-        // Validate discount value - cannot be negative for fixed type
-        if (type === 'fixed') {
-            const valueNum = parseFloat(value);
-            if (isNaN(valueNum) || valueNum < 0) {
+        // Validate discount value
+        const valueNum = parseFloat(value);
+        if (isNaN(valueNum)) {
+            return res.status(400).json({ 
+                message: 'Please enter a valid discount value.' 
+            });
+        }
+        
+        if (type === 'percentage') {
+            // Percentage must be less than 100%
+            if (valueNum >= 100) {
+                return res.status(400).json({ 
+                    message: 'Percentage discount must be less than 100%.' 
+                });
+            }
+            if (valueNum <= 0) {
+                return res.status(400).json({ 
+                    message: 'Percentage discount must be greater than 0%.' 
+                });
+            }
+        } else if (type === 'fixed') {
+            // Fixed discount cannot be negative or zero
+            if (valueNum < 0) {
                 return res.status(400).json({ 
                     message: 'Discount value cannot be negative for fixed amount promotions.' 
+                });
+            }
+            if (valueNum === 0) {
+                return res.status(400).json({ 
+                    message: 'Fixed discount must be greater than 0.' 
                 });
             }
         }

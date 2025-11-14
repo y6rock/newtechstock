@@ -158,11 +158,31 @@ export default function Promotions() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validate discount value - cannot be negative for fixed type
-    if (formData.type === 'fixed') {
-      const value = parseFloat(formData.value);
-      if (isNaN(value) || value < 0) {
+    // Validate discount value
+    const value = parseFloat(formData.value);
+    if (isNaN(value)) {
+      showError('Please enter a valid discount value.');
+      return;
+    }
+    
+    if (formData.type === 'percentage') {
+      // Percentage must be less than 100%
+      if (value >= 100) {
+        showError('Percentage discount must be less than 100%.');
+        return;
+      }
+      if (value <= 0) {
+        showError('Percentage discount must be greater than 0%.');
+        return;
+      }
+    } else if (formData.type === 'fixed') {
+      // Fixed discount cannot be negative
+      if (value < 0) {
         showError('Discount value cannot be negative for fixed amount promotions.');
+        return;
+      }
+      if (value === 0) {
+        showError('Fixed discount must be greater than 0.');
         return;
       }
     }
@@ -686,13 +706,22 @@ export default function Promotions() {
                     value={formData.value}
                     onChange={(e) => {
                       const inputValue = e.target.value;
+                      const numValue = parseFloat(inputValue);
+                      
+                      // For percentage type, ensure value is less than 100
+                      if (formData.type === 'percentage' && inputValue !== '' && !isNaN(numValue) && numValue >= 100) {
+                        return; // Don't update if >= 100 for percentage type
+                      }
+                      
                       // For fixed type, ensure value cannot be negative
-                      if (formData.type === 'fixed' && inputValue !== '' && parseFloat(inputValue) < 0) {
+                      if (formData.type === 'fixed' && inputValue !== '' && !isNaN(numValue) && numValue < 0) {
                         return; // Don't update if negative for fixed type
                       }
+                      
                       setFormData({...formData, value: inputValue});
                     }}
-                    min={formData.type === 'fixed' ? '0' : undefined}
+                    min={formData.type === 'fixed' ? '0' : (formData.type === 'percentage' ? '0' : undefined)}
+                    max={formData.type === 'percentage' ? '99.99' : undefined}
                     step="0.01"
                     placeholder={formData.type === 'percentage' ? '20' : '10'}
                     required
