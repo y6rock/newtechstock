@@ -18,7 +18,7 @@ import {
 } from 'chart.js';
 import axios from 'axios';
 import { formatPrice, formatPriceConverted, formatPriceWithTax } from '../../../utils/currency';
-import { convertFromILSSync } from '../../../utils/exchangeRate';
+import { convertFromILSSync, convertToILS } from '../../../utils/exchangeRate';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, ArcElement, Tooltip, Legend, Title);
 
@@ -216,8 +216,9 @@ export default function Dashboard() {
             }
             if (context.parsed.y !== null) {
               if (context.dataset.label === 'Total Sales') {
-                // Data is already converted, just format it
-                label += formatPrice(context.parsed.y, currency);
+                // Convert back to ILS, then format with tax
+                const priceInILS = convertToILS(context.parsed.y, currency);
+                label += formatPriceWithTax(priceInILS, currency, vat_rate);
               } else {
                 label += context.parsed.y;
               }

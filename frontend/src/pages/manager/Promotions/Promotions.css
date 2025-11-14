@@ -786,6 +786,25 @@
   margin: 0;
 }
 
+/* Select All Item Styling */
+.select-all-item {
+  background-color: #eff6ff;
+  border: 2px solid #3b82f6;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 12px;
+  font-weight: 500;
+}
+
+.select-all-item:hover {
+  background-color: #dbeafe;
+}
+
+.select-all-label {
+  color: #1e40af;
+  font-weight: 600;
+}
+
 /* Single Select Container (for one product only) */
 .single-select-container {
   max-height: 200px;

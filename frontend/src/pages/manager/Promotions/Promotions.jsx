@@ -464,7 +464,12 @@ export default function Promotions() {
               if (statusFilter === 'all') return true;
               const status = getPromotionStatus(promotion);
               if (statusFilter === 'inactive') {
-                return !promotion.is_active;
+                // Only show manually deactivated promotions (exclude expired ones)
+                return !promotion.is_active && !isExpired(promotion.end_date);
+              }
+              if (statusFilter === 'expired') {
+                // Show all expired promotions regardless of is_active status
+                return isExpired(promotion.end_date);
               }
               return status.status === statusFilter;
             })
@@ -810,28 +815,52 @@ export default function Promotions() {
                         No products available. Loading...
                       </div>
                     ) : (
-                      products.map(product => (
-                        <label key={product.product_id} className="multi-select-item">
+                      <>
+                        <label className="multi-select-item select-all-item">
                           <input
                             type="checkbox"
-                            checked={formData.applicableProducts.includes(product.product_id)}
+                            checked={products.length > 0 && products.every(product => formData.applicableProducts.includes(product.product_id))}
                             onChange={(e) => {
                               if (e.target.checked) {
+                                // Select all products
                                 setFormData({
                                   ...formData,
-                                  applicableProducts: [...formData.applicableProducts, product.product_id]
+                                  applicableProducts: products.map(product => product.product_id)
                                 });
                               } else {
+                                // Deselect all products
                                 setFormData({
                                   ...formData,
-                                  applicableProducts: formData.applicableProducts.filter(id => id !== product.product_id)
+                                  applicableProducts: []
                                 });
                               }
                             }}
                           />
-                          <span className="multi-select-label">{product.name}</span>
+                          <span className="multi-select-label select-all-label"><strong>Select All Products</strong></span>
                         </label>
-                      ))
+                        {products.map(product => (
+                          <label key={product.product_id} className="multi-select-item">
+                            <input
+                              type="checkbox"
+                              checked={formData.applicableProducts.includes(product.product_id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData({
+                                    ...formData,
+                                    applicableProducts: [...formData.applicableProducts, product.product_id]
+                                  });
+                                } else {
+                                  setFormData({
+                                    ...formData,
+                                    applicableProducts: formData.applicableProducts.filter(id => id !== product.product_id)
+                                  });
+                                }
+                              }}
+                            />
+                            <span className="multi-select-label">{product.name}</span>
+                          </label>
+                        ))}
+                      </>
                     )}
                   </div>
                   <small className="form-help-text">
@@ -849,28 +878,52 @@ export default function Promotions() {
                         No categories available. Loading...
                       </div>
                     ) : (
-                      categories.map(category => (
-                        <label key={category.category_id} className="multi-select-item">
+                      <>
+                        <label className="multi-select-item select-all-item">
                           <input
                             type="checkbox"
-                            checked={formData.applicableCategories.includes(category.category_id)}
+                            checked={categories.length > 0 && categories.every(category => formData.applicableCategories.includes(category.category_id))}
                             onChange={(e) => {
                               if (e.target.checked) {
+                                // Select all categories
                                 setFormData({
                                   ...formData,
-                                  applicableCategories: [...formData.applicableCategories, category.category_id]
+                                  applicableCategories: categories.map(category => category.category_id)
                                 });
                               } else {
+                                // Deselect all categories
                                 setFormData({
                                   ...formData,
-                                  applicableCategories: formData.applicableCategories.filter(id => id !== category.category_id)
+                                  applicableCategories: []
                                 });
                               }
                             }}
                           />
-                          <span className="multi-select-label">{category.name}</span>
+                          <span className="multi-select-label select-all-label"><strong>Select All Categories</strong></span>
                         </label>
-                      ))
+                        {categories.map(category => (
+                          <label key={category.category_id} className="multi-select-item">
+                            <input
+                              type="checkbox"
+                              checked={formData.applicableCategories.includes(category.category_id)}
+                              onChange={(e) => {
+                                if (e.target.checked) {
+                                  setFormData({
+                                    ...formData,
+                                    applicableCategories: [...formData.applicableCategories, category.category_id]
+                                  });
+                                } else {
+                                  setFormData({
+                                    ...formData,
+                                    applicableCategories: formData.applicableCategories.filter(id => id !== category.category_id)
+                                  });
+                                }
+                              }}
+                            />
+                            <span className="multi-select-label">{category.name}</span>
+                          </label>
+                        ))}
+                      </>
                     )}
                   </div>
                 </div>
