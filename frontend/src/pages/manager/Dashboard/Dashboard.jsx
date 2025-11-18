@@ -174,7 +174,7 @@ export default function Dashboard() {
                 label += context.parsed.y;
               } else {
                 // Data is already converted, just format it
-                label += formatPrice(context.parsed.y, currency);
+              label += formatPrice(context.parsed.y, currency);
               }
             }
             return label;

@@ -92,7 +92,7 @@ export const CartProvider = ({ children }) => {
       });
 
       const { cartItems: serverCartItems, appliedPromotion: serverPromotion, discountAmount: serverDiscount, sessionId } = response.data;
-      
+
       setCartItems(serverCartItems || []);
       setAppliedPromotion(serverPromotion);
       setDiscountAmount(serverDiscount || 0);
@@ -176,7 +176,7 @@ export const CartProvider = ({ children }) => {
       if (changes.length > 0 || removedItems.length > 0) {
         setCartItems(validatedCart);
 
-        if (showNotifications) {
+      if (showNotifications) {
           if (changes.length > 0) {
             const changeMessages = changes.map(change => 
               `${change.name}: ${change.change}`
@@ -184,15 +184,15 @@ export const CartProvider = ({ children }) => {
             showInfo(`Cart updated: ${changeMessages}`);
           }
 
-          if (removedItems.length > 0) {
-            const removedNames = removedItems.map(item => item.name).join(', ');
+        if (removedItems.length > 0) {
+          const removedNames = removedItems.map(item => item.name).join(', ');
             showError(`Removed from cart (no longer available): ${removedNames}`);
-          }
         }
+      }
       }
     } catch (error) {
       console.error('Error validating cart:', error);
-      if (showNotifications) {
+        if (showNotifications) {
         showError('Failed to validate cart items');
       }
     } finally {
@@ -204,7 +204,7 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     if (cartItems.length > 0) {
       validateCart(false); // Don't show notifications during auto-validation
-    }
+        }
   }, [cartItems.length, validateCart]);
 
   // Add to cart - now uses session-based API
@@ -233,7 +233,7 @@ export const CartProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.post('/api/session-cart/add', {
-        product_id: product.product_id,
+          product_id: product.product_id,
         quantity: quantity
       }, {
         headers,
@@ -243,19 +243,19 @@ export const CartProvider = ({ children }) => {
       // Update local state with server response
       const updatedCartItems = response.data.cartItems || [];
       setCartItems(updatedCartItems);
-      
+
       // Update localStorage backup for Safari (scoped by user_id)
       if (user_id) {
         const cartBackupKey = `cart_backup_${user_id}`;
         localStorage.setItem(cartBackupKey, JSON.stringify({
-          cartItems: updatedCartItems,
+        cartItems: updatedCartItems,
           appliedPromotion: appliedPromotion,
           discountAmount: discountAmount,
           userId: user_id,
           timestamp: Date.now()
         }));
       }
-      
+
       showSuccess(`Added ${quantity} ${product.name} to cart!`);
 
     } catch (error) {
@@ -263,7 +263,7 @@ export const CartProvider = ({ children }) => {
       if (error.response?.data?.message) {
         showError(error.response.data.message);
       } else {
-        showError('Failed to add item to cart');
+      showError('Failed to add item to cart');
       }
     }
   };
@@ -282,13 +282,13 @@ export const CartProvider = ({ children }) => {
       // Update local state with server response
       const updatedCartItems = response.data.cartItems || [];
       setCartItems(updatedCartItems);
-      
+
       // Update localStorage backup (scoped by user_id)
       if (user_id) {
         const cartBackupKey = `cart_backup_${user_id}`;
         if (updatedCartItems.length > 0) {
           localStorage.setItem(cartBackupKey, JSON.stringify({
-            cartItems: updatedCartItems,
+        cartItems: updatedCartItems,
             appliedPromotion: appliedPromotion,
             discountAmount: discountAmount,
             userId: user_id,
@@ -299,7 +299,7 @@ export const CartProvider = ({ children }) => {
           localStorage.removeItem(cartBackupKey);
         }
       }
-      
+
       showSuccess('Item removed from cart');
 
     } catch (error) {
@@ -307,7 +307,7 @@ export const CartProvider = ({ children }) => {
       if (error.response?.data?.message) {
         showError(error.response.data.message);
       } else {
-        showError('Failed to remove item from cart');
+      showError('Failed to remove item from cart');
       }
     }
   };
@@ -333,13 +333,13 @@ export const CartProvider = ({ children }) => {
       // Update local state with server response
       const updatedCartItems = response.data.cartItems || [];
       setCartItems(updatedCartItems);
-      
+
       // Update localStorage backup (scoped by user_id)
       if (user_id) {
         const cartBackupKey = `cart_backup_${user_id}`;
         if (updatedCartItems.length > 0) {
           localStorage.setItem(cartBackupKey, JSON.stringify({
-            cartItems: updatedCartItems,
+        cartItems: updatedCartItems,
             appliedPromotion: appliedPromotion,
             discountAmount: discountAmount,
             userId: user_id,
@@ -378,13 +378,13 @@ export const CartProvider = ({ children }) => {
       setCartItems([]);
       setAppliedPromotion(null);
       setDiscountAmount(0);
-      
+
       // Clear localStorage backup (scoped by user_id)
       if (user_id) {
         const cartBackupKey = `cart_backup_${user_id}`;
         localStorage.removeItem(cartBackupKey);
       }
-      
+
       showSuccess('Cart cleared successfully');
 
     } catch (error) {
@@ -451,7 +451,7 @@ export const CartProvider = ({ children }) => {
       if (error.response?.data?.message) {
         showError(error.response.data.message);
       } else {
-        showError('Failed to apply promotion');
+      showError('Failed to apply promotion');
       }
       throw error;
     }
@@ -475,7 +475,7 @@ export const CartProvider = ({ children }) => {
         const cartBackupKey = `cart_backup_${user_id}`;
         localStorage.setItem(cartBackupKey, JSON.stringify({
           cartItems: cartItems,
-          appliedPromotion: null,
+        appliedPromotion: null,
           discountAmount: 0,
           userId: user_id,
           timestamp: Date.now()
@@ -503,7 +503,7 @@ export const CartProvider = ({ children }) => {
   const totalItems = cartItems.reduce((sum, item) => sum + item.quantity, 0);
 
   const value = {
-    cartItems,
+        cartItems,
     appliedPromotion,
     discountAmount,
     subtotal,
@@ -515,12 +515,12 @@ export const CartProvider = ({ children }) => {
     totalItems,
     isLoading,
     isValidating,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    clearCart,
-    applyPromotion,
-    removePromotion,
+        addToCart,
+        removeFromCart,
+        updateQuantity,
+        clearCart,
+        applyPromotion,
+        removePromotion,
     refreshCart,
     validateCart
   };

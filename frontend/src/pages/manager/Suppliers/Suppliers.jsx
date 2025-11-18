@@ -770,7 +770,10 @@ const Suppliers = () => {
                         <button onClick={() => handleDeleteSupplier(supplier.supplier_id)} className="action-btn delete-btn">Deactivate</button>
                       </>
                     ) : (
-                      <button onClick={() => handleRestoreSupplier(supplier.supplier_id)} className="action-btn restore-btn">Restore</button>
+                      <>
+                        <button onClick={() => handleEditSupplier(supplier)} className="action-btn edit-btn">Edit</button>
+                        <button onClick={() => handleRestoreSupplier(supplier.supplier_id)} className="action-btn restore-btn">Restore</button>
+                      </>
                     )}
                   </td>
                 </tr>
