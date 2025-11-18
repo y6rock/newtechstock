@@ -66,6 +66,9 @@ const ProductsPage = () => {
   const isInitialMountRef = useRef(true);
   // Ref to track if URL sync has completed initial sync
   const hasCompletedInitialUrlSyncRef = useRef(false);
+  // Refs to persist categories and manufacturers to prevent flickering
+  const categoriesRef = useRef([{ category_id: 'All Products', name: 'All Products' }]);
+  const manufacturersRef = useRef([]);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
@@ -323,14 +326,19 @@ const ProductsPage = () => {
           return isActive === 1 || isActive === true;
         });
         // Always update with valid data (categories should always have at least "All Products")
-        setCategories([
+        const newCategories = [
           { category_id: 'All Products', name: 'All Products', isActive: true },
           ...activeCategories
-        ]);
+        ];
+        categoriesRef.current = newCategories;
+        setCategories(newCategories);
       })
       .catch(err => {
         console.error('ProductsPage: Error fetching categories:', err);
-        // Don't clear categories on error - keep existing ones
+        // Don't clear categories on error - keep existing ones from ref
+        if (categoriesRef.current.length > 0) {
+          setCategories(categoriesRef.current);
+        }
       });
 
     // Fetch suppliers (manufacturers) - only active
@@ -354,11 +362,15 @@ const ProductsPage = () => {
             isActive: supplier.isActive !== undefined ? supplier.isActive : true
           }));
         // Always update with valid data
+        manufacturersRef.current = manufacturerList;
         setManufacturers(manufacturerList);
       })
       .catch(err => {
         console.error('ProductsPage: Error fetching suppliers:', err);
-        // Don't clear manufacturers on error - keep existing ones
+        // Don't clear manufacturers on error - keep existing ones from ref
+        if (manufacturersRef.current.length > 0) {
+          setManufacturers(manufacturersRef.current);
+        }
       });
   }, []);
 
@@ -612,7 +624,7 @@ const ProductsPage = () => {
       {/* Categories Filter */}
       <div className="categories-filter">
         <div className="categories-filter-buttons">
-          {categories.map(cat => {
+          {(categories.length > 0 ? categories : categoriesRef.current).map(cat => {
             const isInactive = cat.isActive === false || cat.isActive === 0;
             return (
               <button
@@ -703,7 +715,7 @@ const ProductsPage = () => {
               Manufacturer
             </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {manufacturers.map(manufacturer => {
+              {(manufacturers.length > 0 ? manufacturers : manufacturersRef.current).map(manufacturer => {
                 const isChecked = selectedManufacturers.includes(String(manufacturer.id));
                 const isInactive = manufacturer.isActive === false || manufacturer.isActive === 0;
                 return (
