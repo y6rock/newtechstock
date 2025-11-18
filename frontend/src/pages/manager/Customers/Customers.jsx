@@ -28,6 +28,7 @@ const Customers = () => {
     const [showOrdersModal, setShowOrdersModal] = useState(false);
     const [expandedOrderId, setExpandedOrderId] = useState(null);
     const [orderItems, setOrderItems] = useState({});
+    const [orderPromotions, setOrderPromotions] = useState({});
     const [sortField, setSortField] = useState('user_id');
     const [sortDirection, setSortDirection] = useState('desc');
     const [customerStats, setCustomerStats] = useState({
@@ -583,6 +584,17 @@ const Customers = () => {
                 ...prev,
                 [orderId]: data.products || []
             }));
+            // Store promotion information for this order
+            setOrderPromotions(prev => ({
+                ...prev,
+                [orderId]: {
+                    promotion_id: data.promotion_id,
+                    promotion_code: data.promotion_code,
+                    promotion_name: data.promotion_name,
+                    promotion_type: data.promotion_type,
+                    promotion_value: data.promotion_value
+                }
+            }));
         } catch (error) {
             console.error('Error fetching order items:', error);
         }
@@ -978,13 +990,55 @@ const Customers = () => {
                                                 {orderItems[order.order_id] ? (
                                                     orderItems[order.order_id].length > 0 ? (
                                                         <div className="items-list">
-                                                            {orderItems[order.order_id].map((item, index) => (
-                                                                <div key={index} className="order-item-detail">
-                                                                    <span className="item-name">{item.product_name}</span>
-                                                                    <span className="item-quantity">Qty: {item.quantity}</span>
-                                                                    <span className="item-price">{formatPriceWithTax(item.price_at_order, currency, vat_rate)}</span>
-                                                                </div>
-                                                            ))}
+                                                            {orderItems[order.order_id].map((item, index) => {
+                                                                const unitPrice = parseFloat(item.price_at_order) || 0;
+                                                                const quantity = item.quantity || 1;
+                                                                const totalBeforeDiscount = unitPrice * quantity;
+                                                                const discount = item.discount || 0;
+                                                                const totalAfterDiscount = item.price_after_discount || totalBeforeDiscount;
+                                                                const hasDiscount = discount > 0;
+                                                                const promotion = orderPromotions[order.order_id];
+                                                                const discountPercentage = promotion && promotion.promotion_type === 'percentage' && promotion.promotion_value 
+                                                                    ? parseFloat(promotion.promotion_value) 
+                                                                    : hasDiscount ? ((discount / totalBeforeDiscount) * 100).toFixed(1) : 0;
+                                                                
+                                                                return (
+                                                                    <div key={index} className="order-item-detail">
+                                                                        <div className="item-name-section">
+                                                                            <span className="item-name">{item.product_name}</span>
+                                                                            <span className="item-quantity">Qty: {quantity}</span>
+                                                                        </div>
+                                                                        <div className="item-pricing-section">
+                                                                            <div className="price-line">
+                                                                                <span className="price-label">Unit:</span>
+                                                                                <span>{formatPriceWithTax(unitPrice, currency, vat_rate)}</span>
+                                                                            </div>
+                                                                            <div className="price-line">
+                                                                                <span className="price-label">Total:</span>
+                                                                                <span>{formatPriceWithTax(totalBeforeDiscount, currency, vat_rate)}</span>
+                                                                            </div>
+                                                                            {hasDiscount && (
+                                                                                <>
+                                                                                    <div className="price-line discount-info">
+                                                                                        <span className="price-label">Discount:</span>
+                                                                                        <span className="discount-amount">-{formatPriceWithTax(discount, currency, vat_rate)}</span>
+                                                                                        {promotion && promotion.promotion_code && (
+                                                                                            <span className="discount-code">({discountPercentage}% - {promotion.promotion_code})</span>
+                                                                                        )}
+                                                                                        {promotion && !promotion.promotion_code && promotion.promotion_id && (
+                                                                                            <span className="discount-code">({discountPercentage}% - Deleted)</span>
+                                                                                        )}
+                                                                                    </div>
+                                                                                    <div className="price-line final-price">
+                                                                                        <span className="price-label">After Discount:</span>
+                                                                                        <span className="price-value">{formatPriceWithTax(totalAfterDiscount, currency, vat_rate)}</span>
+                                                                                    </div>
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
                                                         </div>
                                                     ) : (
                                                         <p className="no-items">No items found for this order.</p>

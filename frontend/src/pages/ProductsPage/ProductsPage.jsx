@@ -6,6 +6,7 @@ import { useSettings } from '../../context/SettingsContext';
 import { BsCart, BsSearch } from 'react-icons/bs';
 import { formatNumberWithCommas, formatPriceWithTax, getCurrencySymbol } from '../../utils/currency';
 import { convertFromILSSync } from '../../utils/exchangeRate';
+import { calculatePriceWithTax, calculateBasePriceFromTaxIncluded } from '../../utils/tax';
 import Pagination from '../../components/Pagination/Pagination';
 
 import './ProductsPage.css';
@@ -26,6 +27,8 @@ const ProductsPage = () => {
 
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [isInitialLoad, setIsInitialLoad] = useState(true); // Track if this is the first load
+  const [isFiltering, setIsFiltering] = useState(false); // Track when filters are being applied
   const [categories, setCategories] = useState([
     { category_id: 'All Products', name: 'All Products' }
   ]);
@@ -71,8 +74,16 @@ const ProductsPage = () => {
     const abortController = new AbortController();
     abortControllerRef.current = abortController;
     
-    // Set loading state
-    setLoading(true);
+    // Set loading state - only show full loading on initial load when no products exist
+    // For filter changes, keep products visible with subtle loading indicator
+    if (isInitialLoad && products.length === 0) {
+      setLoading(true);
+      setIsFiltering(false);
+    } else {
+      // For subsequent loads, keep products visible but show filtering indicator
+      setLoading(false); // Don't hide products during filter changes
+      setIsFiltering(true); // Show subtle loading overlay
+    }
     
     try {
       // Determine page to use:
@@ -149,6 +160,10 @@ const ProductsPage = () => {
       
       if (response.data && response.data.products) {
         console.log('Setting products:', response.data.products.length, 'items for page:', pageToUse);
+        // Mark initial load as complete after first successful fetch
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
         setProducts(response.data.products);
         if (response.data.pagination) {
           // Preserve the page we requested if it's different from what backend returned
@@ -190,6 +205,11 @@ const ProductsPage = () => {
       // Only update loading state if this request wasn't aborted
       if (!abortController.signal.aborted) {
         setLoading(false);
+        setIsFiltering(false);
+        // Mark initial load as complete even if no products found
+        if (isInitialLoad) {
+          setIsInitialLoad(false);
+        }
       }
     }
   }, [selectedCategory, maxPrice, selectedManufacturers, priceStats.maxPrice, searchTerm]);
@@ -616,34 +636,34 @@ const ProductsPage = () => {
                 key={`price-slider-${currency}-${priceRange.min}-${priceRange.max}`}
                 type="range"
                 id="priceRange"
-                min={convertFromILSSync(priceRange.min, currency)}
-                max={convertFromILSSync(priceRange.max, currency)}
+                min={calculatePriceWithTax(convertFromILSSync(priceRange.min, currency), vat_rate)}
+                max={calculatePriceWithTax(convertFromILSSync(priceRange.max, currency), vat_rate)}
                 step="0.01"
-                value={convertFromILSSync(maxPrice, currency)}
+                value={calculatePriceWithTax(convertFromILSSync(maxPrice, currency), vat_rate)}
                 onChange={(e) => {
-                  // Convert the slider value (in current currency) back to ILS for filtering
-                  const valueInCurrentCurrency = parseFloat(e.target.value);
-                  // Convert back to ILS: if currency is ILS, no conversion needed
-                  // Otherwise, we need to reverse the conversion
-                  let valueInILS;
+                  // Slider value is in current currency WITH tax
+                  const valueWithTaxInCurrentCurrency = parseFloat(e.target.value);
+                  // Convert to base price (without tax) in current currency
+                  const basePriceInCurrentCurrency = calculateBasePriceFromTaxIncluded(valueWithTaxInCurrentCurrency, vat_rate);
+                  
+                  // Convert base price from current currency back to ILS for filtering
+                  let basePriceInILS;
                   if (currency === 'ILS') {
-                    valueInILS = valueInCurrentCurrency;
+                    basePriceInILS = basePriceInCurrentCurrency;
                   } else {
-                    // Reverse conversion: valueInILS = valueInCurrentCurrency / rate
-                    // rate = convertFromILSSync(1, currency) gives us how many units of target currency = 1 ILS
-                    // So to reverse: valueInILS = valueInCurrentCurrency / rate
+                    // Reverse conversion: basePriceInILS = basePriceInCurrentCurrency / rate
                     const rate = convertFromILSSync(1, currency);
-                    valueInILS = valueInCurrentCurrency / rate;
+                    basePriceInILS = basePriceInCurrentCurrency / rate;
                   }
-                  console.log('Slider value changed to:', valueInCurrentCurrency, 'in', currency, '=', valueInILS, 'in ILS');
-                  setMaxPrice(valueInILS);
+                  console.log('Slider value changed to:', valueWithTaxInCurrentCurrency, 'with tax in', currency, 'base price:', basePriceInCurrentCurrency, 'in', currency, '=', basePriceInILS, 'in ILS');
+                  setMaxPrice(basePriceInILS);
                   setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
                 }}
                 className="theme-range"
               />
               <div style={{ display: 'flex', justifyContent: 'space-between', color: '#666', fontSize: '0.8em', fontWeight: '500' }}>
-                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(convertFromILSSync(priceRange.min, currency))}</span>
-                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(convertFromILSSync(priceRange.max, currency))}</span>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(calculatePriceWithTax(convertFromILSSync(priceRange.min, currency), vat_rate))}</span>
+                <span>{getCurrencySymbol(currency)}{formatNumberWithCommas(calculatePriceWithTax(convertFromILSSync(priceRange.max, currency), vat_rate))}</span>
               </div>
             </div>
           </div>
@@ -708,8 +728,9 @@ const ProductsPage = () => {
         </div>
 
         <div className="product-grid-container">
-          <div className="product-grid">
-            {loading ? (
+          <div className="product-grid" style={{ position: 'relative' }}>
+            {/* Show full loading only on initial load when no products exist */}
+            {loading && isInitialLoad && products.length === 0 ? (
               <div className="loading-message">
                 <div className="loading-spinner"></div>
                 <p>Loading products...</p>
@@ -747,14 +768,18 @@ const ProductsPage = () => {
                 </button>
               </div>
             ) : (
-              products.map(product => {
-                // Enhanced inventory validation
-                const hasValidStock = product.stock && product.stock >= 0;
-                const isOutOfStock = !hasValidStock || product.stock === 0;
-                const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Stock: 0' : `Stock: ${product.stock}`;
-                
-                return (
-                  <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`}>
+              <>
+                {products.map(product => {
+                  // Enhanced inventory validation
+                  const hasValidStock = product.stock && product.stock >= 0;
+                  const isOutOfStock = !hasValidStock || product.stock === 0;
+                  const stockStatus = !hasValidStock ? 'Invalid Stock' : product.stock === 0 ? 'Stock: 0' : `Stock: ${product.stock}`;
+                  
+                  return (
+                    <div key={product.product_id} className={`product-card ${isOutOfStock ? 'out-of-stock' : ''}`} style={{ 
+                      opacity: isFiltering ? 0.6 : 1,
+                      transition: 'opacity 0.2s ease'
+                    }}>
                     <div className="product-image-container">
                       {product.image ? (
                         <img src={product.image && product.image.startsWith('/uploads') ? `http://localhost:3001${product.image}` : product.image || 'https://via.placeholder.com/150'} alt={product.name} className="product-image" />
@@ -795,7 +820,35 @@ const ProductsPage = () => {
                     </div>
                   </div>
                 );
-              })
+              })}
+              {/* Subtle loading overlay during filter changes */}
+              {isFiltering && products.length > 0 && (
+                <div style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: 10,
+                  pointerEvents: 'none',
+                  transition: 'opacity 0.2s ease'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <div className="loading-spinner" style={{ width: '40px', height: '40px' }}></div>
+                    <p style={{ color: '#667eea', fontWeight: 500, margin: 0 }}>Updating...</p>
+                  </div>
+                </div>
+              )}
+            </>
             )}
           </div>
           

@@ -289,11 +289,16 @@ exports.getOrderHistory = async (req, res) => {
                 o.promotion_id,
                 pr.code as promotion_code, 
                 pr.name as promotion_name,
+                pr.type as promotion_type,
+                pr.value as promotion_value,
+                pr.applicable_products,
+                pr.applicable_categories,
                 oi.product_id, 
                 oi.quantity, 
                 oi.price, 
                 COALESCE(p.name, 'Product Not Found') as product_name, 
-                COALESCE(p.image, '') as product_image
+                COALESCE(p.image, '') as product_image,
+                p.category_id
             FROM orders o
             LEFT JOIN order_items oi ON o.order_id = oi.order_id
             LEFT JOIN products p ON oi.product_id = p.product_id
@@ -302,6 +307,61 @@ exports.getOrderHistory = async (req, res) => {
         `;
         const [rows] = await db.query(sql, validOrderIds);
         
+        // Helper function to check if item is applicable to promotion
+        const isItemApplicable = (item, promotion) => {
+            if (!promotion || !promotion.promotion_id) return false;
+            
+            let applicableProducts = null;
+            let applicableCategories = null;
+            
+            try {
+                applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : null;
+            } catch (e) {
+                console.error('Error parsing applicable_products:', e);
+            }
+            
+            try {
+                applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : null;
+            } catch (e) {
+                console.error('Error parsing applicable_categories:', e);
+            }
+            
+            // If no restrictions, promotion applies to all items
+            if (!applicableProducts && !applicableCategories) return true;
+            
+            // Check if product is in applicable products list
+            if (applicableProducts && Array.isArray(applicableProducts) && applicableProducts.includes(item.product_id)) {
+                return true;
+            }
+            
+            // Check if product category is in applicable categories list
+            if (applicableCategories && Array.isArray(applicableCategories) && item.category_id && applicableCategories.includes(item.category_id)) {
+                return true;
+            }
+            
+            return false;
+        };
+
+        // Helper function to calculate item discount
+        const calculateItemDiscount = (item, promotion) => {
+            if (!promotion || !promotion.promotion_id || !isItemApplicable(item, promotion)) {
+                return 0;
+            }
+            
+            const itemTotal = parseFloat(item.price) * item.quantity;
+            
+            if (promotion.promotion_type === 'percentage') {
+                return itemTotal * (parseFloat(promotion.promotion_value) / 100);
+            } else if (promotion.promotion_type === 'fixed') {
+                // For fixed discount, we need to calculate proportionally
+                // This is a simplified version - in reality, we'd need the total of all applicable items
+                // For now, we'll calculate based on this item's proportion
+                return Math.min(parseFloat(promotion.promotion_value), itemTotal);
+            }
+            
+            return 0;
+        };
+
         // Group items by order
         const orders = {};
         rows.forEach(row => {
@@ -314,18 +374,67 @@ exports.getOrderHistory = async (req, res) => {
                     promotion_id: row.promotion_id,
                     promotion_code: row.promotion_code,
                     promotion_name: row.promotion_name,
+                    promotion_type: row.promotion_type,
+                    promotion_value: row.promotion_value,
+                    promotion_applicable_products: row.applicable_products,
+                    promotion_applicable_categories: row.applicable_categories,
                     items: []
                 };
             }
             // Only add item if product_id exists (not NULL)
             if (row.product_id) {
-                orders[row.order_id].items.push({
+                const item = {
                     product_id: row.product_id,
                     product_name: row.product_name,
                     product_image: row.product_image,
                     quantity: row.quantity,
-                    price: row.price
-                });
+                    price: row.price,
+                    category_id: row.category_id
+                };
+                
+                // Calculate discount for this item if promotion exists
+                const promotion = orders[row.order_id];
+                let discount = 0;
+                if (promotion.promotion_id) {
+                    // First, we need to calculate total of all applicable items for proportional fixed discounts
+                    // For now, we'll calculate a simple discount per item
+                    const itemTotal = parseFloat(item.price) * item.quantity;
+                    if (isItemApplicable(item, promotion)) {
+                        if (promotion.promotion_type === 'percentage') {
+                            discount = itemTotal * (parseFloat(promotion.promotion_value) / 100);
+                        } else if (promotion.promotion_type === 'fixed') {
+                            // For fixed discount, we'll need to calculate proportionally
+                            // This requires knowing all items, so we'll do a simplified calculation
+                            discount = Math.min(parseFloat(promotion.promotion_value), itemTotal);
+                        }
+                    }
+                }
+                
+                item.discount = discount;
+                item.price_after_discount = itemTotal - discount;
+                
+                orders[row.order_id].items.push(item);
+            }
+        });
+        
+        // For fixed discounts, recalculate proportionally across all applicable items
+        Object.values(orders).forEach(order => {
+            if (order.promotion_id && order.promotion_type === 'fixed') {
+                const applicableItems = order.items.filter(item => 
+                    isItemApplicable(item, order)
+                );
+                const totalApplicable = applicableItems.reduce((sum, item) => 
+                    sum + (parseFloat(item.price) * item.quantity), 0
+                );
+                
+                if (totalApplicable > 0) {
+                    applicableItems.forEach(item => {
+                        const itemTotal = parseFloat(item.price) * item.quantity;
+                        const itemDiscount = (itemTotal / totalApplicable) * parseFloat(order.promotion_value);
+                        item.discount = itemDiscount;
+                        item.price_after_discount = itemTotal - itemDiscount;
+                    });
+                }
             }
         });
 
@@ -408,11 +517,16 @@ exports.getOrderDetails = async (req, res) => {
                 o.promotion_id,
                 pr.code as promotion_code,
                 pr.name as promotion_name,
+                pr.type as promotion_type,
+                pr.value as promotion_value,
+                pr.applicable_products,
+                pr.applicable_categories,
                 u.name AS user_name,
                 u.email AS user_email,
                 oi.quantity,
                 oi.price AS price_at_order,
-                p.name AS product_name
+                p.name AS product_name,
+                p.category_id
             FROM orders o
             JOIN users u ON o.user_id = u.user_id
             JOIN order_items oi ON o.order_id = oi.order_id
@@ -426,6 +540,106 @@ exports.getOrderDetails = async (req, res) => {
             return res.status(404).json({ message: 'Order not found.' });
         }
 
+        // Helper function to check if item is applicable to promotion
+        const isItemApplicable = (item, promotion) => {
+            if (!promotion || !promotion.promotion_id) return false;
+            
+            let applicableProducts = null;
+            let applicableCategories = null;
+            
+            try {
+                applicableProducts = promotion.applicable_products ? JSON.parse(promotion.applicable_products) : null;
+            } catch (e) {
+                console.error('Error parsing applicable_products:', e);
+            }
+            
+            try {
+                applicableCategories = promotion.applicable_categories ? JSON.parse(promotion.applicable_categories) : null;
+            } catch (e) {
+                console.error('Error parsing applicable_categories:', e);
+            }
+            
+            // If no restrictions, promotion applies to all items
+            if (!applicableProducts && !applicableCategories) return true;
+            
+            // Check if product is in applicable products list
+            if (applicableProducts && Array.isArray(applicableProducts) && applicableProducts.includes(item.product_id)) {
+                return true;
+            }
+            
+            // Check if product category is in applicable categories list
+            if (applicableCategories && Array.isArray(applicableCategories) && item.category_id && applicableCategories.includes(item.category_id)) {
+                return true;
+            }
+            
+            return false;
+        };
+
+        const promotion = rows[0].promotion_id ? {
+            promotion_id: rows[0].promotion_id,
+            promotion_code: rows[0].promotion_code,
+            promotion_name: rows[0].promotion_name,
+            promotion_type: rows[0].promotion_type,
+            promotion_value: rows[0].promotion_value,
+            applicable_products: rows[0].applicable_products,
+            applicable_categories: rows[0].applicable_categories
+        } : null;
+
+        // First pass: collect all items
+        const items = rows.map(row => ({
+            product_id: row.product_id || null,
+            product_name: row.product_name,
+            quantity: row.quantity,
+            price_at_order: row.price_at_order,
+            category_id: row.category_id
+        }));
+
+        // Calculate discounts for each item
+        let itemsWithDiscounts = items.map(item => {
+            const itemTotal = parseFloat(item.price_at_order) * item.quantity;
+            let discount = 0;
+            
+            if (promotion && isItemApplicable(item, promotion)) {
+                if (promotion.promotion_type === 'percentage') {
+                    discount = itemTotal * (parseFloat(promotion.promotion_value) / 100);
+                } else if (promotion.promotion_type === 'fixed') {
+                    // Will recalculate proportionally below
+                    discount = Math.min(parseFloat(promotion.promotion_value), itemTotal);
+                }
+            }
+            
+            return {
+                ...item,
+                discount: discount,
+                price_after_discount: itemTotal - discount
+            };
+        });
+
+        // For fixed discounts, recalculate proportionally across all applicable items
+        if (promotion && promotion.promotion_type === 'fixed') {
+            const applicableItems = itemsWithDiscounts.filter(item => 
+                isItemApplicable(item, promotion)
+            );
+            const totalApplicable = applicableItems.reduce((sum, item) => 
+                sum + (parseFloat(item.price_at_order) * item.quantity), 0
+            );
+            
+            if (totalApplicable > 0) {
+                itemsWithDiscounts = itemsWithDiscounts.map(item => {
+                    if (isItemApplicable(item, promotion)) {
+                        const itemTotal = parseFloat(item.price_at_order) * item.quantity;
+                        const itemDiscount = (itemTotal / totalApplicable) * parseFloat(promotion.promotion_value);
+                        return {
+                            ...item,
+                            discount: itemDiscount,
+                            price_after_discount: itemTotal - itemDiscount
+                        };
+                    }
+                    return item;
+                });
+            }
+        }
+
         // Group items into a single order object
         const orderDetails = {
             order_id: rows[0].order_id,
@@ -437,12 +651,16 @@ exports.getOrderDetails = async (req, res) => {
             promotion_id: rows[0].promotion_id,
             promotion_code: rows[0].promotion_code,
             promotion_name: rows[0].promotion_name,
+            promotion_type: rows[0].promotion_type,
+            promotion_value: rows[0].promotion_value,
             user_name: rows[0].user_name,
             user_email: rows[0].user_email,
-            products: rows.map(row => ({
-                product_name: row.product_name,
-                quantity: row.quantity,
-                price_at_order: row.price_at_order,
+            products: itemsWithDiscounts.map(item => ({
+                product_name: item.product_name,
+                quantity: item.quantity,
+                price_at_order: item.price_at_order,
+                discount: item.discount,
+                price_after_discount: item.price_after_discount
             })),
         };
 

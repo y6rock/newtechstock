@@ -6,6 +6,7 @@ import { FaPlus, FaEdit, FaTrash, FaCalendarAlt, FaPercent, FaDollarSign } from 
 import Pagination from '../../../components/Pagination/Pagination';
 import './Promotions.css';
 import { formatPrice, formatPriceConverted } from '../../../utils/currency';
+import { convertFromILSSync, convertToILS } from '../../../utils/exchangeRate';
 import { formatDate } from '../../../utils/dateFormat';
 
 export default function Promotions() {
@@ -38,6 +39,7 @@ export default function Promotions() {
     code: ''
   });
   const [applyType, setApplyType] = useState('products'); // 'products' or 'categories'
+  const [originalValueInILS, setOriginalValueInILS] = useState(null); // Store original value in ILS when editing
 
   // Fetch promotions function
   const fetchPromotions = useCallback(async (searchQuery = '', page = 1) => {
@@ -80,6 +82,15 @@ export default function Promotions() {
       fetchProducts();
     }
   }, [isUserAdmin, fetchPromotions]);
+
+  // Update discount value when currency changes while editing a fixed promotion
+  useEffect(() => {
+    if (showModal && editingPromotion && formData.type === 'fixed' && originalValueInILS !== null) {
+      // Convert the original ILS value to the new currency
+      const convertedValue = convertFromILSSync(originalValueInILS, currency);
+      setFormData(prev => ({ ...prev, value: convertedValue }));
+    }
+  }, [currency, showModal, editingPromotion, formData.type, originalValueInILS]);
 
   // Handle page changes
   const handlePageChange = useCallback((newPage) => {
@@ -213,13 +224,21 @@ export default function Promotions() {
       
       const method = editingPromotion ? 'PUT' : 'POST';
       
+      // Prepare data to send - convert fixed value back to ILS if needed
+      const dataToSend = { ...formData };
+      if (formData.type === 'fixed') {
+        // Convert from current currency back to ILS for storage (both for new and editing)
+        const valueInILS = convertToILS(formData.value, currency);
+        dataToSend.value = valueInILS;
+      }
+      
       const response = await fetch(url, {
         method,
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify(dataToSend)
       });
 
       if (response.ok) {
@@ -315,11 +334,23 @@ export default function Promotions() {
     const newApplyType = applicableProducts.length > 0 ? 'products' : 'categories';
     setApplyType(newApplyType);
     
+    // For fixed type, convert from ILS (stored in DB) to current currency
+    // For percentage type, value stays the same (it's a percentage, not currency)
+    let displayValue = promotion.value;
+    if (promotion.type === 'fixed') {
+      // Store original value in ILS
+      setOriginalValueInILS(parseFloat(promotion.value));
+      // Convert to current currency for display
+      displayValue = convertFromILSSync(promotion.value, currency);
+    } else {
+      setOriginalValueInILS(null);
+    }
+    
     setFormData({
       name: promotion.name,
       description: promotion.description,
       type: promotion.type,
-      value: promotion.value,
+      value: displayValue,
       minQuantity: promotion.min_quantity || 1,
       maxQuantity: promotion.max_quantity || null,
       startDate: formatDateForInput(promotion.start_date), // Convert to YYYY-MM-DD format for HTML input
@@ -334,6 +365,7 @@ export default function Promotions() {
 
   const resetForm = () => {
     setApplyType('products');
+    setOriginalValueInILS(null);
     setFormData({
       name: '',
       description: '',
@@ -679,7 +711,14 @@ export default function Promotions() {
                       name="type"
                       value="percentage"
                       checked={formData.type === 'percentage'}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        // When changing from fixed to percentage, clear originalValueInILS
+                        if (formData.type === 'fixed' && newType === 'percentage') {
+                          setOriginalValueInILS(null);
+                        }
+                        setFormData({...formData, type: newType});
+                      }}
                     />
                     <span className="type-option-icon">💯</span>
                     <span className="type-option-label">%</span>
@@ -691,7 +730,17 @@ export default function Promotions() {
                       name="type"
                       value="fixed"
                       checked={formData.type === 'fixed'}
-                      onChange={(e) => setFormData({...formData, type: e.target.value})}
+                      onChange={(e) => {
+                        const newType = e.target.value;
+                        // When changing from fixed to percentage, clear originalValueInILS
+                        // When changing from percentage to fixed, clear originalValueInILS (user will enter new value)
+                        if (formData.type === 'fixed' && newType === 'percentage') {
+                          setOriginalValueInILS(null);
+                        } else if (formData.type === 'percentage' && newType === 'fixed') {
+                          setOriginalValueInILS(null);
+                        }
+                        setFormData({...formData, type: newType});
+                      }}
                     />
                     <span className="type-option-icon">💰</span>
                     <span className="type-option-label">$</span>

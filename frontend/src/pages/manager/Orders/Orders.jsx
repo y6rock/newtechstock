@@ -844,14 +844,59 @@ const Orders = () => {
             {selectedOrder.promotion_code && (
               <p><strong>Promotion:</strong> <span className="promotion-badge">{selectedOrder.promotion_code}</span></p>
             )}
+            {selectedOrder.promotion_id && !selectedOrder.promotion_code && (
+              <p><strong>Promotion:</strong> <span className="promotion-badge">Deleted Promotion (ID: {selectedOrder.promotion_id})</span></p>
+            )}
             <h3>Products</h3>
             <ul className="order-products-list">
-              {(selectedOrder.products || []).map((item, idx) => (
-                <li key={idx}>
-                  <span>{item.product_name || item.name} (x{item.quantity})</span>
-                  <span>{formatPriceWithTax(item.price_at_order * item.quantity, currency, vat_rate)}</span>
-                </li>
-              ))}
+              {(selectedOrder.products || []).map((item, idx) => {
+                const unitPrice = parseFloat(item.price_at_order) || 0;
+                const quantity = item.quantity || 1;
+                const totalBeforeDiscount = unitPrice * quantity;
+                const discount = item.discount || 0;
+                const totalAfterDiscount = item.price_after_discount || totalBeforeDiscount;
+                const hasDiscount = discount > 0;
+                const discountPercentage = selectedOrder.promotion_type === 'percentage' && selectedOrder.promotion_value 
+                  ? parseFloat(selectedOrder.promotion_value) 
+                  : hasDiscount ? ((discount / totalBeforeDiscount) * 100).toFixed(1) : 0;
+                
+                return (
+                  <li key={idx} className="order-product-item">
+                    <div className="product-name-qty">
+                      <span className="product-name">{item.product_name || item.name}</span>
+                      <span className="product-quantity">(x{quantity})</span>
+                    </div>
+                    <div className="product-pricing">
+                      <div className="price-line">
+                        <span className="price-label">Unit Price:</span>
+                        <span>{formatPriceWithTax(unitPrice, currency, vat_rate)}</span>
+                      </div>
+                      <div className="price-line">
+                        <span className="price-label">Total:</span>
+                        <span>{formatPriceWithTax(totalBeforeDiscount, currency, vat_rate)}</span>
+                      </div>
+                      {hasDiscount && (
+                        <>
+                          <div className="price-line discount-info">
+                            <span className="price-label">Discount:</span>
+                            <span className="discount-amount">-{formatPriceWithTax(discount, currency, vat_rate)}</span>
+                            {selectedOrder.promotion_code && (
+                              <span className="discount-code">({discountPercentage}% - {selectedOrder.promotion_code})</span>
+                            )}
+                            {!selectedOrder.promotion_code && selectedOrder.promotion_id && (
+                              <span className="discount-code">({discountPercentage}% - Deleted)</span>
+                            )}
+                          </div>
+                          <div className="price-line final-price">
+                            <span className="price-label">After Discount:</span>
+                            <span className="price-value">{formatPriceWithTax(totalAfterDiscount, currency, vat_rate)}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
           </div>
         </div>

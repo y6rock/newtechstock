@@ -143,25 +143,67 @@ const OrderHistory = ({ userId }) => {
                   {order.promotion_code && (
                     <p className="order-detail">Promotion: <span className="promotion-badge">{order.promotion_code}</span></p>
                   )}
+                  {order.promotion_id && !order.promotion_code && (
+                    <p className="order-detail">Promotion: <span className="promotion-badge">Deleted Promotion (ID: {order.promotion_id})</span></p>
+                  )}
                 </div>
 
                 <div className="items-section">
                   <h3 className="items-title">Items:</h3>
                   <div className="items-list">
-                    {(Array.isArray(order.items) ? order.items : []).map(item => (
-                      <div key={item.product_id} className="item-card">
-                        <img 
-                          src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} 
-                          alt={item.product_name} 
-                          className="item-image"
-                        />
-                        <div className="item-details">
-                          <p className="item-name">{item.product_name}</p>
-                          <p className="item-quantity">Quantity: {item.quantity}</p>
-                          <p className="item-price">{formatPriceWithTax(item.price * item.quantity, currency, vat_rate)}</p>
+                    {(Array.isArray(order.items) ? order.items : []).map(item => {
+                      const unitPrice = parseFloat(item.price) || 0;
+                      const quantity = item.quantity || 1;
+                      const totalBeforeDiscount = unitPrice * quantity;
+                      const discount = item.discount || 0;
+                      const totalAfterDiscount = item.price_after_discount || totalBeforeDiscount;
+                      const hasDiscount = discount > 0;
+                      const discountPercentage = order.promotion_type === 'percentage' && order.promotion_value 
+                        ? parseFloat(order.promotion_value) 
+                        : hasDiscount ? ((discount / totalBeforeDiscount) * 100).toFixed(1) : 0;
+                      
+                      return (
+                        <div key={item.product_id} className="item-card">
+                          <img 
+                            src={item.product_image && item.product_image.startsWith('/uploads') ? `http://localhost:3001${item.product_image}` : item.product_image || 'https://via.placeholder.com/50'} 
+                            alt={item.product_name} 
+                            className="item-image"
+                          />
+                          <div className="item-details">
+                            <p className="item-name">{item.product_name}</p>
+                            <p className="item-quantity">Quantity: {quantity}</p>
+                            <div className="item-pricing">
+                              <div className="price-line">
+                                <span className="price-label">Unit Price:</span>
+                                <span>{formatPriceWithTax(unitPrice, currency, vat_rate)}</span>
+                              </div>
+                              <div className="price-line">
+                                <span className="price-label">Total:</span>
+                                <span>{formatPriceWithTax(totalBeforeDiscount, currency, vat_rate)}</span>
+                              </div>
+                              {hasDiscount && (
+                                <>
+                                  <div className="price-line discount-info">
+                                    <span className="price-label">Discount:</span>
+                                    <span className="discount-amount">-{formatPriceWithTax(discount, currency, vat_rate)}</span>
+                                    {order.promotion_code && (
+                                      <span className="discount-code">({discountPercentage}% - {order.promotion_code})</span>
+                                    )}
+                                    {!order.promotion_code && order.promotion_id && (
+                                      <span className="discount-code">({discountPercentage}% - Deleted)</span>
+                                    )}
+                                  </div>
+                                  <div className="price-line final-price">
+                                    <span className="price-label">After Discount:</span>
+                                    <span className="price-value">{formatPriceWithTax(totalAfterDiscount, currency, vat_rate)}</span>
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               </div>
