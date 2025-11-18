@@ -135,14 +135,10 @@ exports.getPriceStats = async (req, res) => {
         const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
         
         const sql = `SELECT MIN(p.price) as minPrice, MAX(p.price) as maxPrice FROM products p ${joinClause} ${whereClause}`;
-        console.log('getPriceStats SQL:', sql);
-        console.log('getPriceStats params:', params);
         const [stats] = await db.query(sql, params);
         
         const minPrice = parseFloat(stats[0].minPrice);
         const maxPrice = parseFloat(stats[0].maxPrice);
-        
-        console.log('getPriceStats result:', { minPrice, maxPrice, category, manufacturer });
         
         // If no products found with filters, fallback to all products stats (only active categories/suppliers)
         if (!minPrice && !maxPrice) {
