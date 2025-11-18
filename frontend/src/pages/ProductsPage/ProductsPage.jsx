@@ -62,6 +62,8 @@ const ProductsPage = () => {
   const isChangingPageRef = useRef(false);
   // Ref to track if initial fetch has been done
   const hasInitiallyFetchedRef = useRef(false);
+  // Ref to track initial mount to prevent setSearchParams on first render
+  const isInitialMountRef = useRef(true);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
@@ -364,6 +366,14 @@ const ProductsPage = () => {
   // Fetch products when filters change (but not when search term or page changes - page changes are handled directly)
   // Note: fetchProducts is NOT in dependencies to avoid resetting page when fetchProducts is recreated
   useEffect(() => {
+    // Skip on initial mount to prevent "operation is insecure" error
+    // React Router needs to be fully initialized before we can safely call setSearchParams
+    if (isInitialMountRef.current) {
+      isInitialMountRef.current = false;
+      console.log('Filter change effect: skipping initial mount');
+      return;
+    }
+    
     console.log('Filter change effect triggered - selectedCategory:', selectedCategory, 'maxPrice:', maxPrice, 'selectedManufacturers:', selectedManufacturers);
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
