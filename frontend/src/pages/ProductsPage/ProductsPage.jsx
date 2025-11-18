@@ -64,6 +64,8 @@ const ProductsPage = () => {
   const hasInitiallyFetchedRef = useRef(false);
   // Ref to track initial mount to prevent setSearchParams on first render
   const isInitialMountRef = useRef(true);
+  // Ref to track if URL sync has completed initial sync
+  const hasCompletedInitialUrlSyncRef = useRef(false);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
@@ -232,11 +234,37 @@ const ProductsPage = () => {
     const searchParam = params.get('search');
     const pageParam = parseInt(params.get('page')) || 1;
     
+    // During initial mount, sync from URL but don't trigger filter effects
+    const isInitialSync = !hasCompletedInitialUrlSyncRef.current;
+    if (isInitialSync) {
+      hasCompletedInitialUrlSyncRef.current = true;
+    }
+    
     // Sync category from URL
+    // During initial sync, suppress filter change effect by using a flag
     if (categoryParam !== null && categoryParam !== selectedCategory) {
+      if (isInitialSync) {
+        // During initial sync, set category but prevent filter effect from running
+        // by temporarily disabling the filter effect trigger
+        isInitialMountRef.current = true; // Keep this true to prevent filter effect
+      }
       setSelectedCategory(categoryParam);
+      if (isInitialSync) {
+        // After state update, mark as not initial mount so future changes work
+        setTimeout(() => {
+          isInitialMountRef.current = false;
+        }, 0);
+      }
     } else if (categoryParam === null && selectedCategory !== 'All Products') {
+      if (isInitialSync) {
+        isInitialMountRef.current = true;
+      }
       setSelectedCategory('All Products');
+      if (isInitialSync) {
+        setTimeout(() => {
+          isInitialMountRef.current = false;
+        }, 0);
+      }
     }
     
     // Sync search from URL (when navigating from header search)
@@ -378,9 +406,15 @@ const ProductsPage = () => {
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
     // Update URL to remove page param when filters change
-    const params = new URLSearchParams(searchParams);
-    params.delete('page');
-    setSearchParams(params);
+    // Wrap in try-catch to handle "operation is insecure" errors gracefully
+    try {
+      const params = new URLSearchParams(searchParams);
+      params.delete('page');
+      setSearchParams(params);
+    } catch (error) {
+      console.warn('ProductsPage: Could not update search params:', error.message);
+      // Silently fail - URL will be updated on next safe opportunity
+    }
     // Fetch products for page 1
     console.log('Filter change: calling fetchProducts(1)');
     fetchProducts(1);
@@ -438,14 +472,20 @@ const ProductsPage = () => {
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
     
     // Update URL to reflect category change
-    const params = new URLSearchParams(searchParams);
-    if (category === 'All Products') {
-      params.delete('category');
-    } else {
-      params.set('category', category);
+    // Wrap in try-catch to handle "operation is insecure" errors gracefully
+    try {
+      const params = new URLSearchParams(searchParams);
+      if (category === 'All Products') {
+        params.delete('category');
+      } else {
+        params.set('category', category);
+      }
+      params.set('page', '1'); // Reset to page 1
+      setSearchParams(params);
+    } catch (error) {
+      console.warn('ProductsPage: Could not update search params in handleCategoryChange:', error.message);
+      // Silently fail - URL will be updated on next safe opportunity
     }
-    params.set('page', '1'); // Reset to page 1
-    setSearchParams(params);
     
     // Price stats will be updated via useEffect
   };
@@ -499,17 +539,25 @@ const ProductsPage = () => {
     });
     
     // Update URL with page parameter (like Customers page)
-    const params = new URLSearchParams(searchParams);
-    if (newPage === 1) {
-      params.delete('page');
-    } else {
-      params.set('page', newPage.toString());
+    // Wrap in try-catch to handle "operation is insecure" errors gracefully
+    let urlUpdated = false;
+    try {
+      const params = new URLSearchParams(searchParams);
+      if (newPage === 1) {
+        params.delete('page');
+      } else {
+        params.set('page', newPage.toString());
+      }
+      // Preserve other URL params (category, search, etc.)
+      // Use navigate to ensure URL updates in address bar
+      const newSearch = params.toString();
+      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
+      urlUpdated = true;
+      console.log('handlePageChange: URL updated to', newSearch);
+    } catch (error) {
+      console.warn('ProductsPage: Could not update URL in handlePageChange:', error.message);
+      // Silently fail - URL will be updated on next safe opportunity
     }
-    // Preserve other URL params (category, search, etc.)
-    // Use navigate to ensure URL updates in address bar
-    const newSearch = params.toString();
-    navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
-    console.log('handlePageChange: URL updated to', params.toString());
     
     // Fetch products for the new page (like Categories page - simple and direct)
     console.log('handlePageChange: calling fetchProducts with pageOverride:', newPage);
