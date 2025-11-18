@@ -97,21 +97,16 @@ const ProductsPage = () => {
       let pageToUse;
       if (pageOverride !== null && pageOverride !== undefined) {
         pageToUse = parseInt(pageOverride, 10);
-        console.log('fetchProducts: Using pageOverride:', pageToUse);
-      } else {
+        } else {
         // Read from URL (single source of truth)
         const urlParams = new URLSearchParams(location.search);
         const urlPage = urlParams.get('page');
         if (urlPage) {
           pageToUse = parseInt(urlPage, 10);
-          console.log('fetchProducts: Reading from URL, page:', pageToUse);
         } else {
           pageToUse = parseInt(pagination.currentPage, 10);
-          console.log('fetchProducts: No URL page param, using pagination.currentPage:', pageToUse);
         }
       }
-      
-      console.log('fetchProducts called - pageOverride:', pageOverride, 'pageToUse:', pageToUse, 'pagination.currentPage:', pagination.currentPage, 'URL page:', new URLSearchParams(location.search).get('page'));
       
       // Validate page number
       if (isNaN(pageToUse) || pageToUse < 1) {
@@ -123,7 +118,6 @@ const ProductsPage = () => {
       
       if (selectedCategory && selectedCategory !== 'All Products') {
         params.append('category', selectedCategory);
-        console.log('Adding category filter:', selectedCategory);
       }
       
       // Only add maxPrice filter if it's actually filtering (less than the max available price)
@@ -132,25 +126,18 @@ const ProductsPage = () => {
       // Allow maxPrice to be 0 (user can set slider to 0 to filter out all products)
       if (priceStats.maxPrice > 0 && maxPrice !== null && maxPrice !== undefined && maxPrice < priceStats.maxPrice - 0.01) {
         params.append('maxPrice', maxPrice.toString());
-        console.log('Adding maxPrice filter:', maxPrice, '(max available:', priceStats.maxPrice, ')');
-      } else {
-        console.log('Skipping maxPrice filter - maxPrice:', maxPrice, 'priceStats.maxPrice:', priceStats.maxPrice);
       }
       
       if (selectedManufacturers.length > 0) {
         selectedManufacturers.forEach(id => params.append('manufacturer', id));
-        console.log('Adding manufacturer filters:', selectedManufacturers);
       }
       
       if (searchTerm.trim()) {
         params.append('search', searchTerm.trim());
-        console.log('Adding search filter:', searchTerm);
       }
       
       params.append('page', pageToUse.toString());
       params.append('limit', '10');
-      
-      console.log('Fetching products with params:', params.toString());
       const response = await axios.get(`/api/products?${params}`, {
         signal: abortController.signal
       });
@@ -160,10 +147,7 @@ const ProductsPage = () => {
         return;
       }
       
-      console.log('ProductsPage: Products fetched with filters:', response.data);
-      
       if (response.data && response.data.products) {
-        console.log('Setting products:', response.data.products.length, 'items for page:', pageToUse);
         // Mark initial load as complete after first successful fetch
         if (isInitialLoad) {
           setIsInitialLoad(false);
@@ -173,22 +157,13 @@ const ProductsPage = () => {
           // Preserve the page we requested if it's different from what backend returned
           // This ensures the page number in state matches what we requested
           const finalPage = pageToUse; // Use the page we requested
-          console.log('Setting pagination - requested page:', finalPage, 'backend returned:', response.data.pagination.currentPage);
-          setPagination(prev => {
-            const newPagination = {
-              ...response.data.pagination,
-              currentPage: finalPage // Use the page we requested, not what backend might return
-            };
-            console.log('New pagination state:', newPagination);
-            return newPagination;
-          });
+          setPagination(prev => ({
+            ...response.data.pagination,
+            currentPage: finalPage // Use the page we requested, not what backend might return
+          }));
         } else {
           // If no pagination in response, just update currentPage
-          setPagination(prev => {
-            const newPagination = { ...prev, currentPage: pageToUse };
-            console.log('No pagination in response, updating currentPage to:', pageToUse, 'new state:', newPagination);
-            return newPagination;
-          });
+          setPagination(prev => ({ ...prev, currentPage: pageToUse }));
         }
       } else if (Array.isArray(response.data)) {
         // Fallback for old API format
@@ -200,7 +175,6 @@ const ProductsPage = () => {
     } catch (error) {
       // Don't log error if request was aborted
       if (error.name === 'AbortError' || error.name === 'CanceledError') {
-        console.log('ProductsPage: Request aborted');
         return;
       }
       console.error('ProductsPage: Error fetching products:', error);
@@ -282,22 +256,14 @@ const ProductsPage = () => {
     // Sync page from URL (for browser back/forward navigation only)
     // Skip if we're programmatically changing the page (handlePageChange handles it)
     if (isChangingPageRef.current) {
-      console.log('URL sync effect: skipping because isChangingPageRef is true (programmatic page change in progress)');
       return; // Early return to skip all URL sync logic
     }
     
     if (pageParam !== pagination.currentPage) {
-      console.log('URL sync effect: page changed from', pagination.currentPage, 'to', pageParam, '(browser navigation)');
       // Update pagination state
-      setPagination(prev => {
-        console.log('URL sync: updating pagination from', prev.currentPage, 'to', pageParam);
-        return { ...prev, currentPage: pageParam };
-      });
+      setPagination(prev => ({ ...prev, currentPage: pageParam }));
       // Fetch products for the page from URL (pass pageParam as override)
-      console.log('URL sync: calling fetchProducts with pageParam:', pageParam);
       fetchProducts(pageParam);
-    } else {
-      console.log('URL sync effect: page unchanged, skipping (pageParam:', pageParam, 'currentPage:', pagination.currentPage, ')');
     }
   }, [location.search]); // Removed fetchProducts from deps to prevent re-runs when fetchProducts is recreated
   // Note: fetchProducts is intentionally not in deps - it's called directly when needed
@@ -329,16 +295,13 @@ const ProductsPage = () => {
     
     try {
       const response = await axios.get(`/api/products/price-stats?${params.toString()}`);
-      console.log('ProductsPage: Price stats fetched with filters:', response.data);
       const newPriceRange = { min: response.data.minPrice, max: response.data.maxPrice };
-      console.log('ProductsPage: Updating priceRange to:', newPriceRange);
       setPriceStats(response.data);
       setPriceRange(newPriceRange);
       
       // Always reset maxPrice to the new max when filters change
       // This ensures the slider shows the full range of filtered products
       const newMaxPrice = response.data.maxPrice;
-      console.log('ProductsPage: Updating maxPrice to:', newMaxPrice);
       setMaxPrice(newMaxPrice);
     } catch (err) {
       console.error('ProductsPage: Error fetching price stats:', err);
@@ -398,11 +361,9 @@ const ProductsPage = () => {
     // React Router needs to be fully initialized before we can safely call setSearchParams
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
-      console.log('Filter change effect: skipping initial mount');
       return;
     }
     
-    console.log('Filter change effect triggered - selectedCategory:', selectedCategory, 'maxPrice:', maxPrice, 'selectedManufacturers:', selectedManufacturers);
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
     // Update URL to remove page param when filters change
@@ -413,12 +374,10 @@ const ProductsPage = () => {
         params.delete('page');
         setSearchParams(params);
       } catch (error) {
-        console.warn('ProductsPage: Could not update search params:', error.message);
         // Silently fail - URL will be updated on next safe opportunity
       }
     }, 0);
     // Fetch products for page 1
-    console.log('Filter change: calling fetchProducts(1)');
     fetchProducts(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCategory, maxPrice, selectedManufacturers]);
@@ -432,6 +391,7 @@ const ProductsPage = () => {
   }, []);
 
   // Auto-refocus search input after re-renders to maintain typing experience
+  // Only run when searchTerm or isTypingRef changes to avoid unnecessary re-renders
   useEffect(() => {
     if (searchInputRef.current && searchTerm && isTypingRef.current) {
       // Use requestAnimationFrame to ensure focus happens after render
@@ -444,7 +404,7 @@ const ProductsPage = () => {
         }
       });
     }
-  });
+  }, [searchTerm]); // Only re-run when searchTerm changes
 
   // Debounced search effect - performs search after user stops typing
   useEffect(() => {
@@ -462,7 +422,6 @@ const ProductsPage = () => {
   // Initial fetch after price stats are loaded (only once on mount)
   useEffect(() => {
     if (priceStats.maxPrice > 0 && !hasInitiallyFetchedRef.current) {
-      console.log('Initial fetch triggered after price stats loaded');
       hasInitiallyFetchedRef.current = true;
       fetchProducts(1);
     }
@@ -526,21 +485,14 @@ const ProductsPage = () => {
   };
 
   const handlePageChange = async (newPage) => {
-    console.log('=== handlePageChange CALLED ===');
-    console.log('handlePageChange: changing to page', newPage, 'current:', pagination.currentPage);
-    console.log('handlePageChange: typeof newPage:', typeof newPage, 'value:', newPage);
     // Set flag to prevent URL sync effect from interfering
     isChangingPageRef.current = true;
-    console.log('handlePageChange: isChangingPageRef set to true');
     
     // Scroll to top of product grid when page changes
     window.scrollTo({ top: 0, behavior: 'smooth' });
     
     // Update pagination state FIRST to prevent URL sync effect from interfering
-    setPagination(prev => {
-      console.log('handlePageChange: updating pagination from', prev.currentPage, 'to', newPage);
-      return { ...prev, currentPage: newPage };
-    });
+    setPagination(prev => ({ ...prev, currentPage: newPage }));
     
     // Update URL with page parameter (like Customers page)
     // Use setTimeout to defer navigation to next event loop to ensure React Router is ready
@@ -556,23 +508,18 @@ const ProductsPage = () => {
         // Use navigate to ensure URL updates in address bar
         const newSearch = params.toString();
         navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
-        console.log('handlePageChange: URL updated to', newSearch);
       } catch (error) {
-        console.warn('ProductsPage: Could not update URL in handlePageChange:', error.message);
         // Silently fail - URL will be updated on next safe opportunity
       }
     }, 0);
     
     // Fetch products for the new page (like Categories page - simple and direct)
-    console.log('handlePageChange: calling fetchProducts with pageOverride:', newPage);
     await fetchProducts(newPage);
-    console.log('handlePageChange: fetchProducts completed');
     
     // Reset flag after a longer delay to ensure URL sync effect doesn't interfere
     // The delay needs to be long enough for the URL update and fetch to complete
     setTimeout(() => {
       isChangingPageRef.current = false;
-      console.log('handlePageChange: isChangingPageRef reset to false');
     }, 500);
   };
 
