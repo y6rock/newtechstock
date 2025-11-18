@@ -406,15 +406,17 @@ const ProductsPage = () => {
     // Reset to page 1 when filters change
     setPagination(prev => ({ ...prev, currentPage: 1 }));
     // Update URL to remove page param when filters change
-    // Wrap in try-catch to handle "operation is insecure" errors gracefully
-    try {
-      const params = new URLSearchParams(searchParams);
-      params.delete('page');
-      setSearchParams(params);
-    } catch (error) {
-      console.warn('ProductsPage: Could not update search params:', error.message);
-      // Silently fail - URL will be updated on next safe opportunity
-    }
+    // Use setTimeout to defer setSearchParams to next event loop to ensure React Router is ready
+    setTimeout(() => {
+      try {
+        const params = new URLSearchParams(searchParams);
+        params.delete('page');
+        setSearchParams(params);
+      } catch (error) {
+        console.warn('ProductsPage: Could not update search params:', error.message);
+        // Silently fail - URL will be updated on next safe opportunity
+      }
+    }, 0);
     // Fetch products for page 1
     console.log('Filter change: calling fetchProducts(1)');
     fetchProducts(1);
@@ -472,20 +474,22 @@ const ProductsPage = () => {
     setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
     
     // Update URL to reflect category change
-    // Wrap in try-catch to handle "operation is insecure" errors gracefully
-    try {
-      const params = new URLSearchParams(searchParams);
-      if (category === 'All Products') {
-        params.delete('category');
-      } else {
-        params.set('category', category);
+    // Use setTimeout to defer setSearchParams to next event loop to ensure React Router is ready
+    setTimeout(() => {
+      try {
+        const params = new URLSearchParams(searchParams);
+        if (category === 'All Products') {
+          params.delete('category');
+        } else {
+          params.set('category', category);
+        }
+        params.set('page', '1'); // Reset to page 1
+        setSearchParams(params);
+      } catch (error) {
+        console.warn('ProductsPage: Could not update search params in handleCategoryChange:', error.message);
+        // Silently fail - URL will be updated on next safe opportunity
       }
-      params.set('page', '1'); // Reset to page 1
-      setSearchParams(params);
-    } catch (error) {
-      console.warn('ProductsPage: Could not update search params in handleCategoryChange:', error.message);
-      // Silently fail - URL will be updated on next safe opportunity
-    }
+    }, 0);
     
     // Price stats will be updated via useEffect
   };
@@ -539,25 +543,25 @@ const ProductsPage = () => {
     });
     
     // Update URL with page parameter (like Customers page)
-    // Wrap in try-catch to handle "operation is insecure" errors gracefully
-    let urlUpdated = false;
-    try {
-      const params = new URLSearchParams(searchParams);
-      if (newPage === 1) {
-        params.delete('page');
-      } else {
-        params.set('page', newPage.toString());
+    // Use setTimeout to defer navigation to next event loop to ensure React Router is ready
+    setTimeout(() => {
+      try {
+        const params = new URLSearchParams(searchParams);
+        if (newPage === 1) {
+          params.delete('page');
+        } else {
+          params.set('page', newPage.toString());
+        }
+        // Preserve other URL params (category, search, etc.)
+        // Use navigate to ensure URL updates in address bar
+        const newSearch = params.toString();
+        navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
+        console.log('handlePageChange: URL updated to', newSearch);
+      } catch (error) {
+        console.warn('ProductsPage: Could not update URL in handlePageChange:', error.message);
+        // Silently fail - URL will be updated on next safe opportunity
       }
-      // Preserve other URL params (category, search, etc.)
-      // Use navigate to ensure URL updates in address bar
-      const newSearch = params.toString();
-      navigate(`${location.pathname}${newSearch ? `?${newSearch}` : ''}`, { replace: false });
-      urlUpdated = true;
-      console.log('handlePageChange: URL updated to', newSearch);
-    } catch (error) {
-      console.warn('ProductsPage: Could not update URL in handlePageChange:', error.message);
-      // Silently fail - URL will be updated on next safe opportunity
-    }
+    }, 0);
     
     // Fetch products for the new page (like Categories page - simple and direct)
     console.log('handlePageChange: calling fetchProducts with pageOverride:', newPage);
