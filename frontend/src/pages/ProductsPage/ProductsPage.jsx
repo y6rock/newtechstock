@@ -305,6 +305,7 @@ const ProductsPage = () => {
       setMaxPrice(newMaxPrice);
     } catch (err) {
       console.error('ProductsPage: Error fetching price stats:', err);
+      // Don't clear state on error - keep existing price stats
     }
   }, [selectedCategory, selectedManufacturers]);
 
@@ -315,23 +316,31 @@ const ProductsPage = () => {
     // Fetch categories (only active for filters)
     axios.get('/api/categories/public')
       .then(res => {
-        console.log('ProductsPage: Categories fetched from backend:', res.data);
         const categoriesData = Array.isArray(res.data) ? res.data : [];
         // Filter to only show active categories (backend should already filter, but double-check)
         const activeCategories = categoriesData.filter(cat => {
           const isActive = cat.isActive !== undefined ? cat.isActive : (cat.isActive === undefined ? true : false);
           return isActive === 1 || isActive === true;
         });
+        // Always update with valid data (categories should always have at least "All Products")
         setCategories([
           { category_id: 'All Products', name: 'All Products', isActive: true },
           ...activeCategories
         ]);
       })
-      .catch(err => console.error('ProductsPage: Error fetching categories:', err));
+      .catch(err => {
+        console.error('ProductsPage: Error fetching categories:', err);
+        // Don't clear categories on error - keep existing ones
+      });
 
     // Fetch suppliers (manufacturers) - only active
     axios.get('/api/suppliers/public')
       .then(res => {
+        // Ensure res.data is an array
+        if (!Array.isArray(res.data)) {
+          console.error('ProductsPage: Invalid suppliers data format:', res.data);
+          return;
+        }
         // Filter to only show active suppliers
         const manufacturerList = res.data
           .filter(supplier => {
@@ -344,9 +353,13 @@ const ProductsPage = () => {
             name: supplier.name || supplier.supplier_name || supplier.Name,
             isActive: supplier.isActive !== undefined ? supplier.isActive : true
           }));
+        // Always update with valid data
         setManufacturers(manufacturerList);
       })
-      .catch(err => console.error('ProductsPage: Error fetching suppliers:', err));
+      .catch(err => {
+        console.error('ProductsPage: Error fetching suppliers:', err);
+        // Don't clear manufacturers on error - keep existing ones
+      });
   }, []);
 
   // Update price stats when category or manufacturer filters change
