@@ -69,6 +69,18 @@ const ProductsPage = () => {
   // Refs to persist categories and manufacturers to prevent flickering
   const categoriesRef = useRef([{ category_id: 'All Products', name: 'All Products' }]);
   const manufacturersRef = useRef([]);
+  // Refs to avoid dependency issues in callbacks
+  const isInitialLoadRef = useRef(true);
+  const productsRef = useRef([]);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    isInitialLoadRef.current = isInitialLoad;
+  }, [isInitialLoad]);
+  
+  useEffect(() => {
+    productsRef.current = products;
+  }, [products]);
   
   // Function to fetch products with current filters
   const fetchProducts = useCallback(async (pageOverride = null) => {
@@ -83,12 +95,11 @@ const ProductsPage = () => {
     
     // Set loading state - only show full loading on initial load when no products exist
     // For filter changes, keep products visible with subtle loading indicator
-    if (isInitialLoad && products.length === 0) {
+    const isInitial = isInitialLoadRef.current;
+    if (isInitial && productsRef.current.length === 0) {
       setLoading(true);
-      setIsFiltering(false);
     } else {
-      // For subsequent loads, keep products visible but show filtering indicator
-      setLoading(false); // Don't hide products during filter changes
+      setLoading(false);
       setIsFiltering(true); // Show subtle loading overlay
     }
     
@@ -152,9 +163,9 @@ const ProductsPage = () => {
       
       if (response.data && response.data.products) {
         // Mark initial load as complete after first successful fetch
-        if (isInitialLoad) {
-          setIsInitialLoad(false);
-        }
+        isInitialLoadRef.current = false;
+        setIsInitialLoad(false);
+        productsRef.current = response.data.products;
         setProducts(response.data.products);
         if (response.data.pagination) {
           // Preserve the page we requested if it's different from what backend returned
@@ -170,9 +181,11 @@ const ProductsPage = () => {
         }
       } else if (Array.isArray(response.data)) {
         // Fallback for old API format
+        productsRef.current = response.data;
         setProducts(response.data);
       } else {
         console.warn('Unexpected response format:', response.data);
+        productsRef.current = [];
         setProducts([]);
       }
     } catch (error) {
@@ -181,6 +194,7 @@ const ProductsPage = () => {
         return;
       }
       console.error('ProductsPage: Error fetching products:', error);
+      productsRef.current = [];
       setProducts([]);
     } finally {
       // Only update loading state if this request wasn't aborted
@@ -188,12 +202,13 @@ const ProductsPage = () => {
         setLoading(false);
         setIsFiltering(false);
         // Mark initial load as complete even if no products found
-        if (isInitialLoad) {
-          setIsInitialLoad(false);
-        }
+        isInitialLoadRef.current = false;
+        setIsInitialLoad(false);
       }
     }
-  }, [selectedCategory, maxPrice, selectedManufacturers, priceStats.maxPrice, searchTerm]);
+    // Note: priceStats.maxPrice is NOT in dependencies - we access it via closure for validation only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, maxPrice, selectedManufacturers, searchTerm, location.search]);
   
   // Cleanup on unmount
   useEffect(() => {
@@ -284,6 +299,11 @@ const ProductsPage = () => {
     });
   }, []);
 
+  // Ref to track if maxPrice change is from user or automatic
+  const isMaxPriceUpdateFromStatsRef = useRef(false);
+  // Ref to track user-initiated maxPrice changes (from slider)
+  const isUserMaxPriceChangeRef = useRef(false);
+
   // Fetch price statistics based on current filters
   const fetchPriceStats = useCallback(async () => {
     const params = new URLSearchParams();
@@ -304,19 +324,32 @@ const ProductsPage = () => {
       
       // Always reset maxPrice to the new max when filters change
       // This ensures the slider shows the full range of filtered products
+      // Mark this as an automatic update to prevent triggering filter effect
+      isMaxPriceUpdateFromStatsRef.current = true;
       const newMaxPrice = response.data.maxPrice;
       setMaxPrice(newMaxPrice);
+      // Reset flag after a brief delay to allow state update
+      setTimeout(() => {
+        isMaxPriceUpdateFromStatsRef.current = false;
+      }, 50);
     } catch (err) {
       console.error('ProductsPage: Error fetching price stats:', err);
       // Don't clear state on error - keep existing price stats
     }
   }, [selectedCategory, selectedManufacturers]);
 
-  useEffect(() => {
-    // Fetch initial price statistics (no filters)
-    fetchPriceStats();
+  // Track if initial data has been fetched
+  const hasFetchedInitialDataRef = useRef(false);
+  const [hasFetchedInitialData, setHasFetchedInitialData] = useState(false);
 
-    // Fetch categories (only active for filters)
+  useEffect(() => {
+    // Only fetch initial data once
+    if (hasFetchedInitialDataRef.current) {
+      return;
+    }
+    hasFetchedInitialDataRef.current = true;
+
+    // Step 1: Fetch categories first (needed for UI)
     axios.get('/api/categories/public')
       .then(res => {
         const categoriesData = Array.isArray(res.data) ? res.data : [];
@@ -335,18 +368,21 @@ const ProductsPage = () => {
       })
       .catch(err => {
         console.error('ProductsPage: Error fetching categories:', err);
-        // Don't clear categories on error - keep existing ones from ref
-        if (categoriesRef.current.length > 0) {
-          setCategories(categoriesRef.current);
-        }
+        // Set default categories on error
+        const defaultCategories = [{ category_id: 'All Products', name: 'All Products', isActive: true }];
+        categoriesRef.current = defaultCategories;
+        setCategories(defaultCategories);
       });
 
-    // Fetch suppliers (manufacturers) - only active
+    // Step 2: Fetch suppliers (manufacturers) - only active
     axios.get('/api/suppliers/public')
       .then(res => {
         // Ensure res.data is an array
         if (!Array.isArray(res.data)) {
           console.error('ProductsPage: Invalid suppliers data format:', res.data);
+          // Set empty array on invalid format
+          manufacturersRef.current = [];
+          setManufacturers([]);
           return;
         }
         // Filter to only show active suppliers
@@ -367,17 +403,28 @@ const ProductsPage = () => {
       })
       .catch(err => {
         console.error('ProductsPage: Error fetching suppliers:', err);
-        // Don't clear manufacturers on error - keep existing ones from ref
-        if (manufacturersRef.current.length > 0) {
-          setManufacturers(manufacturersRef.current);
-        }
+        // Set empty array on error
+        manufacturersRef.current = [];
+        setManufacturers([]);
       });
+
+    // Step 3: Fetch initial price statistics (no filters) - don't wait for this
+    fetchPriceStats();
+    
+    // Mark initial data as fetched after requests are initiated
+    setHasFetchedInitialData(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update price stats when category or manufacturer filters change
   useEffect(() => {
+    // Skip if initial data hasn't been fetched yet
+    if (!hasFetchedInitialData) {
+      return;
+    }
     fetchPriceStats();
-  }, [selectedCategory, selectedManufacturers, fetchPriceStats]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory, selectedManufacturers, hasFetchedInitialData]);
 
   // Fetch products when filters change (but not when search term or page changes - page changes are handled directly)
   // Note: fetchProducts is NOT in dependencies to avoid resetting page when fetchProducts is recreated
@@ -386,6 +433,11 @@ const ProductsPage = () => {
     // React Router needs to be fully initialized before we can safely call setSearchParams
     if (isInitialMountRef.current) {
       isInitialMountRef.current = false;
+      return;
+    }
+    
+    // Skip if initial fetch hasn't completed yet
+    if (!hasInitiallyFetchedRef.current) {
       return;
     }
     
@@ -405,7 +457,31 @@ const ProductsPage = () => {
     // Fetch products for page 1
     fetchProducts(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCategory, maxPrice, selectedManufacturers]);
+  }, [selectedCategory, selectedManufacturers]);
+  
+  // Separate effect for user-initiated maxPrice changes (from slider)
+  useEffect(() => {
+    // Skip on initial mount
+    if (isInitialMountRef.current || !hasInitiallyFetchedRef.current) {
+      return;
+    }
+    
+    // Only trigger if this is a user-initiated change
+    if (isUserMaxPriceChangeRef.current) {
+      setPagination(prev => ({ ...prev, currentPage: 1 }));
+      setTimeout(() => {
+        try {
+          const params = new URLSearchParams(searchParams);
+          params.delete('page');
+          setSearchParams(params);
+        } catch (error) {
+          // Silently fail
+        }
+      }, 0);
+      fetchProducts(1);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [maxPrice]);
 
   // Handle search term changes - simple state update, no URL updates during typing
   const handleSearchChange = useCallback((newSearchTerm) => {
@@ -442,16 +518,36 @@ const ProductsPage = () => {
       isTypingRef.current = false;
     }, 300); // 300ms debounce (same as Customers)
     return () => clearTimeout(timeoutId);
-  }, [searchTerm, fetchProducts]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
-  // Initial fetch after price stats are loaded (only once on mount)
+  // Initial fetch after initial data is loaded (only once on mount)
   useEffect(() => {
-    if (priceStats.maxPrice > 0 && !hasInitiallyFetchedRef.current) {
+    // Wait for initial data fetch to complete, then fetch products
+    // Don't wait for price stats - fetch products immediately
+    if (hasFetchedInitialData && !hasInitiallyFetchedRef.current) {
       hasInitiallyFetchedRef.current = true;
-      fetchProducts(1);
+      // Small delay to ensure other effects have settled
+      setTimeout(() => {
+        fetchProducts(1);
+      }, 100);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priceStats.maxPrice]); // Removed fetchProducts from deps to prevent re-runs
+  }, [hasFetchedInitialData]);
+
+  // Fallback: Clear loading state if it gets stuck (timeout after 10 seconds)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (loading && isInitialLoad) {
+        console.warn('ProductsPage: Loading timeout - clearing loading state');
+        setLoading(false);
+        setIsInitialLoad(false);
+        isInitialLoadRef.current = false;
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [loading, isInitialLoad]);
 
   const handleCategoryChange = (category) => {
     setSelectedCategory(category);
@@ -690,8 +786,14 @@ const ProductsPage = () => {
                     basePriceInILS = basePriceInCurrentCurrency / rate;
                   }
                   console.log('Slider value changed to:', valueWithTaxInCurrentCurrency, 'with tax in', currency, 'base price:', basePriceInCurrentCurrency, 'in', currency, '=', basePriceInILS, 'in ILS');
+                  // Mark as user-initiated change
+                  isUserMaxPriceChangeRef.current = true;
                   setMaxPrice(basePriceInILS);
                   setPagination(prev => ({ ...prev, currentPage: 1 })); // Reset to first page
+                  // Reset flag after state update
+                  setTimeout(() => {
+                    isUserMaxPriceChangeRef.current = false;
+                  }, 100);
                 }}
                 className="theme-range"
               />

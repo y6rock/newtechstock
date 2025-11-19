@@ -40,8 +40,7 @@ function RootWrapper() {
   const location = useLocation();
   const isManagerRoute = location.pathname.startsWith('/manager');
 
-  console.log('RootWrapper - location.pathname:', location.pathname);
-  console.log('RootWrapper - isManagerRoute:', isManagerRoute);
+  // Removed console.logs to prevent excessive logging
 
   return (
     <SettingsProvider>

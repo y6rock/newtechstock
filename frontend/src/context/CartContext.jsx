@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import { useSettings } from './SettingsContext';
 import { useToast } from './ToastContext';
 import { formatPriceConverted } from '../utils/currency';
@@ -16,6 +16,7 @@ export const CartProvider = ({ children }) => {
   const [isLoading, setIsLoading] = useState(false);
   const isInitialMount = useRef(true);
   const lastValidationTime = useRef(0);
+  const cartItemsRef = useRef(cartItems);
 
   // Load cart from server session when component mounts or user_id changes
   // When user_id changes, clear local cart state first, then load new user's cart
@@ -45,6 +46,11 @@ export const CartProvider = ({ children }) => {
   useEffect(() => {
     loadCartFromServer();
   }, []);
+
+  // Keep cartItemsRef in sync with cartItems
+  useEffect(() => {
+    cartItemsRef.current = cartItems;
+  }, [cartItems]);
 
   // Safari-specific cart loading with aggressive fallback
   useEffect(() => {
@@ -151,8 +157,10 @@ export const CartProvider = ({ children }) => {
   };
 
   // Cart validation and synchronization function
-  const validateCart = async (showNotifications = true, force = false) => {
-    if (cartItems.length === 0) return;
+  const validateCart = useCallback(async (showNotifications = true, force = false) => {
+    // Use ref to get latest cartItems without causing dependency issues
+    const currentCartItems = cartItemsRef.current;
+    if (currentCartItems.length === 0) return;
 
     const now = Date.now();
     if (!force && now - lastValidationTime.current < 60000) { // Throttle to once per minute (unless forced)
@@ -165,7 +173,7 @@ export const CartProvider = ({ children }) => {
       const token = localStorage.getItem('token');
       const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
       const response = await axios.post('/api/session-cart/validate', {
-        cartItems: cartItems
+        cartItems: currentCartItems
       }, {
         headers,
         withCredentials: true
@@ -198,14 +206,15 @@ export const CartProvider = ({ children }) => {
     } finally {
       setIsValidating(false);
     }
-  };
+  }, [showInfo, showError]);
 
   // Validate cart when cart items change
   useEffect(() => {
     if (cartItems.length > 0) {
       validateCart(false); // Don't show notifications during auto-validation
         }
-  }, [cartItems.length, validateCart]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartItems.length]);
 
   // Add to cart - now uses session-based API
   const addToCart = async (product, quantity = 1) => {

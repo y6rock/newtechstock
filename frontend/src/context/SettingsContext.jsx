@@ -1,4 +1,4 @@
-import React, { createContext, useState, useEffect, useContext, useCallback, useRef } from 'react';
+import React, { createContext, useState, useEffect, useContext, useCallback, useRef, useMemo } from 'react';
 import axios from 'axios';
 import { getExchangeRates, refreshExchangeRates } from '../utils/exchangeRate';
 
@@ -71,15 +71,15 @@ export const SettingsProvider = ({ children }) => {
     checkTokenAndFetchSettings();
   }, [fetchSiteSettings]);
 
-  const reEvaluateToken = () => {
+  const reEvaluateToken = useCallback(() => {
     window.location.reload(); 
-  };
+  }, []);
   
-  const refreshSiteSettings = async () => {
+  const refreshSiteSettings = useCallback(async () => {
     setLoadingSettings(true);
     await fetchSiteSettings();
     setLoadingSettings(false);
-  };
+  }, [fetchSiteSettings]);
 
   // Refresh exchange rates when currency changes (but not on initial load)
   useEffect(() => {
@@ -107,11 +107,11 @@ export const SettingsProvider = ({ children }) => {
     }
   }, [siteSettings.currency, loadingSettings]);
 
-  const updateUsername = (newUsername) => {
+  const updateUsername = useCallback((newUsername) => {
     setUsername(newUsername);
-  };
+  }, []);
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     ...siteSettings,
     isUserAdmin,
     username,
@@ -120,7 +120,7 @@ export const SettingsProvider = ({ children }) => {
     reEvaluateToken,
     refreshSiteSettings,
     updateUsername,
-  };
+  }), [siteSettings, isUserAdmin, username, user_id, loadingSettings, reEvaluateToken, refreshSiteSettings, updateUsername]);
 
   return (
     <SettingsContext.Provider value={contextValue}>
